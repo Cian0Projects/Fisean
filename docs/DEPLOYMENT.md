@@ -20,9 +20,12 @@ traffic per round.
 | Vercel + Cloudflare R2 | $20–23 | Zero egress on R2, best deploy experience, but two accounts and serverless body limits to work around. |
 | Bunny.net Stream | ~$3 | Cheapest headline, but it takes over the video pipeline and gives you HLS — which surrenders the seek accuracy the whole tool is built on. |
 
-**Hetzner's 20 TB allowance closes the bandwidth question permanently** — about
-200× what clip-first usage actually needs. And because storage sits behind an
-adapter, moving to R2 later is a configuration change.
+**Hetzner's 20 TB allowance closes the bandwidth question permanently.** Even
+the worst case — all 40 players watching a full match, every match, every
+week in season — lands under 500 GB a month, roughly 2% of the allowance.
+Everyone can watch full matches by design; nothing about that was restricted
+to make the hosting numbers work. And because storage sits behind an adapter,
+moving to R2 later is a configuration change.
 
 Storage is the thing to watch, not bandwidth: 80 GB is around 20 matches at
 1080p. Add a Storage Box and archive the ones nobody watches any more.

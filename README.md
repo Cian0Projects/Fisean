@@ -62,9 +62,10 @@ Playback seeks to `startMs` and stops at `endMs`. Creating a clip is an
 `INSERT` — no transcode, no export queue, no progress bar. One 90-minute
 source file backs hundreds of clips.
 
-This is also what collapses the bandwidth problem: a clip is a byte range of
-the match file, so a player watching six clips transfers six clips' worth of
-video, not the match.
+It also means watching the full match and watching a clip of it cost the same
+per byte — a clip is just a byte range of the same file, served by the same
+route. There is no separate "clip file" to wait on, whichever way someone
+watches.
 
 ### 2. Quick-clip captures what you *just* watched
 
@@ -166,22 +167,36 @@ Premiere or Resolve is already fluent.
 
 ## Making it practical for 40 players
 
-**The bandwidth maths.** A 3 GB match watched by 40 players is 120 GB of
-traffic per round. Clip-first usage collapses that: a player watches their own
-clips — maybe twenty clips of twenty seconds, about 130 MB at 720p. Forty
-players is roughly 5 GB a week.
+**Everyone can watch the full match, not just their own clips.** That's the
+primary flow: `/` leads with the match list, opening one plays the whole game
+end to end, and clips and playlists are things a player builds *from* that —
+not a gate in front of it. "Clips you're in" and assigned playlists sit below
+as quick access back to specific moments, not as a replacement for the match.
 
-The architectural consequence is load-bearing: **players must land on their
-clips, never on the full match**. That is what `/` does — a player's own clips
-and assigned playlists come first, matches are below.
+**The bandwidth maths, honestly.** If every one of 40 players watched a full
+3 GB match once, that is 120 GB for the round. A club plays perhaps one or two
+matches a week in season, so a genuinely worst-case week — everyone watching
+everything in full — is still under 500 GB. That is comfortably inside the
+20 TB Hetzner allowance recommended below (see
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)), so nothing had to be restricted to
+make the numbers work. In practice usage is well below that ceiling anyway —
+not everyone rewatches every match in full every week — but the app doesn't
+depend on that being true.
+
+The one place bandwidth is a real, practical constraint is **LAN-only /
+Tailscale hosting straight off your own machine** (see below): there, you're
+bound by your home upload speed, not a data cap, and 40 people streaming a
+full match at once over residential broadband will be slow. That's the
+tradeoff for not paying for a server yet, not a limitation of the app.
 
 **What actually drives adoption**, all of it already built:
 
-- Players land on "your clips", not a file browser.
 - Joining is one code on a phone in under a minute. No email verification, no
   invitations to chase, nothing for the manager to approve afterwards.
-- View tracking tells a selector who has actually watched their playlist.
-- Everyone can clip, so players self-review.
+- View tracking tells a selector who has actually watched an assigned
+  playlist.
+- Everyone can clip and build playlists, so players self-review without
+  waiting on a coach.
 
 **Still to do before a season:** a PWA manifest so it installs to the home
 screen, and squad-wide notifications when a playlist is assigned.

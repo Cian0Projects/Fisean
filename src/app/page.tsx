@@ -17,12 +17,11 @@ export default async function Dashboard() {
   const user = await requireUser();
 
   /**
-   * A player's own clips come first, deliberately.
-   *
-   * Opening Físeán and landing on "your 6 clips from Sunday" rather than a
-   * list of match files is what gets forty players actually using it — and it
-   * is also what keeps the bandwidth sane, because a player watches five
-   * minutes of clips instead of ninety minutes of match.
+   * Matches lead the page. Every team member — not just coaches — can open a
+   * full match and watch the whole thing; clips and playlists are things you
+   * make *from* that, not a gate in front of it. "Your clips" and "Assigned"
+   * are quick-access shortcuts back into moments already picked out, not the
+   * primary way in.
    */
   const myClipRows = await db
     .select({
@@ -84,72 +83,17 @@ export default async function Dashboard() {
       <Nav user={user} />
 
       <main className="mx-auto max-w-6xl space-y-10 px-4 py-8">
-        {myClipRows.length > 0 && (
-          <section>
-            <h2 className="mb-1 text-lg font-semibold">Your clips</h2>
-            <p className="mb-4 text-[13px]" style={{ color: "var(--color-ink-dim)" }}>
-              Clips the coaches have you marked in.
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {myClipRows.map((c) => (
-                <Link
-                  key={c.id}
-                  href={`/review/${c.videoId}?clip=${c.id}`}
-                  className="card p-3 transition-colors hover:border-[var(--color-line-strong)]"
-                >
-                  <div className="text-[13px] font-medium">
-                    {c.title || "Untitled clip"}
-                  </div>
-                  <div
-                    className="tabular mt-1 text-[11px]"
-                    style={{ color: "var(--color-ink-faint)" }}
-                  >
-                    {c.opponent ?? "Training"} · {formatClock(c.startMs)} ·{" "}
-                    {((c.endMs - c.startMs) / 1000).toFixed(0)}s
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {assigned.length > 0 && (
-          <section>
-            <h2 className="mb-4 text-lg font-semibold">Assigned to you</h2>
-            <div className="space-y-2">
-              {assigned.map((p) => (
-                <Link
-                  key={p.id}
-                  href={`/playlists/${p.id}`}
-                  className="card flex items-center gap-3 p-3 transition-colors hover:border-[var(--color-line-strong)]"
-                >
-                  <div className="flex-1">
-                    <div className="text-sm font-medium">{p.title}</div>
-                    {p.description && (
-                      <div className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-                        {p.description}
-                      </div>
-                    )}
-                  </div>
-                  {!p.viewedAt && (
-                    <span
-                      className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase"
-                      style={{ background: "var(--color-brand-dim)", color: "white" }}
-                    >
-                      New
-                    </span>
-                  )}
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
-
         <section>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Matches</h2>
+            <div>
+              <h2 className="text-lg font-semibold">Matches</h2>
+              <p className="mt-0.5 text-[13px]" style={{ color: "var(--color-ink-dim)" }}>
+                Open the full match to watch it — everyone can, not just
+                coaches. Clip and tag what stands out as you go.
+              </p>
+            </div>
             {user.role !== "player" && (
-              <Link href="/admin" className="btn-outline text-xs">
+              <Link href="/admin" className="btn-outline shrink-0 text-xs">
                 Add a match
               </Link>
             )}
@@ -191,11 +135,11 @@ export default async function Dashboard() {
                           <Link
                             key={v.id}
                             href={`/review/${v.id}`}
-                            className="btn-outline text-xs"
+                            className="btn-primary text-xs"
                             aria-disabled={v.status !== "ready"}
                           >
-                            {v.status === "ready" ? "Review" : v.status}
-                            <span className="tabular opacity-60">
+                            {v.status === "ready" ? "Watch full match" : v.status}
+                            <span className="tabular opacity-80">
                               {formatClock(v.durationMs)}
                             </span>
                           </Link>
@@ -208,6 +152,71 @@ export default async function Dashboard() {
             </div>
           )}
         </section>
+
+        {(myClipRows.length > 0 || assigned.length > 0) && (
+          <section>
+            <h2 className="label mb-3">Quick access</h2>
+            <div className="grid gap-6 sm:grid-cols-2">
+              {myClipRows.length > 0 && (
+                <div>
+                  <h3 className="mb-2 text-sm font-medium">Clips you&apos;re in</h3>
+                  <div className="grid gap-2">
+                    {myClipRows.map((c) => (
+                      <Link
+                        key={c.id}
+                        href={`/review/${c.videoId}?clip=${c.id}`}
+                        className="card p-3 transition-colors hover:border-[var(--color-line-strong)]"
+                      >
+                        <div className="text-[13px] font-medium">
+                          {c.title || "Untitled clip"}
+                        </div>
+                        <div
+                          className="tabular mt-1 text-[11px]"
+                          style={{ color: "var(--color-ink-faint)" }}
+                        >
+                          {c.opponent ?? "Training"} · {formatClock(c.startMs)} ·{" "}
+                          {((c.endMs - c.startMs) / 1000).toFixed(0)}s
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {assigned.length > 0 && (
+                <div>
+                  <h3 className="mb-2 text-sm font-medium">Playlists assigned to you</h3>
+                  <div className="space-y-2">
+                    {assigned.map((p) => (
+                      <Link
+                        key={p.id}
+                        href={`/playlists/${p.id}`}
+                        className="card flex items-center gap-3 p-3 transition-colors hover:border-[var(--color-line-strong)]"
+                      >
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">{p.title}</div>
+                          {p.description && (
+                            <div className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+                              {p.description}
+                            </div>
+                          )}
+                        </div>
+                        {!p.viewedAt && (
+                          <span
+                            className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase"
+                            style={{ background: "var(--color-brand-dim)", color: "white" }}
+                          >
+                            New
+                          </span>
+                        )}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
       </main>
     </>
   );
