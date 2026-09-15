@@ -1,0 +1,15 @@
+node_modules/
+.next/
+out/
+build/
+
+# Local database and match footage — never commit gigabytes of video
+data/
+!data/.gitkeep
+
+.env
+.env.local
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store
+Thumbs.db
