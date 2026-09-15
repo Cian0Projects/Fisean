@@ -5,10 +5,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { clipPlayers, clipTags, clips, videos } from "@/lib/db/schema";
 import { assertCanEditOwned, assertSameTeam, requireUserOrThrow } from "@/lib/auth/guard";
-
-/** Nothing shorter than this is watchable; nothing longer is a "clip". */
-const MIN_CLIP_MS = 500;
-const MAX_CLIP_MS = 10 * 60_000;
+import { MIN_CLIP_MS, MAX_CLIP_MS } from "@/lib/hurling/clip-rules";
 
 export type ClipInput = {
   videoId: string;
@@ -113,6 +110,7 @@ export async function updateClip(
   const startMs = patch.startMs ?? clip.startMs;
   const endMs = patch.endMs ?? clip.endMs;
   if (endMs - startMs < MIN_CLIP_MS) throw new Error("That clip is too short to watch.");
+  if (endMs - startMs > MAX_CLIP_MS) throw new Error("Clips are capped at ten minutes.");
 
   await db
     .update(clips)

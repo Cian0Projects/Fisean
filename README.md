@@ -96,8 +96,8 @@ watches.
 
 Press <kbd>C</kbd> and you get a clip spanning the **eight seconds before you
 pressed** through three seconds after. You react after seeing the incident —
-no pausing, no scrubbing back, no dragging handles. Follow it with a number
-key to tag what it was.
+no pausing, no scrubbing back. Follow it with a number key to tag what it was,
+and adjust its length later by selecting it — see below.
 
 Eight seconds is deliberate: it comfortably covers a poc amach and the contest
 that followed. The pre-roll is adjustable in the tagging bar.
@@ -187,6 +187,16 @@ it cannot drift out of date.
 The shuttle is the industry-standard <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd>
 and in/out are <kbd>I</kbd> <kbd>O</kbd>, so anyone arriving from Hudl,
 Premiere or Resolve is already fluent.
+
+**Adjusting a clip's length.** Quick-clip's pre-roll won't always land the
+right length first time. Select a clip and playback focuses on just that
+range, with a zoomed trim strip underneath the main timeline — drag either
+end to resize it, or drag the middle to shift it earlier or later, with a
+live preview of the exact frame under your cursor. This is deliberately kept
+separate from quick-clip itself: pressing <kbd>C</kbd> never interrupts live
+playback, so tagging a whole match stays uninterrupted; trimming is what you
+come back to afterwards. <kbd>Esc</kbd> returns you to exactly where you were
+watching.
 
 ---
 

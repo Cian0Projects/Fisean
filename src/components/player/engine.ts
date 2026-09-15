@@ -288,9 +288,17 @@ export class PlayerEngine {
     this.seek(this.state.positionMs + (frames * 1000) / this.fps, { exact: true });
   }
 
+  /**
+   * While a clip is focused (`bounds` set), every seek — the main timeline,
+   * J/K/L, arrow nudges, frame step — is pinned inside it. That is what
+   * "only focus on that area" means in practice: once a clip is selected you
+   * cannot wander off into the rest of the match by accident. `clearBounds`
+   * (Escape, or deselecting) lifts the pin.
+   */
   private clamp(ms: number): number {
-    const max = this.state.durationMs || Number.MAX_SAFE_INTEGER;
-    return Math.min(Math.max(0, ms), max);
+    const lo = this.bounds?.startMs ?? 0;
+    const hi = this.bounds?.endMs ?? (this.state.durationMs || Number.MAX_SAFE_INTEGER);
+    return Math.min(Math.max(lo, ms), hi);
   }
 
   /* ------------------------------------------------------------ transport */
@@ -401,5 +409,16 @@ export class PlayerEngine {
   clearBounds() {
     this.bounds = null;
     this.onBoundsEnd = null;
+  }
+
+  /**
+   * Narrow or widen the focused region without seeking or changing play
+   * state — unlike `playRange`, which jumps to the start and plays. This is
+   * what a trim drag calls on every pointer move: the clamp in `clamp()`
+   * picks up the new bounds immediately, so a preview seek to the handle
+   * being dragged is never rejected as "outside the clip".
+   */
+  setBounds(startMs: number, endMs: number) {
+    this.bounds = { startMs, endMs };
   }
 }

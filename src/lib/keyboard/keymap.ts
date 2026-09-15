@@ -85,7 +85,12 @@ export const BINDINGS: Record<string, Binding> = {
   "[": { keys: "[", command: "trim_in", label: "Trim in point to playhead", group: "Clipping" },
   "]": { keys: "]", command: "trim_out", label: "Trim out point to playhead", group: "Clipping" },
   enter: { keys: "Enter", command: "save_clip", label: "Save clip", group: "Clipping" },
-  escape: { keys: "Esc", command: "cancel", label: "Clear in / out points", group: "Clipping" },
+  escape: {
+    keys: "Esc",
+    command: "cancel",
+    label: "Back to the match — or clear in / out points",
+    group: "Clipping",
+  },
   z: { keys: "Z", command: "undo", label: "Undo last clip", group: "Clipping" },
   "ctrl+z": { keys: "Ctrl Z", command: "undo", label: "Undo last clip", group: "Clipping" },
 

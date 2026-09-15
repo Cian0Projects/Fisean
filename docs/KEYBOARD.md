@@ -49,11 +49,36 @@ variable frame rate makes it approximate.
 | <kbd>I</kbd> <kbd>O</kbd> | Set in / out point |
 | <kbd>[</kbd> <kbd>]</kbd> | Trim the in / out point to the playhead |
 | <kbd>Enter</kbd> | Save the clip between the in and out points |
-| <kbd>Esc</kbd> | Clear the in/out points, or leave drawing mode |
+| <kbd>Esc</kbd> | Back to the match — or clear the in/out points, or leave drawing mode |
 | <kbd>Z</kbd> or <kbd>Ctrl</kbd> <kbd>Z</kbd> | Undo the last clip |
 
 Undo matters more than it sounds. Coaches mis-tag constantly, and cheap undo is
 what makes one-press tagging feel safe enough to use at speed.
+
+### Adjusting a clip after the fact
+
+Quick-clip's pre-roll won't always land the perfect length on the first try.
+**Select a clip** — click it in the list or on the timeline, or step to it with
+<kbd>Shift</kbd> <kbd>↑</kbd> <kbd>↓</kbd> — and two things happen:
+
+- Playback focuses on just that clip. The main timeline, <kbd>J</kbd>
+  <kbd>K</kbd> <kbd>L</kbd>, and the arrow nudges all stay pinned inside its
+  start and end until you leave it.
+- A zoomed **trim strip** appears under the main timeline, since an
+  11-second clip inside a 70-minute match is too small a sliver to drag
+  precisely on the full timeline. Drag its left or right handle to trim that
+  end — the video previews the exact frame under your cursor as you go — or
+  drag the middle to shift the whole clip earlier or later without changing
+  its length. The <kbd>−</kbd>/<kbd>+</kbd> buttons beside each handle nudge
+  by half a second, for when a drag is more precision than you need.
+
+Every change is saved automatically when you release the drag. Press
+<kbd>Esc</kbd>, or the **Back to live match** button, to leave the clip and
+return to exactly where you were watching before you selected it.
+
+This is deliberately separate from quick-clip itself: pressing <kbd>C</kbd>
+never interrupts live playback, so rapid-fire tagging through a whole match
+stays uninterrupted. Trimming is something you come back to afterwards.
 
 ## Tagging
 

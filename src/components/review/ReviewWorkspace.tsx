@@ -9,26 +9,32 @@ import Link from "next/link";
  * to open a 70-minute match and have it fully tagged in about 70 minutes,
  * without touching the mouse.
  *
- * Three things make that possible, and they are all visible in here:
+ * Four things make that possible, and they are all visible in here:
  *
  *  - Quick-clip (`C`). You press it *after* seeing the incident and the clip
- *    covers the pre-roll seconds you just watched. No pausing, no scrubbing
- *    back, no dragging handles.
+ *    covers the pre-roll seconds you just watched, and playback keeps
+ *    running live — no pausing, no scrubbing back.
  *  - Optimistic saves. A clip appears in the list on the keypress and is
  *    persisted behind the scenes, so tagging never waits on the network.
  *  - Number-key tagging straight from the hurling taxonomy, which is loaded
  *    from the database rather than hardcoded.
+ *  - Selecting a clip focuses playback on just that range — the main
+ *    timeline, shuttle and nudges all pin inside it — and shows drag
+ *    handles to resize it. That's a deliberate split from quick-clip: you
+ *    tag fast without stopping, then come back later to adjust the ones
+ *    that weren't quite right.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PlayerEngine } from "@/components/player/engine";
 import { RateBadge, Timecode, VideoStage } from "@/components/player/VideoStage";
 import { Timeline, type TimelineClip } from "@/components/player/Timeline";
+import { ClipTrimmer } from "@/components/player/ClipTrimmer";
 import { CheatSheet } from "@/components/player/CheatSheet";
 import { TOOLS, COLOURS, type Tool } from "@/components/player/AnnotationLayer";
 import { useHotkeys } from "@/lib/keyboard/useHotkeys";
 import type { Command, Mode } from "@/lib/keyboard/keymap";
 import { formatClock, markersFromRows, tallyScore, formatScore } from "@/lib/hurling/notation";
-import { createClip, deleteClip, setClipTags } from "@/lib/actions/clips";
+import { createClip, deleteClip, setClipTags, updateClip } from "@/lib/actions/clips";
 import { saveAnnotation } from "@/lib/actions/review";
 import type { Shape } from "@/lib/db/schema";
 import { ClipList } from "./ClipList";
@@ -91,6 +97,10 @@ export function ReviewWorkspace({
 
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const undoStack = useRef<string[]>([]);
+  // Where playback was before a clip was selected, so leaving the clip
+  // (Escape, or the "Back to live" button) returns you to the match instead
+  // of stranding you at the clip's out point.
+  const resumeMsRef = useRef<number | null>(null);
 
   const hotkeyEvents = useMemo(
     () =>
@@ -107,6 +117,34 @@ export function ReviewWorkspace({
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2200);
   }, []);
+
+  /* -------------------------------------------------------- clip playback */
+
+  /**
+   * Select a clip and play just its range — the main timeline, shuttle and
+   * nudges all pin inside it from here (see `clamp()` in the engine).
+   *
+   * The first time this fires from a live, unselected state, the current
+   * position is stashed so Escape or "Back to live" can return you to where
+   * you actually were in the match, rather than to the clip's own start.
+   */
+  const focusClip = useCallback(
+    (clip: ClipRow) => {
+      if (selectedId === null) resumeMsRef.current = engine.snapshot.positionMs;
+      setSelectedId(clip.id);
+      engine.playRange(clip.startMs, clip.endMs);
+    },
+    [engine, selectedId],
+  );
+
+  const returnToLive = useCallback(() => {
+    setSelectedId(null);
+    engine.clearBounds();
+    if (resumeMsRef.current != null) {
+      engine.seek(resumeMsRef.current, { exact: true });
+      resumeMsRef.current = null;
+    }
+  }, [engine]);
 
   /* ------------------------------------------------------- clip creation */
 
@@ -227,33 +265,43 @@ export function ReviewWorkspace({
       return;
     }
     setClips((prev) => prev.filter((c) => c.id !== id));
-    if (selectedId === id) setSelectedId(null);
+    if (selectedId === id) returnToLive();
     try {
       await deleteClip(id);
       flash("Clip removed");
     } catch (err) {
       flash((err as Error).message);
     }
-  }, [selectedId, flash]);
-
-  /* -------------------------------------------------------- clip playback */
-
-  const playClip = useCallback(
-    (clip: ClipRow) => {
-      setSelectedId(clip.id);
-      engine.playRange(clip.startMs, clip.endMs);
-    },
-    [engine],
-  );
+  }, [selectedId, returnToLive, flash]);
 
   const stepClip = useCallback(
     (delta: 1 | -1) => {
       if (!clips.length) return;
       const idx = clips.findIndex((c) => c.id === selectedId);
       const next = clips[Math.min(clips.length - 1, Math.max(0, (idx === -1 ? 0 : idx) + delta))];
-      if (next) playClip(next);
+      if (next) focusClip(next);
     },
-    [clips, selectedId, playClip],
+    [clips, selectedId, focusClip],
+  );
+
+  /**
+   * Persist a trim drag. Local state updates immediately so the timeline and
+   * the trimmer itself stay in sync with what was just dragged; the server
+   * call runs behind that, same optimistic-then-reconcile shape as the rest
+   * of the workspace.
+   */
+  const commitTrim = useCallback(
+    async (clipId: string, startMs: number, endMs: number) => {
+      setClips((prev) =>
+        prev.map((c) => (c.id === clipId ? { ...c, startMs, endMs } : c)),
+      );
+      try {
+        await updateClip(clipId, { startMs, endMs });
+      } catch (err) {
+        flash((err as Error).message);
+      }
+    },
+    [flash],
   );
 
   /* ----------------------------------------------------------- annotations */
@@ -352,6 +400,10 @@ export function ReviewWorkspace({
           if (mode === "annotate") {
             setDraftShapes([]);
             setMode("transport");
+          } else if (selected) {
+            // Leaving a focused clip returns you to the match, not just to
+            // an unfocused view of wherever the clip happened to end.
+            returnToLive();
           } else {
             setInMs(null);
             setOutMs(null);
@@ -404,6 +456,7 @@ export function ReviewWorkspace({
       tagSelectedOrQuickClip,
       undoLast,
       stepClip,
+      returnToLive,
       flash,
     ],
   );
@@ -468,6 +521,17 @@ export function ReviewWorkspace({
             )}
           </div>
         </div>
+
+        {selected && (
+          <button
+            onClick={returnToLive}
+            title="Deselect this clip and return to where you were in the match"
+            className="btn-outline text-xs"
+            style={{ borderColor: "var(--color-mark)", color: "var(--color-mark)" }}
+          >
+            <span className="kbd">Esc</span> Back to live match
+          </button>
+        )}
 
         <Timecode engine={engine} markers={markers} halfLengthMin={match.halfLengthMin} precise />
         <RateBadge engine={engine} />
@@ -555,9 +619,19 @@ export function ReviewWorkspace({
             outMs={outMs}
             onSelectClip={(id) => {
               const clip = clips.find((c) => c.id === id);
-              if (clip) playClip(clip);
+              if (clip) focusClip(clip);
             }}
           />
+
+          {selected && !selected.pending && (
+            <ClipTrimmer
+              key={selected.id}
+              engine={engine}
+              videoDurationMs={video.durationMs}
+              clip={selected}
+              onCommit={(startMs, endMs) => void commitTrim(selected.id, startMs, endMs)}
+            />
+          )}
 
           <TagBar
             events={hotkeyEvents}
@@ -584,10 +658,10 @@ export function ReviewWorkspace({
             selectedId={selectedId}
             markers={markers}
             halfLengthMin={match.halfLengthMin}
-            onSelect={playClip}
+            onSelect={focusClip}
             onDelete={async (id) => {
               setClips((prev) => prev.filter((c) => c.id !== id));
-              if (selectedId === id) setSelectedId(null);
+              if (selectedId === id) returnToLive();
               try {
                 await deleteClip(id);
               } catch (err) {
