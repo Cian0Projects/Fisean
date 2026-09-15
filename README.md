@@ -37,14 +37,39 @@ player, password `hurling2026`.
 
 ### Adding real footage
 
+**File type.** `.mp4` with **H.264** video is the safe choice — it decodes
+everywhere, and it's what the built-in probe (see
+[`src/lib/media/probe.ts`](src/lib/media/probe.ts)) reads duration, frame
+rate, dimensions and codec from directly, with no ffmpeg involved. `.mov`
+works the same way, since it shares MP4's underlying box structure — but only
+if the video inside is H.264; a ProRes export, for instance, won't play in a
+browser at all. Avoid HEVC (H.265) too: it's what iPhones record by default,
+Safari plays it, but Chrome on Windows needs hardware decoding support and can
+show a black screen for part of the panel. Físeán detects HEVC at ingest and
+warns; if you see that warning, re-export as H.264.
+
+**Naming.** You don't name or place the file yourself — `ingest` does that:
+
 ```bash
 npm run ingest -- "C:\footage\ballygunner.mp4" --match <match id>
 ```
 
-Add a match at `/admin` first to get the id. Ingest reads the file's duration,
-dimensions, frame rate and codec directly, copies it into `data/media/`, and
-registers it. Pushing four gigabytes through a browser upload is slow and
-fragile when the file is already on the machine running the app.
+It copies the file into `data/media/<team id>/<a generated id>.mp4` and stores
+that path as the video's `storageKey`. The original filename is kept only for
+display (you'll see "ballygunner.mp4" in the admin panel), never as the path
+on disk. If you'd rather place the file yourself first — say, copying it
+directly into `data/media/` over the network to a server — point `ingest` at
+wherever it landed; it notices the file is already inside `MEDIA_DIR` and
+registers it in place instead of copying it again.
+
+**Linking to a match.** A match (`opponent`, `competition`, `playedOn`, …) and
+its footage are separate rows on purpose — the match can exist before you have
+the file, and one match can hold more than one video (two camera angles, or
+two files if the recording split partway through). Add the match first at
+`/admin`, then click **Copy ingest command** on it, which copies the whole
+command with that match's id already filled in. Leave off `--match` entirely
+and `ingest` attaches the footage to whichever match was played most
+recently — the common case when you're ingesting right after adding it.
 
 ---
 

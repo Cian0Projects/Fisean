@@ -110,19 +110,7 @@ export function AdminPanels({
         ) : (
           <div className="space-y-2">
             {matches.map((m) => (
-              <div key={m.id} className="card flex items-center gap-3 p-3">
-                <div className="flex-1">
-                  <div className="text-sm font-medium">{m.opponent}</div>
-                  <div className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
-                    {m.playedOn}
-                    {m.competition && ` · ${m.competition}`}
-                    {m.venue && ` · ${m.venue}`}
-                  </div>
-                </div>
-                <code className="text-[10px]" style={{ color: "var(--color-ink-faint)" }}>
-                  {m.id.slice(0, 8)}
-                </code>
-              </div>
+              <MatchRow key={m.id} match={m} />
             ))}
           </div>
         )}
@@ -208,6 +196,49 @@ export function AdminPanels({
         </section>
       )}
     </main>
+  );
+}
+
+/**
+ * A match row with a one-click copy of the exact `ingest` command.
+ *
+ * The match id is a UUID, so showing eight truncated characters was useless
+ * for actually running `npm run ingest -- <file> --match <id>` — this copies
+ * the whole command, ready to paste, with the file path left as a placeholder.
+ */
+function MatchRow({ match }: { match: Match }) {
+  const [copied, setCopied] = useState(false);
+
+  const copyCommand = async () => {
+    const command = `npm run ingest -- "path\\to\\match.mp4" --match ${match.id}`;
+    try {
+      await navigator.clipboard.writeText(command);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // Clipboard access can be blocked (no HTTPS, no permission); the id is
+      // still visible in the title attribute as a fallback.
+    }
+  };
+
+  return (
+    <div className="card flex items-center gap-3 p-3">
+      <div className="flex-1">
+        <div className="text-sm font-medium">{match.opponent}</div>
+        <div className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
+          {match.playedOn}
+          {match.competition && ` · ${match.competition}`}
+          {match.venue && ` · ${match.venue}`}
+        </div>
+      </div>
+      <button
+        onClick={() => void copyCommand()}
+        title={match.id}
+        className="btn-ghost text-[11px]"
+      >
+        {copied ? "Copied ingest command" : "Copy ingest command"}
+      </button>
+    </div>
   );
 }
 
