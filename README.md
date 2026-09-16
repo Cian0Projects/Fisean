@@ -26,7 +26,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
 **To look around before setting anything up**, seed a demonstration squad with
-a tagged match, two playlists and fifteen players:
+a tagged match, a full stat sheet, two playlists and fifteen players:
 
 ```bash
 npm run seed
@@ -160,6 +160,83 @@ filtered by line: "everything the half backs were involved in".
 
 ---
 
+## The post-match stat sheet
+
+The other half of a review, and deliberately **not** the clip system. This is
+the notebook from the line, typed up afterwards: it needs no footage, works
+for a match nobody filmed, and nothing on the report is derived from tags.
+
+Seven things get logged — tackles, deliveries, turnovers, shots, frees
+conceded and poc amach — at `/matches/<id>/stats/log`. Number keys pick the
+stat, so a tackle is two clicks and nothing takes more than five.
+
+Three decisions do most of the work:
+
+- **Two axes, not four categories.** A poc amach asks *whose* it was and
+  *who won it* separately. Winning the opposition's restart is as good for us
+  as holding our own, so the map colours by who won it and never by whose puck
+  it was. Asking for one of four combinations would have buried that.
+- **A flag, not a stat type.** "Turnover leading to a score" is a tick on a
+  turnover we won — the same turnover described twice, not counted twice. The
+  report shows how many and what share of the ones we won.
+- **Efficiency is derived.** Scored ÷ shots, shown as `9/14 · 64%` and as
+  `2-7 from 14 shots` through the same notation helpers as everything else.
+  There is no efficiency column to drift out of step with the shots it came
+  from — correct a shot and the report corrects itself.
+
+**One colour rule, everywhere.** Green is a positive outcome for us, red a
+negative one, orange genuinely unclear. It holds on every map, whichever team
+had the ball.
+
+**The maps** are the same normalised 0–1 pitch coordinates the rest of the app
+uses ([`src/lib/hurling/pitch.ts`](src/lib/hurling/pitch.ts)), drawn as SVG by
+one reusable component ([`src/components/pitch/PitchMap.tsx`](src/components/pitch/PitchMap.tsx))
+that both places points while logging and displays them read-only on the
+report. A delivery is the only stat with two points, so it draws as an arrow
+from where it was struck to where it landed rather than as two loose dots.
+Dots carry the jersey number, not the name — fifteen names on a pitch map is
+unreadable, and the names are in the table underneath.
+
+**Player by player.** Every entry can name a player, and the report ends with
+a table of the panel against each heading. A poc amach credits the receiver
+when we won it and nobody when we did not: guessing whose fault a lost one was
+is blame, not analysis. Entries logged without a name still count in the team
+totals.
+
+Logging is coach and admin, the same tier that creates matches and uploads
+footage. Reading the report is open to the whole squad.
+
+**It prints.** The report swaps to ink on white and drops the controls, so
+"Save as PDF" in the browser gives you something to hand round a dressing
+room. That is the whole export story — no PDF library, in keeping with the
+dependency count below.
+
+**Or it gets logged live.** `/stats/log` is for typing up a notebook after
+the whistle; the review workspace can log the same sheet while the footage is
+actually playing. A "Clips / Stats" switch swaps the side panel, and every
+entry is timestamped off the transport's own clock the moment it is started —
+switch stat type, or place the first point on the map — never typed by hand.
+See a poc amach, click where it broke and who won it, and the time is already
+right. The two workflows write to the same sheet: an entry started live can
+still be corrected afterwards on the full form, and vice versa.
+
+**And a timestamp is worth watching back.** In stats mode the scrub bar drops
+the clips and grows a lane for each kind of stat underneath — every tackle,
+delivery, turnover, shot, free and poc amach on its own row, sharing the
+video's time axis exactly. Two lanes are in view and the rest scroll, because
+the shape of a match is what you are reading: a run of red through the third
+quarter in the deliveries lane is the thing a coach is looking for.
+
+Each lane is named and carries its own colour, and those colours are kept
+clear of green, red and amber on purpose — the lane says *what* these are, the
+marks inside it stay free to say *how each one went*. Click a mark, or an
+entry in the pad, and playback jumps six seconds before it: an entry is logged
+the moment a coach reacts, which is already slightly after the ball. A pair of
+arrows walks through one kind at a time, so "show me every delivery" is two
+buttons rather than a search.
+
+---
+
 ## Roles
 
 Everyone can create clips. A player clipping their own play is a feature — it
@@ -173,6 +250,7 @@ squad.
 | Edit or delete **own** work | ✅ | ✅ | ✅ |
 | Edit or delete **anyone's** work | — | ✅ | ✅ |
 | Upload footage, create matches, set game-clock markers | — | ✅ | ✅ |
+| Log the post-match stat sheet (everyone can read it) | — | ✅ | ✅ |
 | Publish official playlists, assign them to players | — | ✅ | ✅ |
 | Manage the panel and roles, rotate the join code, delete footage | — | — | ✅ |
 
@@ -270,6 +348,35 @@ server path, costed.
 **Seven runtime dependencies**, no player library, no state library, no AWS
 SDK, nothing to compile beyond `better-sqlite3`.
 
+### How it looks, and why
+
+A floodlit pitch: sod underfoot, chalk markings, and the warm bone of an ash
+hurley. Three rules hold it together.
+
+**Colour means something or it is not used.** Chalk white is the ink and ash
+is for figures; green, red and amber are reserved for what happened on the
+field — good for us, against us, unclear. Nothing decorative is allowed to
+borrow those three, which is what lets a shot map be read at a glance.
+
+Green against red is the one pair a colour-blind reader cannot separate by
+hue, so the three are separated by lightness as well (checked, not eyeballed:
+ΔE 13.6 under deuteranopia) and **every mark says its outcome twice** — filled
+went our way, a ring went against us, a dashed ring was never settled. A shot
+map still reads photocopied.
+
+**One typeface across two axes.** Archivo is variable in width as well as
+weight, so the same family squeezes to 68% for a scoreline meant to be read
+across a dressing room and relaxes to normal for a paragraph. Scoreboards and
+jersey numbers are condensed for exactly that reason. Figures are tabular
+where they sit in columns and proportional where they stand alone. It is
+self-hosted by `next/font` at build time, so a player's phone never asks
+Google for anything.
+
+**Structure comes from rules, not boxes.** A pitch is marked with lines, and
+so is this: fixture lists are ruled rows rather than a grid of identical
+cards, and the chalk underline marks where you are. Panels are kept for
+content that genuinely sits apart.
+
 ### Layout
 
 ```
@@ -278,6 +385,7 @@ src/
     page.tsx                  dashboard — a player's clips come first
     review/[videoId]/         the review workspace
     playlists/[id]/           playlist playback
+    matches/[matchId]/stats/  the stat report, and /log to fill it in
     admin/                    squad, matches, footage, join code
     api/media/[...key]/       Range-capable footage serving
   components/
@@ -285,8 +393,12 @@ src/
     player/Timeline.tsx       scrub bar, clips, game-clock markers
     player/AnnotationLayer.tsx  SVG drawing in normalised coordinates
     review/ReviewWorkspace.tsx  the tagging surface
+    pitch/PitchMap.tsx        the pitch, for placing and showing stats
+    stats/StatLogger.tsx      the post-match logging form
+    stats/StatPad.tsx         the same sheet, logged live inside the workspace
+    stats/StatLanes.tsx       a timeline lane per kind of stat, under the scrubber
   lib/
-    hurling/                  taxonomy, positions, pitch, scoring notation
+    hurling/                  taxonomy, positions, pitch, notation, stats
     keyboard/keymap.ts        the keymap as data
     media/probe.ts            MP4 box reader — duration, fps, codec
     db/schema.ts              the whole schema
@@ -304,8 +416,10 @@ npm run smoke      # end-to-end, against a running dev server
 ```
 
 The unit tests cover the logic that is easy to get subtly wrong: GAA scoring
-notation, game-clock conversion, pitch geometry, password hashing, and HTTP
-Range parsing. The smoke test mints a real session and asserts that ranged
+notation, game-clock conversion, pitch geometry, the stat sheet's arithmetic
+and entry rules, password hashing, and HTTP Range parsing. They run under
+`node --test`, with `tsx` registered as a loader so a test can import a
+TypeScript module that itself imports another. The smoke test mints a real session and asserts that ranged
 requests actually return 206 with the right bytes — if that regresses, seeking
 degrades to re-downloading and the whole tool gets slow.
 
@@ -325,3 +439,6 @@ degrades to re-downloading and the whole tool gets slow.
 - **One video per review session.** Multi-camera is in the schema but has no
   interface.
 - **Playlist reordering** is server-side only — no drag handle yet.
+- **Stats are per match.** There is no season view adding them up across
+  games, and no comparison between matches. Both are queries over the same
+  rows rather than new data, so neither needs a migration when it comes.
