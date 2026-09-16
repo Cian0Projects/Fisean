@@ -19,14 +19,35 @@
  * `engine.setBounds` widens or narrows the focused region on every pointer
  * move, and a seek to the handle's position is never rejected as "outside
  * the clip" because the bounds already moved to include it.
+ *
+ * How much of the match the strip covers is the coach's choice, not a
+ * formula: the dial adds or removes ten seconds of room either side of the
+ * clip, and that empty room is what you drag a handle out into. It replaced
+ * padding that scaled with the clip's own length, which had two faults — the
+ * room available depended on the length you were trying to change, and every
+ * pixel of a drag rescaled the strip, so the far end of a long clip moved in
+ * jumps rather than following the pointer.
+ *
+ * For the same reason the window freezes for the duration of a drag. A strip
+ * that rescales while you are dragging on it is a strip you are chasing.
  */
 import { useRef, useState } from "react";
 import type { PlayerEngine } from "./engine";
-import { MIN_CLIP_MS, MAX_CLIP_MS } from "@/lib/hurling/clip-rules";
+import {
+  MAX_CLIP_MS,
+  MAX_ROOM_MS,
+  MIN_CLIP_MS,
+  MIN_ROOM_MS,
+  ROOM_STEP_MS,
+  clampRoom,
+  trimWindow,
+} from "@/lib/hurling/clip-rules";
 import { formatClockPrecise } from "@/lib/hurling/notation";
 
 type Draft = { startMs: number; endMs: number };
 type Handle = "start" | "end" | "body" | null;
+/** The slice of the match the strip is currently showing. */
+type Window = { startMs: number; endMs: number };
 
 type Props = {
   engine: PlayerEngine;
@@ -48,14 +69,18 @@ export function ClipTrimmer({ engine, videoDurationMs, clip, onCommit }: Props) 
   // the strip, and using its own rect would badly misread the drag distance.
   const stripRef = useRef<HTMLDivElement>(null);
 
-  // The visible window grows and shrinks with the clip, so the handles are
-  // never squeezed to the edge of the strip as you drag — recomputed every
-  // render rather than fixed once, purely from the current draft.
-  const clipLen = draft.endMs - draft.startMs;
-  const pad = Math.min(20_000, Math.max(3000, clipLen * 0.75));
-  const windowStart = Math.max(0, draft.startMs - pad);
-  const windowEnd = Math.min(videoDurationMs, draft.endMs + pad);
-  const windowLen = Math.max(1, windowEnd - windowStart);
+  /** Room either side of the clip, in milliseconds. The dial sets it. */
+  const [roomMs, setRoomMs] = useState(MIN_ROOM_MS);
+  // Held while a drag is in flight, so the scale cannot shift underfoot.
+  const [heldWindow, setHeldWindow] = useState<Window | null>(null);
+
+  // Where the strip sits when nothing is being dragged: the clip, plus the
+  // room the coach has asked for, kept inside the video.
+  const restingWindow: Window = trimWindow(draft, roomMs, videoDurationMs);
+
+  const view = heldWindow ?? restingWindow;
+  const windowStart = view.startMs;
+  const windowLen = Math.max(1, view.endMs - windowStart);
 
   const pct = (ms: number) => ((ms - windowStart) / windowLen) * 100;
   const msFromClientX = (stripRect: DOMRect, clientX: number) => {
@@ -78,6 +103,7 @@ export function ClipTrimmer({ engine, videoDurationMs, clip, onCommit }: Props) 
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     engine.pause();
+    setHeldWindow(restingWindow);
     setDragging(which);
   };
 
@@ -106,6 +132,7 @@ export function ClipTrimmer({ engine, videoDurationMs, clip, onCommit }: Props) 
   const onHandleUp = () => {
     if (!dragging) return;
     setDragging(null);
+    setHeldWindow(null);
     commitIfChanged(draft);
   };
 
@@ -116,6 +143,7 @@ export function ClipTrimmer({ engine, videoDurationMs, clip, onCommit }: Props) 
     if (!stripRef.current) return;
     const pointerMs = msFromClientX(stripRef.current.getBoundingClientRect(), e.clientX);
     setBodyDragStart({ pointerMs, draft });
+    setHeldWindow(restingWindow);
     setDragging("body");
   };
 
@@ -137,7 +165,20 @@ export function ClipTrimmer({ engine, videoDurationMs, clip, onCommit }: Props) 
     if (dragging !== "body") return;
     setDragging(null);
     setBodyDragStart(null);
+    setHeldWindow(null);
     commitIfChanged(draft);
+  };
+
+  /**
+   * Grow or shrink the room either side of the clip.
+   *
+   * Nothing about the clip changes here — this only widens the view, which is
+   * what gives a handle somewhere to be dragged to. Growing it costs
+   * precision (the same strip now covers more of the match), so it is a
+   * deliberate click rather than something that happens on its own.
+   */
+  const adjustRoom = (deltaMs: number) => {
+    setRoomMs((ms) => clampRoom(ms + deltaMs));
   };
 
   const nudgeStart = (deltaMs: number) => {
@@ -160,11 +201,38 @@ export function ClipTrimmer({ engine, videoDurationMs, clip, onCommit }: Props) 
       className="shrink-0 border-t px-3 py-2.5"
       style={{ borderColor: "var(--color-line)", background: "var(--color-surface)" }}
     >
-      <div className="mb-1.5 flex items-center justify-between">
+      <div className="mb-1.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <span className="label">Trim</span>
-        <span className="tabular text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
-          {((draft.endMs - draft.startMs) / 1000).toFixed(1)}s
-        </span>
+
+        <div className="flex items-center gap-3">
+          {/* The dial. Empty strip either side of the clip is what a handle
+              gets dragged out into, so this is "how much further can I go". */}
+          <div className="flex items-center gap-1">
+            <NudgeButton
+              label="−"
+              title="Ten seconds less room either side of the clip"
+              onClick={() => adjustRoom(-ROOM_STEP_MS)}
+              disabled={roomMs <= MIN_ROOM_MS}
+            />
+            <span
+              className="tabular w-24 text-center text-[11px]"
+              style={{ color: "var(--color-ink-dim)" }}
+              title="How much of the match is shown either side of the clip. Drag a handle out into it to extend the clip."
+            >
+              {Math.round(roomMs / 1000)}s either side
+            </span>
+            <NudgeButton
+              label="+"
+              title="Ten seconds more room either side of the clip"
+              onClick={() => adjustRoom(ROOM_STEP_MS)}
+              disabled={roomMs >= MAX_ROOM_MS}
+            />
+          </div>
+
+          <span className="tabular text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
+            {((draft.endMs - draft.startMs) / 1000).toFixed(1)}s
+          </span>
+        </div>
       </div>
 
       <div className="flex items-center gap-2">
@@ -253,16 +321,19 @@ function NudgeButton({
   label,
   title,
   onClick,
+  disabled = false,
 }: {
   label: string;
   title: string;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       title={title}
-      className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-xs"
+      disabled={disabled}
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-xs transition-colors disabled:opacity-35"
       style={{ background: "var(--color-surface-3)", color: "var(--color-ink-dim)" }}
     >
       {label}
