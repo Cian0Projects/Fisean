@@ -18,6 +18,7 @@ import {
   clips,
   comments,
   eventTypes,
+  matchStats,
   matches,
   playlistItems,
   playlistViewers,
@@ -282,6 +283,138 @@ async function main() {
       .map((p) => ({ playlistId: workPlaylist.id, userId: p.id })),
   );
 
+  /**
+   * A stat sheet for the same match.
+   *
+   * Deliberately not derived from the clips above — this is the notebook from
+   * the line, typed up afterwards — so the report has something to show
+   * without anyone logging fifty entries by hand first. It comes out at 2-7
+   * from 14 shots, which is a respectable 64%.
+   */
+  const jersey = (n: number) => squad[n - 1].id;
+
+  const statSheet = [
+    // Tackles: a tally, mostly the backs, and one nobody caught the number of.
+    ...[2, 3, 5, 6, 7, 8, 4].map((n) => ({
+      statType: "tackle" as const,
+      playerId: jersey(n),
+    })),
+    { statType: "tackle" as const },
+
+    // Deliveries: struck from our half, into the full forward line.
+    ...[
+      [0.34, 0.3, 0.78, 0.4, "positive", 6],
+      [0.41, 0.62, 0.8, 0.55, "positive", 7],
+      [0.3, 0.5, 0.72, 0.28, "negative", 5],
+      [0.45, 0.2, 0.83, 0.45, "positive", 9],
+      [0.38, 0.75, 0.75, 0.7, "negative", 8],
+      [0.5, 0.45, 0.86, 0.5, "positive", 11],
+      [0.28, 0.35, 0.68, 0.22, "negative", 6],
+      [0.44, 0.55, 0.81, 0.6, "positive", 9],
+    ].map(([ox, oy, dx, dy, outcome, n]) => ({
+      statType: "delivery" as const,
+      outcome: outcome as "positive" | "negative",
+      playerId: jersey(n as number),
+      originX: ox as number,
+      originY: oy as number,
+      destX: dx as number,
+      destY: dy as number,
+    })),
+
+    // Turnovers, two of which we scored from.
+    ...[
+      [0.55, 0.4, "positive", 8, true],
+      [0.62, 0.65, "positive", 10, true],
+      [0.48, 0.3, "positive", 6, false],
+      [0.4, 0.55, "positive", 5, false],
+      [0.35, 0.45, "negative", 12, false],
+      [0.58, 0.7, "negative", 10, false],
+    ].map(([x, y, outcome, n, scored]) => ({
+      statType: "turnover" as const,
+      outcome: outcome as "positive" | "negative",
+      playerId: jersey(n as number),
+      originX: x as number,
+      originY: y as number,
+      ledToScore: outcome === "positive" ? (scored as boolean) : null,
+    })),
+
+    // Fourteen shots: two cúil, seven cúilíní, five wides.
+    ...[
+      [0.88, 0.5, "goal", 14],
+      [0.84, 0.42, "goal", 13],
+      [0.79, 0.35, "point", 11],
+      [0.82, 0.6, "point", 12],
+      [0.76, 0.28, "point", 10],
+      [0.86, 0.55, "point", 14],
+      [0.73, 0.68, "point", 15],
+      [0.8, 0.48, "point", 11],
+      [0.71, 0.3, "point", 10],
+      [0.69, 0.22, "wide", 15],
+      [0.75, 0.8, "wide", 12],
+      [0.66, 0.5, "wide", 9],
+      [0.83, 0.18, "wide", 13],
+      [0.7, 0.75, "wide", 15],
+    ].map(([x, y, result, n]) => ({
+      statType: "shot" as const,
+      // A wide is the negative outcome, a score the positive one; the logger
+      // derives this rather than asking twice.
+      outcome: result === "wide" ? ("negative" as const) : ("positive" as const),
+      shotResult: result as "goal" | "point" | "wide",
+      playerId: jersey(n as number),
+      originX: x as number,
+      originY: y as number,
+    })),
+
+    // Frees conceded, all of them in our own half where they hurt.
+    ...[
+      [0.18, 0.4, 3],
+      [0.24, 0.6, 6],
+      [0.12, 0.55, 2],
+      [0.3, 0.3, 5],
+      [0.22, 0.48, 4],
+    ].map(([x, y, n]) => ({
+      statType: "free_conceded" as const,
+      playerId: jersey(n as number),
+      originX: x as number,
+      originY: y as number,
+    })),
+
+    // Poc amach, both ways: ours five of seven, theirs two of five to us.
+    ...[
+      ["us", "positive", 0.52, 0.3, 8],
+      ["us", "positive", 0.48, 0.65, 9],
+      ["us", "positive", 0.56, 0.45, 6],
+      ["us", "positive", 0.5, 0.2, 10],
+      ["us", "positive", 0.54, 0.7, 8],
+      ["us", "negative", 0.47, 0.5, null],
+      ["us", "unclear", 0.51, 0.38, null],
+      ["opposition", "positive", 0.44, 0.55, 7],
+      ["opposition", "positive", 0.4, 0.35, 5],
+      ["opposition", "negative", 0.46, 0.6, null],
+      ["opposition", "negative", 0.38, 0.45, null],
+      ["opposition", "negative", 0.42, 0.25, null],
+    ].map(([side, outcome, x, y, n]) => ({
+      statType: "puckout" as const,
+      puckoutTakenBy: side as "us" | "opposition",
+      outcome: outcome as "positive" | "negative" | "unclear",
+      // Only a won poc amach names anybody: it is the receiver.
+      playerId: n == null ? null : jersey(n as number),
+      originX: x as number,
+      originY: y as number,
+    })),
+  ];
+
+  await db
+    .insert(matchStats)
+    .values(
+      statSheet.map((s) => ({
+        ...s,
+        matchId: match.id,
+        teamId: team.id,
+        createdBy: manager.id,
+      })),
+    );
+
   const [latestVideo] = await db.select().from(videos).orderBy(desc(videos.createdAt)).limit(1);
 
   console.log(`
@@ -293,9 +426,11 @@ async function main() {
     Sign in as the manager:   bainisteoir  /  ${DEMO_PASSWORD}
     Or as a player:           tjreid       /  ${DEMO_PASSWORD}
 
-    ${created.length} clips, 2 playlists, ${squad.length} players.
+    ${created.length} clips, 2 playlists, ${squad.length} players,
+    and a full stat sheet for the match.
 
   Start the app with  npm run dev  and open  /review/${latestVideo.id}
+  The stat report is at  /matches/${match.id}/stats
 
   The video row is a placeholder, so the player has nothing to play yet.
   To see it working with real footage:

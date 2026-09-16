@@ -15,6 +15,16 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
+// The stat vocabulary is domain data, kept beside the rest of the hurling
+// logic so the logging form and the report can read it without pulling the
+// ORM into the browser bundle. Imported relatively: drizzle-kit reads this
+// file outside the Next.js path aliases.
+import {
+  PUCKOUT_SIDES,
+  SHOT_RESULTS,
+  STAT_OUTCOMES,
+  STAT_TYPES,
+} from "../hurling/stats";
 
 const now = sql`(unixepoch() * 1000)`;
 const id = () =>
@@ -411,6 +421,75 @@ export const annotations = sqliteTable(
   (t) => [index("annotations_clip").on(t.clipId, t.atMs)],
 );
 
+/* ------------------------------------------------------------ match stats */
+
+/**
+ * The post-match stat sheet.
+ *
+ * Not the clip/tag system: a coach fills this in from the notebook after the
+ * game, so the numbers stand on their own and a match nobody filmed still has
+ * a stat sheet. Where a clip happens to cover the moment, `clipId` points at
+ * it — optional, and never the other way round.
+ *
+ * One table rather than six, because every stat shares the same spine (match,
+ * team, player, a point or two on the pitch) and the report reads them
+ * together. The vocabulary and the rules that go with it live in
+ * src/lib/hurling/stats.ts, which the column enums import, so the database,
+ * the logging form and the report cannot disagree about what a stat is.
+ */
+export const matchStats = sqliteTable(
+  "match_stats",
+  {
+    id: id(),
+    matchId: text("match_id")
+      .notNull()
+      .references(() => matches.id, { onDelete: "cascade" }),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    statType: text("stat_type", { enum: STAT_TYPES }).notNull(),
+    /** Always relative to us. Null for a tackle or a free conceded. */
+    outcome: text("outcome", { enum: STAT_OUTCOMES }),
+    /** Who it is credited to. Optional — a tally still counts without a name. */
+    playerId: text("player_id").references(() => users.id, { onDelete: "set null" }),
+    /** Where it happened, normalised 0–1 as everywhere else. */
+    originX: real("origin_x"),
+    originY: real("origin_y"),
+    /** Deliveries only: where it landed. Drawn as an arrow, not a second dot. */
+    destX: real("dest_x"),
+    destY: real("dest_y"),
+    /** Shots only. A cúl or a cúilín also feeds the scoreline. */
+    shotResult: text("shot_result", { enum: SHOT_RESULTS }),
+    /**
+     * Positive turnovers only. "Turnover leading to a score" is a flag rather
+     * than a stat type of its own — it is the same turnover described twice.
+     */
+    ledToScore: integer("led_to_score", { mode: "boolean" }),
+    /** Poc amach only: whose it was. Who won it is `outcome`. */
+    puckoutTakenBy: text("puckout_taken_by", { enum: PUCKOUT_SIDES }),
+    /** The clip covering this moment, when one already exists. */
+    clipId: text("clip_id").references(() => clips.id, { onDelete: "set null" }),
+    /**
+     * The video this was logged against, live, and its timestamp within that
+     * file. Set automatically by the logging pad in the review workspace, off
+     * the transport's own clock — never typed. Null for anything logged from
+     * the standalone stat sheet, where there is no video open to read a time
+     * from.
+     */
+    videoId: text("video_id").references(() => videos.id, { onDelete: "set null" }),
+    atMs: integer("at_ms"),
+    createdAt: integer("created_at").notNull().default(now),
+    updatedAt: integer("updated_at").notNull().default(now),
+  },
+  (t) => [
+    index("match_stats_match").on(t.matchId, t.createdAt),
+    index("match_stats_team").on(t.teamId),
+    index("match_stats_player").on(t.playerId),
+    index("match_stats_video").on(t.videoId, t.atMs),
+  ],
+);
+
 /* -------------------------------------------------------------- relations */
 
 export const teamsRel = relations(teams, ({ many }) => ({
@@ -492,4 +571,12 @@ export const commentsRel = relations(comments, ({ one }) => ({
 export const annotationsRel = relations(annotations, ({ one }) => ({
   clip: one(clips, { fields: [annotations.clipId], references: [clips.id] }),
   user: one(users, { fields: [annotations.userId], references: [users.id] }),
+}));
+
+export const matchStatsRel = relations(matchStats, ({ one }) => ({
+  match: one(matches, { fields: [matchStats.matchId], references: [matches.id] }),
+  team: one(teams, { fields: [matchStats.teamId], references: [teams.id] }),
+  player: one(users, { fields: [matchStats.playerId], references: [users.id] }),
+  clip: one(clips, { fields: [matchStats.clipId], references: [clips.id] }),
+  video: one(videos, { fields: [matchStats.videoId], references: [videos.id] }),
 }));
