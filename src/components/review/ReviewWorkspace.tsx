@@ -26,7 +26,7 @@ import Link from "next/link";
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PlayerEngine } from "@/components/player/engine";
-import { RateBadge, Timecode, VideoStage } from "@/components/player/VideoStage";
+import { PlayToggle, RateBadge, Timecode, VideoStage } from "@/components/player/VideoStage";
 import { Timeline, type TimelineClip } from "@/components/player/Timeline";
 import { ClipTrimmer } from "@/components/player/ClipTrimmer";
 import { CheatSheet } from "@/components/player/CheatSheet";
@@ -37,6 +37,10 @@ import { formatClock, markersFromRows, tallyScore, formatScore } from "@/lib/hur
 import { createClip, deleteClip, setClipTags, updateClip } from "@/lib/actions/clips";
 import { saveAnnotation } from "@/lib/actions/review";
 import type { Shape } from "@/lib/db/schema";
+import { StatPad } from "@/components/stats/StatPad";
+import { StatLanes } from "@/components/stats/StatLanes";
+import type { StatPlayer, StatRow } from "@/components/stats/types";
+import { STAT_LEAD_IN_MS, type StatType } from "@/lib/hurling/stats";
 import { ClipList } from "./ClipList";
 import { ClipInspector } from "./ClipInspector";
 import {
@@ -59,6 +63,12 @@ import {
 const DEFAULT_PRE_ROLL = 8000;
 const DEFAULT_POST_ROLL = 3000;
 
+/**
+ * The label column beside the stat lanes. The scrub bar takes the same
+ * padding while they are showing, so both share one time axis.
+ */
+const LANE_GUTTER_PX = 120;
+
 type Props = {
   video: VideoInfo;
   match: MatchInfo;
@@ -67,6 +77,9 @@ type Props = {
   initialClips: ClipRow[];
   markerRows: { kind: string; atMs: number }[];
   viewer: Viewer;
+  /** Only present when the match has a stat sheet to log against. */
+  statPanel?: StatPlayer[];
+  initialStatRows?: StatRow[];
 };
 
 export function ReviewWorkspace({
@@ -77,6 +90,8 @@ export function ReviewWorkspace({
   initialClips,
   markerRows,
   viewer,
+  statPanel,
+  initialStatRows,
 }: Props) {
   const engine = useMemo(() => new PlayerEngine(), []);
   const markers = useMemo(() => markersFromRows(markerRows), [markerRows]);
@@ -86,6 +101,16 @@ export function ReviewWorkspace({
   const [inMs, setInMs] = useState<number | null>(null);
   const [outMs, setOutMs] = useState<number | null>(null);
   const [mode, setMode] = useState<Mode>("transport");
+  // Clips and stats are two different logging workflows sharing one video —
+  // switching between them swaps the side panel and, while stats is up, hands
+  // the number keys to the stat pad instead of clip tagging (see keymap.ts).
+  const [viewMode, setViewMode] = useState<"clips" | "stats">("clips");
+  const canLogStats = (viewer.role === "coach" || viewer.role === "admin") && !!match.id;
+  // The sheet lives here rather than inside the pad: the timeline draws the
+  // same entries as ticks, so both have to read from one list.
+  const [statRows, setStatRows] = useState<StatRow[]>(initialStatRows ?? []);
+  const [statType, setStatType] = useState<StatType>("tackle");
+  const statsOpen = viewMode === "stats" && canLogStats;
   const [helpOpen, setHelpOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [preRoll, setPreRoll] = useState(DEFAULT_PRE_ROLL);
@@ -461,7 +486,7 @@ export function ReviewWorkspace({
     ],
   );
 
-  useHotkeys(mode, onCommand);
+  useHotkeys(viewMode === "stats" ? "stats" : mode, onCommand);
 
   // Leaving a clip's bounds should not trap the playhead in it forever.
   useEffect(() => {
@@ -497,6 +522,29 @@ export function ReviewWorkspace({
     return idx >= 0 && idx + 1 < clips.length ? clips[idx + 1].startMs : null;
   }, [clips, selectedId]);
 
+  /* ------------------------------------------------------- stats on the bar */
+
+  const statPlayers = useMemo(
+    () => new Map((statPanel ?? []).map((p) => [p.id, p])),
+    [statPanel],
+  );
+
+  /**
+   * Watch a logged stat back. Any focused clip has to be let go of first, or
+   * the engine's bounds would clamp the seek back inside it.
+   */
+  const jumpToStat = useCallback(
+    (row: { atMs: number | null }) => {
+      if (row.atMs == null) return;
+      setSelectedId(null);
+      engine.clearBounds();
+      resumeMsRef.current = null;
+      engine.seek(Math.max(0, row.atMs - STAT_LEAD_IN_MS), { exact: true });
+      void engine.play();
+    },
+    [engine],
+  );
+
   return (
     <div className="flex h-dvh flex-col overflow-hidden" style={{ background: "var(--color-stage)" }}>
       {/* ------------------------------------------------------------ header */}
@@ -504,23 +552,38 @@ export function ReviewWorkspace({
         className="flex shrink-0 items-center gap-4 border-b px-4 py-2"
         style={{ borderColor: "var(--color-line)" }}
       >
-        <Link href="/" className="text-sm font-semibold" style={{ color: "var(--color-brand)" }}>
+        <Link href="/" className="wordmark text-[17px]" title="Back to the matches">
           Físeán
         </Link>
+        <span
+          aria-hidden
+          className="h-4 w-px shrink-0"
+          style={{ background: "var(--color-line-strong)" }}
+        />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium">
+          <div className="title truncate text-[15px]">
             {match.opponent}
             {match.competition && (
-              <span style={{ color: "var(--color-ink-faint)" }}> · {match.competition}</span>
+              <span className="ml-2 text-[12px] font-normal" style={{ color: "var(--color-ink-faint)" }}>
+                {match.competition}
+              </span>
             )}
           </div>
-          <div className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
-            {match.playedOn} · {clips.length} clip{clips.length === 1 ? "" : "s"}
+          <div className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+            {clips.length} clip{clips.length === 1 ? "" : "s"} tagged
             {scoreline.cul + scoreline.cuilin > 0 && (
-              <> · tagged scores {formatScore(scoreline)}</>
+              <>
+                , scores {formatScore(scoreline)}
+              </>
             )}
           </div>
         </div>
+
+        {match.id && (
+          <Link href={`/matches/${match.id}/stats`} className="btn-ghost text-xs">
+            Stat sheet
+          </Link>
+        )}
 
         {selected && (
           <button
@@ -533,8 +596,6 @@ export function ReviewWorkspace({
           </button>
         )}
 
-        <Timecode engine={engine} markers={markers} halfLengthMin={match.halfLengthMin} precise />
-        <RateBadge engine={engine} />
         <button onClick={() => setHelpOpen(true)} className="btn-ghost text-xs">
           <span className="kbd">?</span> Shortcuts
         </button>
@@ -608,10 +669,23 @@ export function ReviewWorkspace({
             </div>
           )}
 
+          {/* Transport, where the video is — the keyboard is faster, but it
+              only reaches the player when nothing else holds focus. */}
+          <div
+            className="flex shrink-0 items-center gap-3 border-t px-3 py-2"
+            style={{ borderColor: "var(--color-line)", background: "var(--color-surface)" }}
+          >
+            <PlayToggle engine={engine} />
+            <Timecode engine={engine} markers={markers} halfLengthMin={match.halfLengthMin} precise />
+            <RateBadge engine={engine} />
+          </div>
+
           <Timeline
             engine={engine}
             durationMs={video.durationMs}
-            clips={timelineClips}
+            // Stats mode is about the sheet, not the clip list: the lanes
+            // below carry the marks and the bar stays a plain scrubber.
+            clips={statsOpen ? [] : timelineClips}
             markers={markers}
             halfLengthMin={match.halfLengthMin}
             selectedClipId={selectedId}
@@ -621,9 +695,23 @@ export function ReviewWorkspace({
               const clip = clips.find((c) => c.id === id);
               if (clip) focusClip(clip);
             }}
+            labelGutterPx={statsOpen ? LANE_GUTTER_PX : 0}
           />
 
-          {selected && !selected.pending && (
+          {statsOpen && (
+            <StatLanes
+              engine={engine}
+              durationMs={video.durationMs}
+              rows={statRows}
+              players={statPlayers}
+              focusType={statType}
+              onFocusType={setStatType}
+              onSelectStat={jumpToStat}
+              gutterPx={LANE_GUTTER_PX}
+            />
+          )}
+
+          {!statsOpen && selected && !selected.pending && (
             <ClipTrimmer
               key={selected.id}
               engine={engine}
@@ -633,59 +721,110 @@ export function ReviewWorkspace({
             />
           )}
 
-          <TagBar
-            events={hotkeyEvents}
-            onTag={(hotkey) => void tagSelectedOrQuickClip(hotkey)}
-            selectedTagIds={selected?.eventTypeIds ?? []}
-            hasSelection={!!selected}
-            preRoll={preRoll}
-            onPreRollChange={setPreRoll}
-            onQuickClip={() => void quickClip()}
-            inMs={inMs}
-            outMs={outMs}
-            onCommit={() => void commitInOut()}
-          />
+          {viewMode === "clips" && (
+            <TagBar
+              events={hotkeyEvents}
+              onTag={(hotkey) => void tagSelectedOrQuickClip(hotkey)}
+              selectedTagIds={selected?.eventTypeIds ?? []}
+              hasSelection={!!selected}
+              preRoll={preRoll}
+              onPreRollChange={setPreRoll}
+              onQuickClip={() => void quickClip()}
+              inMs={inMs}
+              outMs={outMs}
+              onCommit={() => void commitInOut()}
+            />
+          )}
         </main>
 
         {/* ------------------------------------------------------------ side */}
         <aside
-          className="flex w-[340px] shrink-0 flex-col border-l"
+          className={`flex ${viewMode === "stats" ? "w-[380px]" : "w-[340px]"} shrink-0 flex-col border-l`}
           style={{ borderColor: "var(--color-line)", background: "var(--color-surface)" }}
         >
-          <ClipList
-            clips={clips}
-            eventTypes={eventTypes}
-            selectedId={selectedId}
-            markers={markers}
-            halfLengthMin={match.halfLengthMin}
-            onSelect={focusClip}
-            onDelete={async (id) => {
-              setClips((prev) => prev.filter((c) => c.id !== id));
-              if (selectedId === id) returnToLive();
-              try {
-                await deleteClip(id);
-              } catch (err) {
-                flash((err as Error).message);
-              }
-            }}
-            viewer={viewer}
-          />
+          {canLogStats && (
+            <div
+              className="flex shrink-0 gap-1 border-b p-2"
+              style={{ borderColor: "var(--color-line)" }}
+            >
+              {(["clips", "stats"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => {
+                    setViewMode(m);
+                    if (m === "stats") {
+                      // Drawing belongs to the clip workflow, and a focused
+                      // clip would pin every seek inside itself — which is
+                      // exactly wrong when the next thing you do is jump to a
+                      // stat somewhere else in the match.
+                      setMode("transport");
+                      setSelectedId(null);
+                      engine.clearBounds();
+                    }
+                  }}
+                  aria-pressed={viewMode === m}
+                  className="flex-1 rounded px-3 py-1.5 text-[13px] capitalize transition-colors"
+                  style={{
+                    background: viewMode === m ? "var(--color-surface-3)" : "transparent",
+                    color: viewMode === m ? "var(--color-ink)" : "var(--color-ink-dim)",
+                  }}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          )}
 
-          {selected && (
-            <ClipInspector
-              key={selected.id}
-              clip={selected}
-              eventTypes={eventTypes}
-              squad={squad}
-              viewer={viewer}
+          {viewMode === "stats" && canLogStats && match.id ? (
+            <StatPad
               engine={engine}
-              onClipChange={(patch) =>
-                setClips((prev) =>
-                  prev.map((c) => (c.id === selected.id ? { ...c, ...patch } : c)),
-                )
-              }
-              onTextFocus={(focused) => setMode(focused ? "text" : "transport")}
+              matchId={match.id}
+              videoId={video.id}
+              panel={statPanel ?? []}
+              rows={statRows}
+              setRows={setStatRows}
+              statType={statType}
+              setStatType={setStatType}
+              onJump={jumpToStat}
             />
+          ) : (
+            <>
+              <ClipList
+                clips={clips}
+                eventTypes={eventTypes}
+                selectedId={selectedId}
+                markers={markers}
+                halfLengthMin={match.halfLengthMin}
+                onSelect={focusClip}
+                onDelete={async (id) => {
+                  setClips((prev) => prev.filter((c) => c.id !== id));
+                  if (selectedId === id) returnToLive();
+                  try {
+                    await deleteClip(id);
+                  } catch (err) {
+                    flash((err as Error).message);
+                  }
+                }}
+                viewer={viewer}
+              />
+
+              {selected && (
+                <ClipInspector
+                  key={selected.id}
+                  clip={selected}
+                  eventTypes={eventTypes}
+                  squad={squad}
+                  viewer={viewer}
+                  engine={engine}
+                  onClipChange={(patch) =>
+                    setClips((prev) =>
+                      prev.map((c) => (c.id === selected.id ? { ...c, ...patch } : c)),
+                    )
+                  }
+                  onTextFocus={(focused) => setMode(focused ? "text" : "transport")}
+                />
+              )}
+            </>
           )}
         </aside>
       </div>

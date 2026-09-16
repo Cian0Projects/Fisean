@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
   annotations,
@@ -9,6 +9,7 @@ import {
   comments,
   eventTypes,
   matches,
+  matchStats,
   users,
   videoMarkers,
   videos,
@@ -122,6 +123,38 @@ export default async function ReviewPage({
     .from(videoMarkers)
     .where(eq(videoMarkers.videoId, videoId));
 
+  // The live stat pad needs the sheet already logged for this match, same as
+  // the standalone logging page — only fetched when there is a match to log
+  // against, since a training clip with no match cannot carry a stat sheet.
+  const statRows = match
+    ? await db
+        .select({
+          id: matchStats.id,
+          statType: matchStats.statType,
+          outcome: matchStats.outcome,
+          playerId: matchStats.playerId,
+          originX: matchStats.originX,
+          originY: matchStats.originY,
+          destX: matchStats.destX,
+          destY: matchStats.destY,
+          shotResult: matchStats.shotResult,
+          ledToScore: matchStats.ledToScore,
+          puckoutTakenBy: matchStats.puckoutTakenBy,
+          clipId: matchStats.clipId,
+          videoId: matchStats.videoId,
+          atMs: matchStats.atMs,
+          createdAt: matchStats.createdAt,
+        })
+        .from(matchStats)
+        .where(and(eq(matchStats.matchId, match.id), eq(matchStats.teamId, user.teamId)))
+        .orderBy(asc(matchStats.createdAt))
+    : [];
+
+  const statCredited = new Set(statRows.map((r) => r.playerId).filter((id): id is string => !!id));
+  const statPanel = squad
+    .filter((u) => u.role === "player" || statCredited.has(u.id))
+    .map(({ id, displayName, jerseyNumber, position }) => ({ id, displayName, jerseyNumber, position }));
+
   const media = await store();
 
   return (
@@ -148,6 +181,8 @@ export default async function ReviewPage({
       initialClips={initialClips}
       markerRows={markerRows}
       viewer={{ id: user.id, displayName: user.displayName, role: user.role }}
+      statPanel={statPanel}
+      initialStatRows={statRows}
     />
   );
 }

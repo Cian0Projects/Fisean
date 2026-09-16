@@ -14,7 +14,7 @@
  * B must be muted and playsInline or iOS will refuse to start it
  * programmatically; it is unmuted on the swap, which follows a user gesture.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PlayerEngine, Transport } from "./engine";
 import { AnnotationLayer, type Tool } from "./AnnotationLayer";
 import type { Shape } from "@/lib/db/schema";
@@ -82,6 +82,10 @@ export function VideoStage({
         playsInline
         className="h-full w-full object-contain"
         onContextMenu={(e) => e.preventDefault()}
+        // The keyboard is the fast path, but it only reaches the transport
+        // when nothing else holds focus — and while logging, something always
+        // does. Clicking the picture is the way back to playing.
+        onClick={() => !drawing && engine.toggle()}
       />
 
       <video
@@ -103,6 +107,38 @@ export function VideoStage({
         editable={drawing}
       />
     </div>
+  );
+}
+
+/**
+ * Play / pause, as a button.
+ *
+ * The transport is otherwise keyboard-only, which is right for tagging at
+ * speed and wrong the moment a form has focus — a `<select>` eats the space
+ * bar, and then there is nothing left to press. Play state changes at human
+ * speed, so this one readout can afford React state; the bail-out in the
+ * setter keeps the frame-rate updates from re-rendering anything.
+ */
+export function PlayToggle({ engine }: { engine: PlayerEngine }) {
+  const [playing, setPlaying] = useState(false);
+
+  useEffect(
+    () => engine.subscribe((t) => setPlaying((was) => (was === t.playing ? was : t.playing))),
+    [engine],
+  );
+
+  return (
+    <button
+      onClick={() => engine.toggle()}
+      title={playing ? "Pause" : "Play"}
+      className="btn-outline shrink-0 text-xs"
+    >
+      <span aria-hidden className="text-[10px] leading-none">
+        {playing ? "❚❚" : "▶"}
+      </span>
+      {playing ? "Pause" : "Play"}
+      <span className="kbd">Space</span>
+    </button>
   );
 }
 

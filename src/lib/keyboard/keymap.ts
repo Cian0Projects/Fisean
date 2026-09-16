@@ -41,7 +41,7 @@ export type Command =
   | "help"
   | `tag_${number}`;
 
-export type Mode = "transport" | "annotate" | "text";
+export type Mode = "transport" | "annotate" | "text" | "stats";
 
 export type Binding = {
   /** Display form for the cheatsheet. */
@@ -138,6 +138,13 @@ export function resolve(e: KeyboardEvent, mode: Mode): Binding | null {
 
   // In drawing mode the number keys pick a tool rather than tag an event.
   if (mode === "annotate" && binding.group === "Tagging") return null;
+
+  // The stat pad owns the keyboard for everything but moving the playhead:
+  // its own listener reads the number keys, and clip tagging/trimming has
+  // no meaning while the aside is showing the stat sheet, not the clip list.
+  if (mode === "stats" && !["Transport", "Precision", "View"].includes(binding.group)) {
+    return null;
+  }
 
   return binding;
 }

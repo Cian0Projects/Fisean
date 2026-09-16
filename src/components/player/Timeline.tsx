@@ -31,6 +31,11 @@ type Props = {
   inMs: number | null;
   outMs: number | null;
   onSelectClip?: (id: string) => void;
+  /**
+   * Room on the left for a row label, so lanes stacked underneath share this
+   * bar's time axis exactly — a playhead at 40% has to be at 40% in both.
+   */
+  labelGutterPx?: number;
 };
 
 const MARKER_LABELS: { key: keyof Markers; label: string }[] = [
@@ -50,6 +55,7 @@ export function Timeline({
   inMs,
   outMs,
   onSelectClip,
+  labelGutterPx = 0,
 }: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
@@ -116,7 +122,7 @@ export function Timeline({
   };
 
   return (
-    <div className="px-3 pt-1 pb-3">
+    <div className="pt-1 pr-3 pb-3" style={{ paddingLeft: 12 + labelGutterPx }}>
       <div
         ref={trackRef}
         className="group relative h-14 cursor-pointer touch-none select-none rounded-lg"
@@ -145,7 +151,7 @@ export function Timeline({
               style={{ left: `${pct(at)}%`, background: "var(--color-line-strong)" }}
             >
               <span
-                className="absolute -top-0.5 left-1 text-[9px] font-semibold uppercase"
+                className="absolute -top-0.5 left-1 text-[10px] font-semibold"
                 style={{ color: "var(--color-ink-faint)" }}
               >
                 {label}
