@@ -13,9 +13,11 @@ export default async function AdminPage() {
     return (
       <>
         <Nav user={user} />
-        <main className="mx-auto max-w-2xl px-4 py-16 text-center">
-          <p className="text-sm" style={{ color: "var(--color-ink-dim)" }}>
-            This page is for coaches and the team admin.
+        <main className="mx-auto max-w-2xl px-4 py-20">
+          <h1 className="display text-3xl">Squad settings</h1>
+          <p className="measure mt-3 text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
+            Matches, footage and the panel are looked after by the coaches and
+            the team admin. Everything you can do is on the matches page.
           </p>
         </main>
       </>

@@ -162,10 +162,7 @@ export function ClipInspector({
               <div className="space-y-2">
                 {Object.entries(byCategory).map(([category, list]) => (
                   <div key={category}>
-                    <div
-                      className="mb-1 text-[10px] uppercase tracking-wide"
-                      style={{ color: "var(--color-ink-faint)" }}
-                    >
+                    <div className="mb-1 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
                       {category.replace(/_/g, " ")}
                     </div>
                     <div className="flex flex-wrap gap-1">

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-
 import { useState, useTransition } from "react";
 import {
   createMatch,
@@ -14,6 +13,7 @@ import {
 import { formatClock } from "@/lib/hurling/notation";
 import { POSITIONS, positionLabel } from "@/lib/hurling/positions";
 import { codecWarning } from "@/lib/media/probe";
+import { matchDate, fileSize } from "@/lib/format";
 import type { Role } from "@/lib/db/schema";
 
 type Member = {
@@ -65,19 +65,25 @@ export function AdminPanels({
   const isAdmin = viewer.role === "admin";
 
   return (
-    <main className="mx-auto max-w-5xl space-y-10 px-4 py-8">
+    <main className="mx-auto max-w-5xl px-4 pt-8 pb-16">
+      <header className="border-b pb-5" style={{ borderColor: "var(--color-line-strong)" }}>
+        <h1 className="display text-[clamp(2rem,5vw,2.8rem)]">{teamName}</h1>
+        <p className="mt-2 text-[14px]" style={{ color: "var(--color-ink-dim)" }}>
+          {members.length} on the panel, {count(matches.length, "match", "matches")},{" "}
+          {count(videos.length, "file", "files")} of footage.
+        </p>
+      </header>
+
       {isAdmin && (
-        <section className="card p-5">
-          <h2 className="mb-1 text-base font-semibold">Join code</h2>
-          <p className="mb-4 text-[13px]" style={{ color: "var(--color-ink-dim)" }}>
-            Players enter this once at <code>/join</code> to get on the panel.
-            Rotate it if it has travelled beyond the squad — existing accounts
-            keep working.
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
+        <section className="mt-10">
+          <SectionHead
+            title="Team code"
+            note="Players type this once at /join. Rotating it does not sign anyone out."
+          />
+          <div className="slab flex flex-wrap items-center gap-5 px-5 py-4">
             <code
-              className="tabular rounded-lg px-4 py-2.5 text-2xl font-semibold tracking-[0.3em]"
-              style={{ background: "var(--color-stage)", color: "var(--color-brand)" }}
+              className="tabular text-[2.4rem] leading-none tracking-[0.28em]"
+              style={{ color: "var(--color-ash)", fontWeight: 700 }}
             >
               {code}
             </code>
@@ -90,63 +96,66 @@ export function AdminPanels({
               }
               className="btn-outline text-xs"
             >
-              Rotate
+              Rotate the code
             </button>
-            <span className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-              {teamName}
-            </span>
           </div>
         </section>
       )}
 
       <AddMatch />
 
-      <section>
-        <h2 className="mb-3 text-base font-semibold">Matches</h2>
+      <section className="mt-10">
+        <SectionHead title="Matches" note="A match can exist before its footage does." />
         {matches.length === 0 ? (
-          <p className="text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
-            None yet.
-          </p>
+          <Empty>None yet. Add the first one above.</Empty>
         ) : (
-          <div className="space-y-2">
+          <ul>
             {matches.map((m) => (
               <MatchRow key={m.id} match={m} />
             ))}
-          </div>
+          </ul>
         )}
       </section>
 
-      <section>
-        <h2 className="mb-1 text-base font-semibold">Footage</h2>
-        <p className="mb-3 text-[13px]" style={{ color: "var(--color-ink-dim)" }}>
-          Drop the match file into <code>data/media/</code> and register it with{" "}
-          <code>npm run ingest -- &lt;file&gt; --match &lt;id&gt;</code>. That
-          avoids pushing several gigabytes through a browser.
-        </p>
+      <section className="mt-10">
+        <SectionHead
+          title="Footage"
+          note="Files are registered from the command line, not uploaded through the browser — several gigabytes do not belong in a form post."
+        />
+
+        <pre
+          className="mb-4 overflow-x-auto rounded px-3 py-2.5 text-[12px]"
+          style={{
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-line)",
+            color: "var(--color-ink-dim)",
+          }}
+        >
+          npm run ingest -- &quot;C:\footage\match.mp4&quot; --match &lt;id&gt;
+        </pre>
+
         {videos.length === 0 ? (
-          <p className="text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
-            No footage yet.
-          </p>
+          <Empty>Nothing registered yet.</Empty>
         ) : (
-          <div className="space-y-2">
+          <ul>
             {videos.map((v) => {
               const warning = codecWarning(v.codec);
               return (
-                <div key={v.id} className="card p-3">
+                <li key={v.id} className="fixture py-3">
                   <div className="flex flex-wrap items-center gap-3">
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium">{v.originalFilename}</div>
+                      <div className="truncate text-[15px]">{v.originalFilename}</div>
                       <div
-                        className="tabular text-[11px]"
+                        className="tabular mt-0.5 text-[12px]"
                         style={{ color: "var(--color-ink-faint)" }}
                       >
-                        {formatClock(v.durationMs)} ·{" "}
-                        {(v.sizeBytes / 1024 ** 3).toFixed(2)} GB · {v.status}
-                        {v.codec && ` · ${v.codec}`}
+                        {formatClock(v.durationMs)}, {fileSize(v.sizeBytes)}
+                        {v.codec && `, ${v.codec}`}
+                        {v.status !== "ready" && `, ${v.status}`}
                       </div>
                     </div>
-                    <Link href={`/review/${v.id}`} className="btn-outline text-xs">
-                      Review
+                    <Link href={`/review/${v.id}`} className="btn-ghost text-xs">
+                      Open
                     </Link>
                     {isAdmin && (
                       <button
@@ -155,7 +164,7 @@ export function AdminPanels({
                           startTransition(() => void deleteVideo(v.id));
                         }}
                         className="btn-ghost text-xs"
-                        style={{ color: "var(--color-danger)" }}
+                        style={{ color: "var(--color-danger-ink)" }}
                       >
                         Delete
                       </button>
@@ -164,9 +173,9 @@ export function AdminPanels({
 
                   {warning && (
                     <p
-                      className="mt-2 rounded px-2 py-1.5 text-[12px]"
+                      className="mt-2 rounded px-3 py-2 text-[13px]"
                       style={{
-                        background: "color-mix(in oklab, var(--color-mark) 16%, transparent)",
+                        background: "color-mix(in oklab, var(--color-mark) 14%, transparent)",
                       }}
                     >
                       {warning}
@@ -174,28 +183,57 @@ export function AdminPanels({
                   )}
                   {!v.moovAtStart && (
                     <p className="mt-2 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-                      This file stores its index at the end, so the first load takes
-                      a moment. Seeking is unaffected once it opens.
+                      This file stores its index at the end, so the first load takes a
+                      moment. Seeking is unaffected once it opens.
                     </p>
                   )}
-                </div>
+                </li>
               );
             })}
-          </div>
+          </ul>
         )}
       </section>
 
       {isAdmin && (
-        <section>
-          <h2 className="mb-3 text-base font-semibold">Panel ({members.length})</h2>
-          <div className="space-y-2">
+        <section className="mt-10">
+          <SectionHead
+            title="The panel"
+            note="Removing someone ends their access immediately — sessions are rows, not tokens."
+          />
+          <ul>
             {members.map((m) => (
               <MemberRow key={m.id} member={m} isSelf={m.id === viewer.id} pending={pending} />
             ))}
-          </div>
+          </ul>
         </section>
       )}
     </main>
+  );
+}
+
+/** "1 match", "3 matches" — never "1 matches". */
+function count(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+function SectionHead({ title, note }: { title: string; note?: string }) {
+  return (
+    <div className="mb-4 border-b pb-2" style={{ borderColor: "var(--color-line-strong)" }}>
+      <h2 className="title text-lg">{title}</h2>
+      {note && (
+        <p className="measure mt-1 text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
+          {note}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Empty({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="py-6 text-[14px]" style={{ color: "var(--color-ink-faint)" }}>
+      {children}
+    </p>
   );
 }
 
@@ -203,8 +241,8 @@ export function AdminPanels({
  * A match row with a one-click copy of the exact `ingest` command.
  *
  * The match id is a UUID, so showing eight truncated characters was useless
- * for actually running `npm run ingest -- <file> --match <id>` — this copies
- * the whole command, ready to paste, with the file path left as a placeholder.
+ * for actually running the command — this copies the whole thing, ready to
+ * paste, with the file path left as a placeholder.
  */
 function MatchRow({ match }: { match: Match }) {
   const [copied, setCopied] = useState(false);
@@ -222,23 +260,23 @@ function MatchRow({ match }: { match: Match }) {
   };
 
   return (
-    <div className="card flex items-center gap-3 p-3">
-      <div className="flex-1">
-        <div className="text-sm font-medium">{match.opponent}</div>
-        <div className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
-          {match.playedOn}
-          {match.competition && ` · ${match.competition}`}
-          {match.venue && ` · ${match.venue}`}
+    <li className="fixture flex items-center gap-4 py-3">
+      <div className="tabular w-16 shrink-0 text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
+        {matchDate(match.playedOn)}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[16px]">{match.opponent}</div>
+        <div className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+          {[match.competition, match.venue].filter(Boolean).join(" at ") || "Friendly"}
         </div>
       </div>
-      <button
-        onClick={() => void copyCommand()}
-        title={match.id}
-        className="btn-ghost text-[11px]"
-      >
-        {copied ? "Copied ingest command" : "Copy ingest command"}
+      <Link href={`/matches/${match.id}/stats/log`} className="btn-ghost text-xs">
+        Log stats
+      </Link>
+      <button onClick={() => void copyCommand()} title={match.id} className="btn-ghost text-xs">
+        {copied ? "Command copied" : "Copy ingest command"}
       </button>
-    </div>
+    </li>
   );
 }
 
@@ -247,17 +285,25 @@ function AddMatch() {
   const [open, setOpen] = useState(false);
 
   return (
-    <section className="card p-5">
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold">Add a match</h2>
-        <button onClick={() => setOpen((v) => !v)} className="btn-ghost text-xs">
+    <section className="mt-10">
+      <div
+        className="mb-4 flex items-end justify-between gap-3 border-b pb-2"
+        style={{ borderColor: "var(--color-line-strong)" }}
+      >
+        <div>
+          <h2 className="title text-lg">Add a match</h2>
+          <p className="mt-1 text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
+            Opponent and date are all it needs to start.
+          </p>
+        </div>
+        <button onClick={() => setOpen((v) => !v)} className="btn-outline text-xs">
           {open ? "Cancel" : "New match"}
         </button>
       </div>
 
       {open && (
         <form
-          className="mt-4 grid gap-3 sm:grid-cols-2"
+          className="grid gap-4 sm:grid-cols-2"
           action={(form) =>
             startTransition(async () => {
               await createMatch({
@@ -272,11 +318,11 @@ function AddMatch() {
           }
         >
           <div>
-            <label className="label mb-1 block">Opponent</label>
+            <label className="label mb-1.5 block">Opponent</label>
             <input name="opponent" required className="field" />
           </div>
           <div>
-            <label className="label mb-1 block">Date</label>
+            <label className="label mb-1.5 block">Date</label>
             <input
               name="playedOn"
               type="date"
@@ -286,15 +332,15 @@ function AddMatch() {
             />
           </div>
           <div>
-            <label className="label mb-1 block">Competition</label>
+            <label className="label mb-1.5 block">Competition</label>
             <input name="competition" placeholder="County Senior Championship" className="field" />
           </div>
           <div>
-            <label className="label mb-1 block">Venue</label>
+            <label className="label mb-1.5 block">Venue</label>
             <input name="venue" className="field" />
           </div>
           <div>
-            <label className="label mb-1 block">Half length</label>
+            <label className="label mb-1.5 block">Half length</label>
             <select name="halfLengthMin" defaultValue={30} className="field">
               <option value={30}>30 minutes — club and underage</option>
               <option value={35}>35 minutes — senior inter-county</option>
@@ -302,7 +348,7 @@ function AddMatch() {
           </div>
           <div className="flex items-end">
             <button type="submit" disabled={pending} className="btn-primary w-full">
-              {pending ? "Adding…" : "Add match"}
+              {pending ? "Adding…" : "Add the match"}
             </button>
           </div>
         </form>
@@ -323,7 +369,7 @@ function MemberRow({
   const [, startTransition] = useTransition();
 
   return (
-    <div className="card flex flex-wrap items-center gap-3 p-3">
+    <li className="fixture flex flex-wrap items-center gap-3 py-2.5">
       <input
         type="number"
         defaultValue={member.jerseyNumber ?? ""}
@@ -334,21 +380,22 @@ function MemberRow({
             }),
           )
         }
-        className="field tabular w-14 text-center"
-        aria-label="Jersey number"
+        className="field tabular w-14 px-2 text-center"
+        style={{ color: "var(--color-ash)" }}
+        aria-label={`Jersey number for ${member.displayName}`}
       />
 
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium">
+        <div className="text-[15px]">
           {member.displayName}
           {isSelf && (
-            <span className="ml-2 text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
+            <span className="ml-2 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
               you
             </span>
           )}
         </div>
-        <div className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
-          @{member.username} · {positionLabel(member.position)}
+        <div className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+          @{member.username}, {positionLabel(member.position)}
         </div>
       </div>
 
@@ -361,8 +408,8 @@ function MemberRow({
             }),
           )
         }
-        className="field w-44 text-xs"
-        aria-label="Position"
+        className="field w-44 text-[13px]"
+        aria-label={`Position for ${member.displayName}`}
       >
         <option value="">No position</option>
         {POSITIONS.map((p) => (
@@ -375,11 +422,9 @@ function MemberRow({
       <select
         defaultValue={member.role}
         disabled={pending}
-        onChange={(e) =>
-          startTransition(() => void setMemberRole(member.id, e.target.value as Role))
-        }
-        className="field w-28 text-xs"
-        aria-label="Role"
+        onChange={(e) => startTransition(() => void setMemberRole(member.id, e.target.value as Role))}
+        className="field w-28 text-[13px]"
+        aria-label={`Role for ${member.displayName}`}
       >
         <option value="player">Player</option>
         <option value="coach">Coach</option>
@@ -393,11 +438,11 @@ function MemberRow({
             startTransition(() => void removeMember(member.id));
           }}
           className="btn-ghost text-xs"
-          style={{ color: "var(--color-danger)" }}
+          style={{ color: "var(--color-danger-ink)" }}
         >
           Remove
         </button>
       )}
-    </div>
+    </li>
   );
 }
