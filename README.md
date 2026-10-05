@@ -1,3 +1,5 @@
+<img src="docs/brand/fisean-mark.svg" alt="" width="72" align="right">
+
 # Físeán
 
 Hurling match video review for GAA teams. Clip, tag, annotate and share

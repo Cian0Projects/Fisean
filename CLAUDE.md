@@ -27,6 +27,9 @@ some of these are not worth opening whole — `Grep` for the symbol instead.
 | Colour, type, spacing | `src/app/globals.css` — the whole design system |
 | The video workspace | `src/components/review/ReviewWorkspace.tsx` (819) — **grep it, don't read it** |
 | Player transport | `src/components/player/engine.ts` |
+| Training drills (coaches) | `src/lib/hurling/drill.ts` (model, playback, video timing); `src/components/drills/DrillEditor.tsx` (board); `recordDrill.ts` beside it (video export via MediaRecorder, no ffmpeg) |
+| Phone screens (watch, clip) | `src/components/mobile/PhoneWatch.tsx`; routes under `src/app/m/` |
+| Android / iOS apps | `mobile/` — thin Capacitor shells onto `/m`; its own `package.json`, excluded from `npm run check`. Build and test steps in `mobile/README.md` |
 
 `README.md` is the product argument, written for humans. Read it when a change
 needs justifying in the same voice, not to find out how something works.
@@ -51,6 +54,11 @@ needs justifying in the same voice, not to find out how something works.
 - **Comments explain why**, in prose, at the top of a file or above a decision.
   Match the existing density — it is higher than most codebases.
 - Sentence case everywhere. No ALL-CAPS labels, no ` · `-joined meta strings.
+- **Log big changes in [`version-history/CHANGES.md`](version-history/CHANGES.md)**
+  as part of the same commit: a new feature, a schema change, a redesign, a
+  change to how it is deployed or used. Newest first; a `## Title`, the date
+  in italics, then one paragraph on what changed and why. Bug fixes and
+  tidying stay in the git log only.
 
 ## Commands
 
