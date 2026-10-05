@@ -33,7 +33,6 @@ export type SessionUser = {
   username: string;
   displayName: string;
   role: Role;
-  jerseyNumber: number | null;
   position: number | null;
   teamName: string;
 };
@@ -103,7 +102,6 @@ export async function currentUser(): Promise<SessionUser | null> {
       username: users.username,
       displayName: users.displayName,
       role: users.role,
-      jerseyNumber: users.jerseyNumber,
       position: users.position,
       teamName: teams.name,
     })

@@ -26,63 +26,51 @@ import {
 } from "react";
 import type { PlayerEngine } from "@/components/player/engine";
 import { PitchMap, type PitchMark } from "@/components/pitch/PitchMap";
+import { ChevronIcon } from "@/components/ui/Icon";
+import { deleteMatchStat, logMatchStat, updateMatchStat } from "@/lib/actions/stats";
+import { formatClock, toGameTime, type Markers } from "@/lib/hurling/notation";
 import {
-  deleteMatchStat,
-  logMatchStat,
-  updateMatchStat,
-  type StatInput,
-} from "@/lib/actions/stats";
-import { formatClock } from "@/lib/hurling/notation";
-import {
-  OUTCOME_COLOURS,
-  SHOT_RESULTS,
-  SHOT_RESULT_LABELS,
   STAT_TYPES,
   STAT_TYPE_META,
   describeStat,
   effectiveOutcome,
-  outcomeLabel,
-  puckoutOutcome,
-  puckoutWinner,
   statColour,
   statShape,
   stepToStat,
-  type PuckoutSide,
-  type PuckoutWinner,
-  type ShotResult,
-  type StatOutcome,
   type StatType,
 } from "@/lib/hurling/stats";
-import { Choice } from "./StatLogger";
 import {
-  jerseyLabel,
-  playerLabel,
-  statMarks,
-  type StatPlayer,
-  type StatRow,
-} from "./types";
-
-const PUCKOUT_WINNERS: { value: PuckoutWinner; label: string }[] = [
-  { value: "us", label: "We won it" },
-  { value: "opposition", label: "They won it" },
-  { value: "unclear", label: "Broke unclear" },
-];
+  EMPTY_DETAIL,
+  StatFields,
+  detailForType,
+  detailFromRow,
+  detailReady,
+  detailToDraft,
+  nextDetail,
+  playerAllowed,
+  typedNumber,
+  type StatDetail,
+} from "./StatFields";
+import { playerLabel, statMarks, type NumberSheet, type StatRow } from "./types";
 
 export function StatPad({
   engine,
   matchId,
   videoId,
-  panel,
+  sheet,
   rows,
   setRows,
   statType,
   setStatType,
   onJump,
+  markers,
+  halfLengthMin,
 }: {
   engine: PlayerEngine;
   matchId: string;
   videoId: string;
-  panel: StatPlayer[];
+  /** Who wore what in this match, so far. */
+  sheet: NumberSheet;
   /** Held by the workspace, because the timeline draws them too. */
   rows: StatRow[];
   setRows: Dispatch<SetStateAction<StatRow[]>>;
@@ -90,12 +78,11 @@ export function StatPad({
   statType: StatType;
   setStatType: Dispatch<SetStateAction<StatType>>;
   onJump: (row: StatRow) => void;
+  /** The video's throw-in and half-time, when marked: they settle the half. */
+  markers: Markers;
+  halfLengthMin: number;
 }) {
-  const [outcome, setOutcome] = useState<StatOutcome | null>(null);
-  const [shotResult, setShotResult] = useState<ShotResult | null>(null);
-  const [puckoutTakenBy, setPuckoutTakenBy] = useState<PuckoutSide>("us");
-  const [ledToScore, setLedToScore] = useState(false);
-  const [playerId, setPlayerId] = useState("");
+  const [detail, setDetail] = useState<StatDetail>(EMPTY_DETAIL);
   const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
   const [dest, setDest] = useState<{ x: number; y: number } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -107,16 +94,26 @@ export function StatPad({
   const [pending, startTransition] = useTransition();
 
   const meta = STAT_TYPE_META[statType];
-  const players = useMemo(() => new Map(panel.map((p) => [p.id, p])), [panel]);
-  const playerAllowed = statType !== "puckout" || outcome === "positive";
+  const named = playerAllowed(statType, detail);
+  const ready = detailReady(statType, detail);
+  const patch = (p: Partial<StatDetail>) => setDetail((d) => ({ ...d, ...p }));
+  const halvesMarked = markers.throwIn != null;
 
-  const ready =
-    (meta.outcomes.length === 0 || outcome !== null) &&
-    (statType !== "shot" || shotResult !== null);
+  /**
+   * The half at a moment in the file, when the markers can say. The picker
+   * stays for footage with no markers yet, and the report re-reads the half
+   * from the markers anyway — so marking them later still sorts every entry.
+   */
+  const halfAt = (ms: number) => toGameTime(ms, markers, halfLengthMin).half;
 
   /** The instant an entry starts, captured once and then left alone. */
+  const stamp = (ms: number) => {
+    setStampMs(ms);
+    const half = halfAt(ms);
+    if (half) patch({ half });
+  };
   const stampIfFresh = () => {
-    if (!editingId && stampMs === null) setStampMs(engine.snapshot.positionMs);
+    if (!editingId && stampMs === null) stamp(engine.snapshot.positionMs);
   };
 
   const ofThisType = rows.filter((r) => r.statType === statType);
@@ -129,10 +126,7 @@ export function StatPad({
   };
 
   const resetEntry = () => {
-    setOutcome(null);
-    setShotResult(null);
-    setLedToScore(false);
-    setPlayerId("");
+    setDetail(nextDetail);
     setOrigin(null);
     setDest(null);
     setEditingId(null);
@@ -143,9 +137,7 @@ export function StatPad({
 
   const chooseType = (next: StatType) => {
     setStatType(next);
-    setOutcome(null);
-    setShotResult(null);
-    setLedToScore(false);
+    setDetail(detailForType);
     setDest(null);
     if (STAT_TYPE_META[next].points === 0) setOrigin(null);
     stampIfFresh();
@@ -176,7 +168,7 @@ export function StatPad({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [editingId, stampMs]);
+  }, [editingId, stampMs, markers, halfLengthMin]);
 
   const placePoint = (p: { x: number; y: number }) => {
     if (meta.points === 0) return;
@@ -196,12 +188,13 @@ export function StatPad({
   const marks: PitchMark[] = useMemo(() => {
     const existing = statMarks(
       rows.filter((r) => r.statType === statType && r.id !== editingId),
-      players,
+      sheet,
       { muted: true },
     );
     if (!origin) return existing;
 
-    const draft = { statType, outcome, shotResult };
+    const draft = detailToDraft(statType, detail);
+    const entry = { ...draft, outcome: draft.outcome ?? null };
     return [
       ...existing,
       {
@@ -210,31 +203,27 @@ export function StatPad({
         y: origin.y,
         toX: dest?.x ?? null,
         toY: dest?.y ?? null,
-        colour: statColour(draft),
-        shape: statShape(draft),
-        label: playerAllowed ? jerseyLabel(players.get(playerId)) : null,
+        colour: statColour(entry),
+        shape: statShape(entry),
+        label: named ? (typedNumber(detail.playerNumber)?.toString() ?? null) : null,
         title: "This entry",
         selected: true,
       },
     ];
-  }, [rows, statType, editingId, players, origin, dest, playerId, outcome, shotResult, playerAllowed]);
+  }, [rows, statType, editingId, sheet, origin, dest, detail, named]);
 
   const submit = () => {
     if (!ready || pending) return;
     // A tally logged without ever placing a point or switching type (the
     // default tab, hit straight away) still deserves a real timestamp.
     const atMs = stampMs ?? engine.snapshot.positionMs;
-    const input: Omit<StatInput, "matchId"> = {
-      statType,
-      outcome,
-      playerId: playerAllowed ? playerId || null : null,
+    const input = {
+      ...detailToDraft(statType, detail),
+      half: halfAt(atMs) ?? detail.half,
       originX: origin?.x ?? null,
       originY: origin?.y ?? null,
       destX: dest?.x ?? null,
       destY: dest?.y ?? null,
-      shotResult,
-      ledToScore: statType === "turnover" && outcome === "positive" ? ledToScore : null,
-      puckoutTakenBy: statType === "puckout" ? puckoutTakenBy : null,
       clipId: entryClipId,
       videoId,
       atMs,
@@ -259,11 +248,7 @@ export function StatPad({
   const edit = (row: StatRow) => {
     setEditingId(row.id);
     setStatType(row.statType);
-    setOutcome(row.outcome);
-    setShotResult(row.shotResult);
-    setLedToScore(Boolean(row.ledToScore));
-    setPuckoutTakenBy(row.puckoutTakenBy ?? "us");
-    setPlayerId(row.playerId ?? "");
+    setDetail(detailFromRow(row));
     setEntryClipId(row.clipId);
     setStampMs(row.atMs);
     setOrigin(row.originX != null && row.originY != null ? { x: row.originX, y: row.originY } : null);
@@ -321,9 +306,10 @@ export function StatPad({
           onClick={() => step(-1)}
           disabled={!timedOfThisType.length}
           title={`Previous ${meta.label.toLowerCase()}`}
-          className="btn-ghost px-1.5 py-0.5 text-xs disabled:opacity-35"
+          aria-label={`Previous ${meta.label.toLowerCase()}`}
+          className="btn-ghost px-1.5 py-1 text-xs disabled:opacity-35"
         >
-          ◀
+          <ChevronIcon direction="left" size={11} />
         </button>
         <span className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
           Watch {meta.plural.toLowerCase()}
@@ -332,91 +318,22 @@ export function StatPad({
           onClick={() => step(1)}
           disabled={!timedOfThisType.length}
           title={`Next ${meta.label.toLowerCase()}`}
-          className="btn-ghost px-1.5 py-0.5 text-xs disabled:opacity-35"
+          aria-label={`Next ${meta.label.toLowerCase()}`}
+          className="btn-ghost px-1.5 py-1 text-xs disabled:opacity-35"
         >
-          ▶
+          <ChevronIcon direction="right" size={11} />
         </button>
       </div>
 
       <div className="mt-4 space-y-4">
-        {statType === "puckout" && (
-          <Choice
-            label="Whose poc amach"
-            options={[
-              { value: "us", label: "Ours" },
-              { value: "opposition", label: "Theirs" },
-            ]}
-            value={puckoutTakenBy}
-            onChange={(v) => setPuckoutTakenBy(v as PuckoutSide)}
-          />
-        )}
-
-        {statType === "puckout" ? (
-          <Choice
-            label="Who won the break"
-            options={PUCKOUT_WINNERS.map((w) => ({
-              value: w.value,
-              label: w.label,
-              colour: OUTCOME_COLOURS[puckoutOutcome(w.value)],
-            }))}
-            value={outcome ? puckoutWinner(outcome) : null}
-            onChange={(v) => setOutcome(puckoutOutcome(v as PuckoutWinner))}
-          />
-        ) : statType === "shot" ? (
-          <Choice
-            label="Result"
-            options={SHOT_RESULTS.map((r) => ({
-              value: r,
-              label: SHOT_RESULT_LABELS[r],
-              colour: r === "wide" ? OUTCOME_COLOURS.negative : OUTCOME_COLOURS.positive,
-            }))}
-            value={shotResult}
-            onChange={(v) => setShotResult(v as ShotResult)}
-          />
-        ) : meta.outcomes.length > 0 ? (
-          <Choice
-            label="How it ended"
-            options={meta.outcomes.map((o) => ({
-              value: o,
-              label: outcomeLabel(statType, o),
-              colour: OUTCOME_COLOURS[o],
-            }))}
-            value={outcome}
-            onChange={(v) => setOutcome(v as StatOutcome)}
-          />
-        ) : null}
-
-        {statType === "turnover" && outcome === "positive" && (
-          <label className="flex w-fit items-center gap-2 text-[13px]">
-            <input
-              type="checkbox"
-              checked={ledToScore}
-              onChange={(e) => setLedToScore(e.target.checked)}
-              className="h-4 w-4 accent-[var(--color-brand)]"
-            />
-            We scored from it
-          </label>
-        )}
-
-        <div>
-          <label className="label mb-1.5 block" htmlFor="pad-player">
-            Player
-          </label>
-          <select
-            id="pad-player"
-            value={playerId}
-            disabled={!playerAllowed}
-            onChange={(e) => setPlayerId(e.target.value)}
-            className="field"
-          >
-            <option value="">Nobody named</option>
-            {panel.map((p) => (
-              <option key={p.id} value={p.id}>
-                {playerLabel(p)}
-              </option>
-            ))}
-          </select>
-        </div>
+        <StatFields
+          statType={statType}
+          detail={detail}
+          onChange={patch}
+          sheet={sheet}
+          idPrefix="pad"
+          halfNote={halvesMarked ? "Set from the video's half-time markers." : undefined}
+        />
 
         {meta.points > 0 && (
           <div>
@@ -440,7 +357,7 @@ export function StatPad({
 
         <div className="flex items-center justify-between gap-2 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
           <span>{stampMs != null ? `Timed at ${formatClock(stampMs)}` : "Timed when you start"}</span>
-          <button onClick={() => setStampMs(engine.snapshot.positionMs)} className="btn-ghost px-1.5 py-0.5">
+          <button onClick={() => stamp(engine.snapshot.positionMs)} className="btn-ghost px-1.5 py-0.5">
             Use now
           </button>
         </div>
@@ -480,12 +397,11 @@ export function StatPad({
 
         {newest.length === 0 ? (
           <p className="py-4 text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
-            Nothing yet. Watch, then press <span className="kbd">1</span>–<span className="kbd">6</span>.
+            Nothing yet. Watch, then press <span className="kbd">1</span>–<span className="kbd">7</span>.
           </p>
         ) : (
           <ul className="min-h-0 flex-1 overflow-y-auto">
             {newest.map((r) => {
-              const player = r.playerId ? players.get(r.playerId) : undefined;
               const rowOutcome = effectiveOutcome(r);
               const shape = rowOutcome ? statShape(r) : "filled";
               const colour = rowOutcome ? statColour(r) : "var(--color-line-strong)";
@@ -511,7 +427,7 @@ export function StatPad({
                   >
                     <div className="text-[13px]">{describeStat(r)}</div>
                     <div className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
-                      {player ? playerLabel(player) : "Nobody named"}
+                      {playerLabel(r.playerNumber, sheet)}
                       {r.atMs != null && `, ${formatClock(r.atMs)}`}
                     </div>
                   </button>

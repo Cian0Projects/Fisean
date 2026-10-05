@@ -3,38 +3,48 @@ import assert from "node:assert/strict";
 import {
   OUTCOME_COLOURS,
   STAT_LEAD_IN_MS,
+  chronological,
   countShots,
+  deliveryTally,
   describeStat,
   effectiveOutcome,
+  gameMinute,
+  matchResult,
+  jerseyNumber,
   normaliseEntry,
+  oppositionRuns,
   percentOf,
   playerStatLines,
+  possessionTally,
+  puckoutBreakdown,
   puckoutOutcome,
   puckoutWinner,
   shootingEfficiency,
   statColour,
   statShape,
+  statTiming,
   stepToStat,
+  summariseShooting,
   summariseStats,
 } from "../src/lib/hurling/stats.ts";
 
-const shot = (shotResult, playerId = null) => ({
+const shot = (shotResult, playerNumber = null) => ({
   statType: "shot",
   outcome: null,
   shotResult,
-  playerId,
+  playerNumber,
 });
 
-const puckout = (puckoutTakenBy, outcome, playerId = null) => ({
+const puckout = (puckoutTakenBy, outcome, playerNumber = null) => ({
   statType: "puckout",
   outcome,
   puckoutTakenBy,
-  playerId,
+  playerNumber,
 });
 
 test("shooting efficiency is scored over shots taken, both ways round", () => {
   // 2-7 from 14 shots: nine scored, five wide.
-  const e = shootingEfficiency({ goals: 2, points: 7, wides: 5 });
+  const e = shootingEfficiency({ goals: 2, points: 7, missed: 5 });
   assert.equal(e.scored, 9);
   assert.equal(e.total, 14);
   assert.equal(e.fraction, "9/14");
@@ -46,7 +56,7 @@ test("shooting efficiency is scored over shots taken, both ways round", () => {
 });
 
 test("no shots is 0%, not a division by zero", () => {
-  const e = shootingEfficiency({ goals: 0, points: 0, wides: 0 });
+  const e = shootingEfficiency({ goals: 0, points: 0, missed: 0 });
   assert.equal(e.percent, 0);
   assert.equal(e.label, "0/0 · 0%");
   assert.equal(e.notation, "0-0 from 0 shots");
@@ -54,7 +64,7 @@ test("no shots is 0%, not a division by zero", () => {
 });
 
 test("a single shot is not pluralised", () => {
-  assert.equal(shootingEfficiency({ goals: 0, points: 1, wides: 0 }).notation, "0-1 from 1 shot");
+  assert.equal(shootingEfficiency({ goals: 0, points: 1, missed: 0 }).notation, "0-1 from 1 shot");
 });
 
 test("percentages round to whole numbers", () => {
@@ -65,7 +75,23 @@ test("percentages round to whole numbers", () => {
 
 test("shots are counted by result", () => {
   const rows = [shot("goal"), shot("point"), shot("point"), shot("wide"), { statType: "tackle", outcome: null }];
-  assert.deepEqual(countShots(rows), { goals: 1, points: 2, wides: 1 });
+  assert.deepEqual(countShots(rows), { goals: 1, points: 2, missed: 1 });
+});
+
+test("a result needs their shots before it claims a margin", () => {
+  assert.equal(matchResult([{ statType: "tackle", outcome: null }]), null);
+
+  const oursOnly = matchResult([shot("goal"), shot("point"), shot("wide")]);
+  assert.deepEqual(oursOnly, { us: { cul: 1, cuilin: 1 }, them: null, margin: null });
+
+  const both = matchResult([
+    shot("goal"),
+    shot("point"),
+    { ...shot("point"), side: "opposition" },
+    { ...shot("point"), side: "opposition" },
+  ]);
+  assert.deepEqual(both.them, { cul: 0, cuilin: 2 });
+  assert.equal(both.margin, 2);
 });
 
 test("a poc amach is coloured by who won it, not by whose puck it was", () => {
@@ -152,29 +178,29 @@ test("the summary counts every stat type from the same rows", () => {
 
 test("player lines credit only what is attributed, and a lost poc amach names nobody", () => {
   const rows = [
-    { statType: "tackle", outcome: null, playerId: "reid" },
-    { statType: "tackle", outcome: null, playerId: null },
-    shot("goal", "reid"),
-    shot("wide", "reid"),
-    { statType: "turnover", outcome: "positive", ledToScore: true, playerId: "reid" },
-    { statType: "free_conceded", outcome: null, playerId: "walsh" },
-    puckout("us", "positive", "walsh"),
+    { statType: "tackle", outcome: null, playerNumber: 11 },
+    { statType: "tackle", outcome: null, playerNumber: null },
+    shot("goal", 11),
+    shot("wide", 11),
+    { statType: "turnover", outcome: "positive", ledToScore: true, playerNumber: 11 },
+    { statType: "free_conceded", outcome: null, playerNumber: 7 },
+    puckout("us", "positive", 7),
     // A lost one reaches the server without a player at all (see the action).
     puckout("us", "negative", null),
   ];
 
   const lines = playerStatLines(rows);
-  const reid = lines.get("reid");
-  assert.equal(reid.tackles, 1);
-  assert.equal(reid.goals, 1);
-  assert.equal(reid.wides, 1);
-  assert.equal(reid.turnoversWon, 1);
-  assert.equal(reid.turnoversLedToScore, 1);
-  assert.equal(reid.entries, 4);
+  const eleven = lines.get(11);
+  assert.equal(eleven.tackles, 1);
+  assert.equal(eleven.goals, 1);
+  assert.equal(eleven.missed, 1);
+  assert.equal(eleven.turnoversWon, 1);
+  assert.equal(eleven.turnoversLedToScore, 1);
+  assert.equal(eleven.entries, 4);
 
-  const walsh = lines.get("walsh");
-  assert.equal(walsh.freesConceded, 1);
-  assert.equal(walsh.puckoutsWon, 1);
+  const seven = lines.get(7);
+  assert.equal(seven.freesConceded, 1);
+  assert.equal(seven.puckoutsWon, 1);
 
   // The unattributed tackle still counts for the team, just not for a player.
   assert.equal(summariseStats(rows).tackles, 2);
@@ -193,9 +219,9 @@ test("a poc amach we did not win names nobody", () => {
     statType: "puckout",
     puckoutTakenBy: "us",
     outcome: "positive",
-    playerId: "reid",
+    playerNumber: 11,
   });
-  assert.equal(won.playerId, "reid");
+  assert.equal(won.playerNumber, 11);
 
   // The receiver is the only player a poc amach can credit, so a lost or
   // unclear one drops the name rather than pinning it on somebody.
@@ -204,9 +230,9 @@ test("a poc amach we did not win names nobody", () => {
       statType: "puckout",
       puckoutTakenBy: "opposition",
       outcome,
-      playerId: "reid",
+      playerNumber: 11,
     });
-    assert.equal(row.playerId, null);
+    assert.equal(row.playerNumber, null);
     assert.equal(row.puckoutTakenBy, "opposition");
   }
 
@@ -234,8 +260,8 @@ test("columns that do not apply to a stat are cleared, not carried over", () => 
   assert.equal(tackle.shotResult, null);
   assert.equal(tackle.outcome, null);
   assert.equal(tackle.destX, null);
-  // A tackle is a tally: it takes no place on the pitch either.
-  assert.equal(tackle.originX, null);
+  // A tackle keeps where it was made — the analyst's maps plot them.
+  assert.equal(tackle.originX, 0.4);
 
   // Only a delivery keeps a destination.
   const shot = normaliseEntry({
@@ -331,4 +357,239 @@ test("stepping does not care what order the sheet arrives in", () => {
   const outOfOrder = [{ atMs: 90_000 }, { atMs: 30_000 }, { atMs: 60_000 }];
   assert.equal(stepToStat(outOfOrder, 0, 1).atMs, 30_000);
   assert.equal(stepToStat(outOfOrder, 200_000, -1).atMs, 90_000);
+});
+
+/* ------------------------------------------- the analyst's summary sheet */
+
+const theirs = (shotResult, extra = {}) => ({ ...shot(shotResult), side: "opposition", ...extra });
+const many = (n, row) => Array.from({ length: n }, () => ({ ...row }));
+
+test("their shots are coloured from our side: their score is against us", () => {
+  assert.equal(effectiveOutcome(theirs("point")), "negative");
+  assert.equal(effectiveOutcome(theirs("wide")), "positive");
+  assert.equal(effectiveOutcome(theirs("saved")), "positive");
+  // A 65 or a ball kept after dropping short is still live, for either side.
+  assert.equal(effectiveOutcome(theirs("sixty_five")), "unclear");
+  assert.equal(effectiveOutcome(shot("retained")), "unclear");
+  assert.equal(statShape(theirs("goal")), "ring");
+  // A row from before sides existed was ours.
+  assert.equal(effectiveOutcome(shot("saved")), "negative");
+});
+
+test("their shot names nobody, and a shot defaults to ours from play", () => {
+  const row = normaliseEntry({ statType: "shot", shotResult: "point", side: "opposition", playerNumber: 11 });
+  assert.equal(row.playerNumber, null);
+  assert.equal(row.outcome, "negative");
+
+  const legacy = normaliseEntry({ statType: "shot", shotResult: "point", playerNumber: 11 });
+  assert.equal(legacy.side, "us");
+  assert.equal(legacy.shotKind, "play");
+  assert.equal(legacy.playerNumber, 11);
+});
+
+test("score opportunities split by from play and placed ball, and by what they came from", () => {
+  // Our side of the example sheet: 4-17 from 35 attempts.
+  const rows = [
+    ...many(4, { ...shot("goal"), attemptSource: "turnover" }),
+    ...many(11, { ...shot("point"), attemptSource: "other" }),
+    ...many(8, shot("wide")),
+    ...many(3, shot("saved")),
+    ...many(2, shot("lost")),
+    ...many(6, { ...shot("point"), shotKind: "free" }),
+    ...many(1, { ...shot("wide"), shotKind: "free" }),
+    // Theirs must not leak into ours.
+    ...many(5, theirs("point")),
+  ];
+  const s = summariseShooting(rows, "us");
+  assert.equal(s.overall.fraction, "21/35");
+  assert.equal(s.overall.percent, 60);
+  assert.deepEqual(s.overall.score, { cul: 4, cuilin: 17 });
+  assert.equal(s.fromPlay.fraction, "15/28");
+  assert.equal(s.placed.fraction, "6/7");
+  assert.equal(s.playResults.saved, 3);
+  assert.equal(s.placedResults.point, 6);
+  assert.deepEqual(s.sources.turnover, { attempts: 4, scored: 4 });
+  assert.deepEqual(s.sources.other, { attempts: 11, scored: 11 });
+  assert.equal(s.sources.unrecorded.attempts, 20);
+
+  assert.equal(summariseShooting(rows, "opposition").overall.fraction, "5/5");
+  // The team summary's shooting is ours alone.
+  assert.equal(summariseStats(rows).shooting.total, 35);
+});
+
+test("a short poc amach only counts as retained once it gets past our 65", () => {
+  // The example sheet: 60% (15/25).
+  const ours = (outcome, puckoutLength, pastSixtyFive) => ({
+    ...puckout("us", outcome),
+    puckoutLength,
+    pastSixtyFive,
+  });
+  const rows = [
+    ...many(8, ours("positive", "short", true)),
+    ...many(5, ours("positive", "short", false)),
+    ...many(2, ours("positive", "medium", null)),
+    ...many(2, ours("negative", "medium", null)),
+    ...many(5, ours("positive", "long", null)),
+    ...many(3, ours("negative", "long", null)),
+  ];
+  const b = puckoutBreakdown(rows, "us");
+  assert.equal(b.taken, 25);
+  assert.equal(b.byLength.short.kept, 13);
+  assert.equal(b.shortPastSixtyFive, 8);
+  assert.equal(b.shortHeldInside, 5);
+  assert.equal(b.retained, 15);
+  assert.equal(b.retainedPercent, 60);
+});
+
+test("their poc amach is read from their side: kept is theirs", () => {
+  const rows = [
+    { ...puckout("opposition", "negative"), puckoutLength: "short" },
+    { ...puckout("opposition", "negative"), puckoutLength: "short" },
+    { ...puckout("opposition", "positive"), puckoutLength: "long" },
+  ];
+  const b = puckoutBreakdown(rows, "opposition");
+  assert.equal(b.byLength.short.kept, 2);
+  assert.equal(b.byLength.long.lost, 1);
+});
+
+test("worked past our 65 only survives on our short poc amach that we won", () => {
+  const base = { statType: "puckout", puckoutTakenBy: "us", puckoutLength: "short", pastSixtyFive: true };
+  assert.equal(normaliseEntry({ ...base, outcome: "positive" }).pastSixtyFive, true);
+  assert.equal(normaliseEntry({ ...base, outcome: "negative" }).pastSixtyFive, null);
+  assert.equal(normaliseEntry({ ...base, puckoutLength: "long", outcome: "positive" }).pastSixtyFive, null);
+  assert.equal(
+    normaliseEntry({ ...base, puckoutTakenBy: "opposition", outcome: "positive" }).pastSixtyFive,
+    null,
+  );
+});
+
+test("an unforced loss is only ever a loss", () => {
+  assert.throws(
+    () => normaliseEntry({ statType: "turnover", outcome: "positive", possession: "unforced" }),
+    /only ever a loss/,
+  );
+  const lost = normaliseEntry({ statType: "turnover", outcome: "negative", possession: "unforced" });
+  assert.equal(lost.possession, "unforced");
+  // A turnover logged before the kinds existed was a plain turnover.
+  assert.equal(normaliseEntry({ statType: "turnover", outcome: "positive" }).possession, "turnover");
+  assert.equal(describeStat(lost), "Unforced loss");
+  assert.equal(describeStat({ statType: "turnover", outcome: "negative", possession: "sixty_forty" }), "60/40 ball lost");
+});
+
+test("the possession pivot counts tackles and each way the ball changed hands", () => {
+  const rows = [
+    { statType: "tackle", outcome: null, frontEight: true, playerNumber: 11 },
+    { statType: "tackle", outcome: null, playerNumber: 11 },
+    { statType: "turnover", outcome: "positive", possession: "sixty_forty", playerNumber: 7 },
+    { statType: "turnover", outcome: "negative", possession: "unforced", playerNumber: null },
+    { statType: "turnover", outcome: "negative" },
+  ];
+  const t = possessionTally(rows);
+  assert.equal(t.totals.front_eight_tackle, 1);
+  assert.equal(t.totals.tackle, 1);
+  assert.equal(t.totals.sixty_forty_won, 1);
+  assert.equal(t.totals.unforced_lost, 1);
+  assert.equal(t.totals.turnover_lost, 1);
+  const eleven = t.lines.find((l) => l.playerNumber === 11);
+  assert.equal(eleven.total, 2);
+  // Unnamed entries still count, on a line of their own.
+  assert.equal(t.lines.find((l) => l.playerNumber === null).total, 2);
+});
+
+test("a delivery credits the striker and whoever it was aimed at", () => {
+  const rows = [
+    { statType: "delivery", outcome: "positive", playerNumber: 7, targetNumber: 11 },
+    { statType: "delivery", outcome: "negative", playerNumber: 7, targetNumber: 11 },
+    { statType: "delivery", outcome: "negative", playerNumber: null, targetNumber: null },
+  ];
+  const t = deliveryTally(rows);
+  assert.deepEqual(t.totals, { struck: 3, received: 1, lost: 2 });
+  assert.equal(t.lines.find((l) => l.playerNumber === 7).counts.struck, 2);
+  assert.equal(t.lines.find((l) => l.playerNumber === 11).counts.lost, 1);
+  // The target only survives on a delivery.
+  assert.equal(normaliseEntry({ statType: "tackle", targetNumber: 11 }).targetNumber, null);
+});
+
+test("frees: one conceded against us, one won for us, and scorable is a flag", () => {
+  assert.equal(effectiveOutcome({ statType: "free_won", outcome: null }), "positive");
+  const rows = [
+    { statType: "free_conceded", outcome: null, scorable: true },
+    { statType: "free_conceded", outcome: null, scorable: false },
+    { statType: "free_won", outcome: null },
+  ];
+  const s = summariseStats(rows);
+  assert.equal(s.freesConceded, 2);
+  assert.equal(s.scorableFreesConceded, 1);
+  assert.equal(s.freesWon, 1);
+  assert.equal(describeStat(rows[0]), "Scorable free conceded");
+});
+
+test("their shots describe themselves as theirs", () => {
+  assert.equal(describeStat(theirs("point")), "Their cúilín");
+  assert.equal(describeStat(theirs("wide", { shotKind: "free" })), "Their free wide");
+  assert.equal(describeStat({ ...shot("point"), shotKind: "free" }), "Cúilín from a free");
+});
+
+test("the half comes from the footage's markers when they are set, else from the coach", () => {
+  const markers = { throwIn: 60_000, halfTime: 60_000 + 30 * 60_000, secondHalf: 60_000 + 45 * 60_000 };
+  // Ten minutes into the second half of a 30-minute-half game is the 40th minute.
+  const late = statTiming({ half: 1, atMs: markers.secondHalf + 10 * 60_000 }, markers, 30);
+  assert.equal(late.half, 2);
+  assert.equal(late.gameMs, 40 * 60_000);
+  assert.equal(gameMinute(late.gameMs), 41);
+
+  // No markers: the coach's word stands, and there is no clock to give.
+  assert.deepEqual(statTiming({ half: 2, atMs: 5_000 }, undefined), { half: 2, gameMs: null });
+  assert.deepEqual(statTiming({ half: 1, atMs: 5_000 }, { throwIn: null }), { half: 1, gameMs: null });
+  assert.equal(normaliseEntry({ statType: "free_won", half: 3 }).half, null);
+});
+
+test("chronological orders by half, then by clock only when the whole half has one", () => {
+  const rows = [
+    { id: "a", half: 2, gameMs: 40, createdAt: 1 },
+    { id: "b", half: 1, gameMs: null, createdAt: 3 },
+    { id: "c", half: 1, gameMs: 10, createdAt: 2 },
+    { id: "d", half: 2, gameMs: 35, createdAt: 4 },
+    { id: "e", half: null, gameMs: null, createdAt: 0 },
+  ];
+  // Half one has an entry with no clock, so it goes by logging order.
+  assert.deepEqual(chronological(rows).map((r) => r.id), ["c", "b", "d", "a", "e"]);
+});
+
+test("a spell of four or more of their attempts without a reply is found, across half-time", () => {
+  let t = 0;
+  const at = (row, half) => ({ ...row, half, createdAt: t++ });
+  const rows = [
+    at(theirs("point"), 1),
+    at(theirs("wide"), 1),
+    at(shot("point"), 1), // our reply breaks the first spell at two
+    at(theirs("wide"), 1),
+    at(theirs("point"), 1),
+    at(theirs("lost"), 2),
+    at(theirs("point", { shotKind: "free" }), 2),
+    at({ statType: "tackle", outcome: null }, 2), // not a shot, so not a reply
+    at(theirs("goal"), 2),
+    at(shot("wide"), 2),
+    at(theirs("point"), 2),
+  ];
+  const runs = oppositionRuns(rows);
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].length, 5);
+  assert.equal(oppositionRuns(rows, 6).length, 0);
+});
+
+test("a stat is credited to a jersey number, and only one somebody could wear", () => {
+  assert.equal(jerseyNumber(null), null);
+  assert.equal(jerseyNumber(""), null);
+  assert.equal(jerseyNumber("22"), 22);
+  assert.equal(jerseyNumber(9), 9);
+  for (const bad of [0, 100, 2.5, "x", -3]) {
+    assert.throws(() => jerseyNumber(bad), /1 to 99/);
+  }
+
+  // A delivery carries two numbers: who struck it, and who it was aimed at.
+  const row = normaliseEntry({ statType: "delivery", outcome: "positive", playerNumber: 6, targetNumber: "14" });
+  assert.equal(row.playerNumber, 6);
+  assert.equal(row.targetNumber, 14);
+  assert.throws(() => normaliseEntry({ statType: "tackle", playerNumber: 0 }), /1 to 99/);
 });

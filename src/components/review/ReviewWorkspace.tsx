@@ -26,6 +26,7 @@ import Link from "next/link";
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PlayerEngine } from "@/components/player/engine";
+import { Mark } from "@/components/ui/Mark";
 import { PlayToggle, RateBadge, Timecode, VideoStage } from "@/components/player/VideoStage";
 import { Timeline, type TimelineClip } from "@/components/player/Timeline";
 import { ClipTrimmer } from "@/components/player/ClipTrimmer";
@@ -39,7 +40,7 @@ import { saveAnnotation } from "@/lib/actions/review";
 import type { Shape } from "@/lib/db/schema";
 import { StatPad } from "@/components/stats/StatPad";
 import { StatLanes } from "@/components/stats/StatLanes";
-import type { StatPlayer, StatRow } from "@/components/stats/types";
+import { numberSheet, type SheetEntry, type StatRow } from "@/components/stats/types";
 import { STAT_LEAD_IN_MS, type StatType } from "@/lib/hurling/stats";
 import { ClipList } from "./ClipList";
 import { ClipInspector } from "./ClipInspector";
@@ -77,8 +78,8 @@ type Props = {
   initialClips: ClipRow[];
   markerRows: { kind: string; atMs: number }[];
   viewer: Viewer;
-  /** Only present when the match has a stat sheet to log against. */
-  statPanel?: StatPlayer[];
+  /** Only present when the match has a stat sheet to log against: who wore what. */
+  statNumbers?: SheetEntry[];
   initialStatRows?: StatRow[];
 };
 
@@ -90,7 +91,7 @@ export function ReviewWorkspace({
   initialClips,
   markerRows,
   viewer,
-  statPanel,
+  statNumbers,
   initialStatRows,
 }: Props) {
   const engine = useMemo(() => new PlayerEngine(), []);
@@ -524,10 +525,7 @@ export function ReviewWorkspace({
 
   /* ------------------------------------------------------- stats on the bar */
 
-  const statPlayers = useMemo(
-    () => new Map((statPanel ?? []).map((p) => [p.id, p])),
-    [statPanel],
-  );
+  const statSheet = useMemo(() => numberSheet(statNumbers ?? []), [statNumbers]);
 
   /**
    * Watch a logged stat back. Any focused clip has to be let go of first, or
@@ -552,8 +550,9 @@ export function ReviewWorkspace({
         className="flex shrink-0 items-center gap-4 border-b px-4 py-2"
         style={{ borderColor: "var(--color-line)" }}
       >
-        <Link href="/" className="wordmark text-[17px]" title="Back to the matches">
-          Físeán
+        <Link href="/" className="flex items-center gap-2" title="Back to the matches">
+          <Mark className="h-[17px]" />
+          <span className="wordmark text-[17px]">Físeán</span>
         </Link>
         <span
           aria-hidden
@@ -696,6 +695,7 @@ export function ReviewWorkspace({
               if (clip) focusClip(clip);
             }}
             labelGutterPx={statsOpen ? LANE_GUTTER_PX : 0}
+            compact={statsOpen}
           />
 
           {statsOpen && (
@@ -703,7 +703,7 @@ export function ReviewWorkspace({
               engine={engine}
               durationMs={video.durationMs}
               rows={statRows}
-              players={statPlayers}
+              sheet={statSheet}
               focusType={statType}
               onFocusType={setStatType}
               onSelectStat={jumpToStat}
@@ -780,12 +780,14 @@ export function ReviewWorkspace({
               engine={engine}
               matchId={match.id}
               videoId={video.id}
-              panel={statPanel ?? []}
+              sheet={statSheet}
               rows={statRows}
               setRows={setStatRows}
               statType={statType}
               setStatType={setStatType}
               onJump={jumpToStat}
+              markers={markers}
+              halfLengthMin={match.halfLengthMin}
             />
           ) : (
             <>

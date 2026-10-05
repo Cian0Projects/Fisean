@@ -9,7 +9,7 @@
  * a row of red in the deliveries lane through the third quarter is the thing
  * a coach is actually looking for.
  *
- * Two lanes are in view and the rest scroll, because six lanes plus the video
+ * Two lanes are in view and the rest scroll, because seven lanes plus the video
  * and the pad is more than the screen has. The lane label is the index, so the
  * colours are the second way of telling lanes apart and never the only one.
  *
@@ -28,17 +28,21 @@ import {
   statColour,
   type StatType,
 } from "@/lib/hurling/stats";
-import { playerLabel, type StatPlayer, type StatRow } from "./types";
+import { playerLabel, type NumberSheet, type StatRow } from "./types";
 
-/** Tall enough to hit a mark on, short enough that two fit above the pad. */
-const LANE_H = 34;
+/**
+ * Tall enough to hit a mark on, short enough that two fit above the pad.
+ * The scrub bar goes compact while these are showing and hands over the
+ * depth it was using, which is where the extra half of a lane comes from.
+ */
+const LANE_H = 51;
 const LANES_IN_VIEW = 2;
 
 export function StatLanes({
   engine,
   durationMs,
   rows,
-  players,
+  sheet,
   focusType,
   onFocusType,
   onSelectStat,
@@ -47,7 +51,7 @@ export function StatLanes({
   engine: PlayerEngine;
   durationMs: number;
   rows: StatRow[];
-  players: Map<string, StatPlayer>;
+  sheet: NumberSheet;
   focusType: StatType;
   onFocusType: (type: StatType) => void;
   onSelectStat: (row: StatRow) => void;
@@ -95,14 +99,14 @@ export function StatLanes({
               <button
                 onClick={() => onFocusType(type)}
                 title={`Log and watch ${meta.plural.toLowerCase()}`}
-                className="flex shrink-0 items-center gap-1.5 pr-2 text-left text-[12px]"
+                className="flex shrink-0 items-center gap-2 pr-2 text-left text-[13px]"
                 // The lane's own colour, on the word as well as the chip:
                 // the label is what names it, so it is what should carry it.
                 style={{ width: gutterPx, color: colour, opacity: here ? 1 : 0.72 }}
               >
                 <span
                   aria-hidden
-                  className="h-3.5 w-[3px] shrink-0 rounded-sm"
+                  className="h-5 w-[3px] shrink-0 rounded-sm"
                   style={{ background: colour }}
                 />
                 <span className="truncate" style={{ fontWeight: here ? 600 : 400 }}>
@@ -121,20 +125,23 @@ export function StatLanes({
                 />
 
                 {mine.map((r) => {
-                  const who = r.playerId ? players.get(r.playerId) : undefined;
                   return (
                     <button
                       key={r.id}
-                      title={[formatClock(r.atMs!), describeStat(r), who ? playerLabel(who) : null]
+                      title={[
+                        formatClock(r.atMs!),
+                        describeStat(r),
+                        r.playerNumber != null ? playerLabel(r.playerNumber, sheet) : null,
+                      ]
                         .filter(Boolean)
                         .join(" — ")}
                       onClick={() => onSelectStat(r)}
                       // A 3px mark keeps a full match readable; the button
                       // around it is wide enough to actually hit.
-                      className="absolute top-1/2 flex h-4 w-2.5 -translate-y-1/2 justify-center"
+                      className="absolute top-1/2 flex h-6 w-3 -translate-y-1/2 justify-center"
                       style={{
                         left: `${durationMs > 0 ? Math.min(100, Math.max(0, (r.atMs! / durationMs) * 100)) : 0}%`,
-                        marginLeft: "-5px",
+                        marginLeft: "-6px",
                       }}
                     >
                       <span

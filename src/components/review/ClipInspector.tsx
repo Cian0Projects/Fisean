@@ -211,9 +211,6 @@ export function ClipInspector({
                         color: on ? "var(--color-ink)" : "var(--color-ink-dim)",
                       }}
                     >
-                      {m.jerseyNumber != null && (
-                        <span className="tabular mr-1 opacity-60">{m.jerseyNumber}</span>
-                      )}
                       {m.displayName}
                     </button>
                   );

@@ -2,10 +2,17 @@
 import type { PitchMark } from "@/components/pitch/PitchMap";
 import {
   describeStat,
+  gameMinute,
   statColour,
   statShape,
+  type AttemptSource,
+  type Half,
+  type PossessionKind,
+  type PuckoutLength,
   type PuckoutSide,
+  type ShotKind,
   type ShotResult,
+  type Side,
   type StatOutcome,
   type StatType,
 } from "@/lib/hurling/stats";
@@ -14,26 +21,45 @@ export type StatRow = {
   id: string;
   statType: StatType;
   outcome: StatOutcome | null;
-  playerId: string | null;
+  playerNumber: number | null;
+  targetNumber: number | null;
   originX: number | null;
   originY: number | null;
   destX: number | null;
   destY: number | null;
+  half: Half | null;
+  side: Side | null;
   shotResult: ShotResult | null;
+  shotKind: ShotKind | null;
+  attemptSource: AttemptSource | null;
   ledToScore: boolean | null;
+  possession: PossessionKind | null;
+  frontEight: boolean | null;
+  scorable: boolean | null;
   puckoutTakenBy: PuckoutSide | null;
+  puckoutLength: PuckoutLength | null;
+  pastSixtyFive: boolean | null;
   clipId: string | null;
   videoId: string | null;
   atMs: number | null;
   createdAt: number;
+  /** Game clock, filled in by the report page from the video's markers. */
+  gameMs?: number | null;
 };
 
-export type StatPlayer = {
-  id: string;
+/** One number on a match's sheet, and who wore it. */
+export type SheetEntry = {
+  number: number;
+  userId: string;
   displayName: string;
-  jerseyNumber: number | null;
-  position: number | null;
 };
+
+/** A match's numbers, looked up by the number a stat was logged against. */
+export type NumberSheet = Map<number, SheetEntry>;
+
+export function numberSheet(entries: readonly SheetEntry[]): NumberSheet {
+  return new Map(entries.map((e) => [e.number, e]));
+}
 
 export type StatMatchInfo = {
   id: string;
@@ -43,16 +69,14 @@ export type StatMatchInfo = {
   playedOn: string;
 };
 
-/** Jersey number on the map, name in the table — fifteen dots stay readable. */
-export function jerseyLabel(player: StatPlayer | undefined): string | null {
-  return player?.jerseyNumber != null ? String(player.jerseyNumber) : null;
-}
-
-export function playerLabel(player: StatPlayer | undefined): string {
-  if (!player) return "Unattributed";
-  return player.jerseyNumber != null
-    ? `${player.jerseyNumber}. ${player.displayName}`
-    : player.displayName;
+/**
+ * A logged number as a person reads it: with the name once the match's sheet
+ * has one, and as the bare number until then — it still counts either way.
+ */
+export function playerLabel(number: number | null | undefined, sheet: NumberSheet): string {
+  if (number == null) return "Nobody named";
+  const who = sheet.get(number);
+  return who ? `${number}. ${who.displayName}` : `Number ${number}`;
 }
 
 /**
@@ -64,11 +88,11 @@ export function playerLabel(player: StatPlayer | undefined): string {
  */
 export function statMark(
   row: StatRow,
-  player: StatPlayer | undefined,
+  sheet: NumberSheet,
   options: { muted?: boolean; selected?: boolean } = {},
 ): PitchMark | null {
   if (row.originX == null || row.originY == null) return null;
-  const who = player ? playerLabel(player) : null;
+  const who = row.playerNumber != null ? playerLabel(row.playerNumber, sheet) : null;
 
   return {
     id: row.id,
@@ -78,7 +102,12 @@ export function statMark(
     toY: row.destY,
     colour: statColour(row),
     shape: statShape(row),
-    label: jerseyLabel(player),
+    // The number on the map, the name in the table: fifteen dots stay readable.
+    label: row.playerNumber != null ? String(row.playerNumber) : null,
+    // The minute under the mark, as the analyst's maps have it — only when
+    // the footage's halves are marked, because a guessed minute is worse
+    // than none.
+    note: row.gameMs != null ? `${gameMinute(row.gameMs)}′` : null,
     title: [describeStat(row), who].filter(Boolean).join(" — "),
     muted: options.muted,
     selected: options.selected,
@@ -88,12 +117,12 @@ export function statMark(
 /** Every mark for a set of rows, in one pass. */
 export function statMarks(
   rows: StatRow[],
-  players: Map<string, StatPlayer>,
+  sheet: NumberSheet,
   options: { muted?: boolean; selectedId?: string | null } = {},
 ): PitchMark[] {
   return rows
     .map((r) =>
-      statMark(r, r.playerId ? players.get(r.playerId) : undefined, {
+      statMark(r, sheet, {
         muted: options.muted,
         selected: options.selectedId === r.id,
       }),

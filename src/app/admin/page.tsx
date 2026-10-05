@@ -13,9 +13,9 @@ export default async function AdminPage() {
     return (
       <>
         <Nav user={user} />
-        <main className="mx-auto max-w-2xl px-4 py-20">
-          <h1 className="display text-3xl">Squad settings</h1>
-          <p className="measure mt-3 text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
+        <main className="sheet py-16">
+          <h1 className="display text-5xl">Squad settings</h1>
+          <p className="measure mt-4 text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
             Matches, footage and the panel are looked after by the coaches and
             the team admin. Everything you can do is on the matches page.
           </p>
@@ -32,13 +32,12 @@ export default async function AdminPage() {
       displayName: users.displayName,
       username: users.username,
       role: users.role,
-      jerseyNumber: users.jerseyNumber,
       position: users.position,
       lastSeenAt: users.lastSeenAt,
     })
     .from(users)
     .where(eq(users.teamId, user.teamId))
-    .orderBy(asc(users.jerseyNumber), asc(users.displayName));
+    .orderBy(asc(users.displayName));
 
   const matchRows = await db
     .select()

@@ -5,9 +5,10 @@
  *
  * The form follows how the notebook is actually read back: a type, an
  * outcome, sometimes a name, sometimes a place. A tackle is two clicks; a
- * delivery is the slowest at five, because it genuinely carries five pieces
- * of information. Number keys switch type, so a whole sheet can be typed up
- * without the mouse leaving the pitch.
+ * shot carries the most, because the summary sheet asks the most of it —
+ * whose, from play or a free, how it ended, what it came from. Number keys
+ * switch type, so a whole sheet can be typed up without the mouse leaving the
+ * pitch. The questions themselves live in StatFields, shared with the pad.
  *
  * Entries are listed, editable and deletable here, the same as clips are in
  * the review workspace — a stat sheet is typed up in one sitting and always
@@ -16,37 +17,34 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { PitchMap, type PitchMark } from "@/components/pitch/PitchMap";
+import { deleteMatchStat, logMatchStat, updateMatchStat } from "@/lib/actions/stats";
 import {
-  deleteMatchStat,
-  logMatchStat,
-  updateMatchStat,
-  type StatInput,
-} from "@/lib/actions/stats";
-import {
-  OUTCOME_COLOURS,
-  SHOT_RESULTS,
-  SHOT_RESULT_LABELS,
   STAT_TYPES,
   STAT_TYPE_META,
   describeStat,
   effectiveOutcome,
-  outcomeLabel,
-  puckoutOutcome,
-  puckoutWinner,
   statColour,
   statShape,
-  type PuckoutSide,
-  type PuckoutWinner,
-  type ShotResult,
-  type StatOutcome,
   type StatType,
 } from "@/lib/hurling/stats";
 import {
-  jerseyLabel,
+  EMPTY_DETAIL,
+  StatFields,
+  detailForType,
+  detailFromRow,
+  detailReady,
+  detailToDraft,
+  nextDetail,
+  playerAllowed,
+  typedNumber,
+  type StatDetail,
+} from "./StatFields";
+import {
+  numberSheet,
   playerLabel,
   statMarks,
+  type SheetEntry,
   type StatMatchInfo,
-  type StatPlayer,
   type StatRow,
 } from "./types";
 import { matchDateLong } from "@/lib/format";
@@ -54,30 +52,21 @@ import { formatClock } from "@/lib/hurling/notation";
 
 type ClipOption = { id: string; label: string };
 
-const PUCKOUT_WINNERS: { value: PuckoutWinner; label: string }[] = [
-  { value: "us", label: "We won it" },
-  { value: "opposition", label: "They won it" },
-  { value: "unclear", label: "Broke unclear" },
-];
-
 export function StatLogger({
   match,
-  panel,
+  numbers,
   initialRows,
   clips,
 }: {
   match: StatMatchInfo;
-  panel: StatPlayer[];
+  /** Who wore what in this match, so far. */
+  numbers: SheetEntry[];
   initialRows: StatRow[];
   clips: ClipOption[];
 }) {
   const [rows, setRows] = useState<StatRow[]>(initialRows);
   const [statType, setStatType] = useState<StatType>("tackle");
-  const [outcome, setOutcome] = useState<StatOutcome | null>(null);
-  const [shotResult, setShotResult] = useState<ShotResult | null>(null);
-  const [puckoutTakenBy, setPuckoutTakenBy] = useState<PuckoutSide>("us");
-  const [ledToScore, setLedToScore] = useState(false);
-  const [playerId, setPlayerId] = useState("");
+  const [detail, setDetail] = useState<StatDetail>(EMPTY_DETAIL);
   const [clipId, setClipId] = useState("");
   // A timestamp set by the live logging pad in the review workspace. This
   // page has no video open to read one from, so it only ever carries one
@@ -93,21 +82,14 @@ export function StatLogger({
   const [pending, startTransition] = useTransition();
 
   const meta = STAT_TYPE_META[statType];
-  const players = useMemo(() => new Map(panel.map((p) => [p.id, p])), [panel]);
+  const sheet = useMemo(() => numberSheet(numbers), [numbers]);
+  const named = playerAllowed(statType, detail);
+  const ready = detailReady(statType, detail);
+  const patch = (p: Partial<StatDetail>) => setDetail((d) => ({ ...d, ...p }));
 
-  /** A poc amach names the receiver, so only one we won takes a player. */
-  const playerAllowed = statType !== "puckout" || outcome === "positive";
-
-  const ready =
-    (meta.outcomes.length === 0 || outcome !== null) &&
-    (statType !== "shot" || shotResult !== null);
-
-  /** Keep the type, drop the details — the next entry is a different moment. */
+  /** Keep the type and the context, drop the details — the next entry is a different moment. */
   const resetEntry = () => {
-    setOutcome(null);
-    setShotResult(null);
-    setLedToScore(false);
-    setPlayerId("");
+    setDetail(nextDetail);
     setClipId("");
     setEntryVideo({ videoId: null, atMs: null });
     setOrigin(null);
@@ -118,9 +100,7 @@ export function StatLogger({
 
   const chooseType = (next: StatType) => {
     setStatType(next);
-    setOutcome(null);
-    setShotResult(null);
-    setLedToScore(false);
+    setDetail(detailForType);
     setDest(null);
     if (STAT_TYPE_META[next].points === 0) setOrigin(null);
   };
@@ -177,12 +157,13 @@ export function StatLogger({
   const marks: PitchMark[] = useMemo(() => {
     const existing = statMarks(
       rows.filter((r) => r.statType === statType && r.id !== editingId),
-      players,
+      sheet,
       { muted: true },
     );
     if (!origin) return existing;
 
-    const draft = { statType, outcome, shotResult };
+    const draft = detailToDraft(statType, detail);
+    const entry = { ...draft, outcome: draft.outcome ?? null };
     return [
       ...existing,
       {
@@ -193,41 +174,25 @@ export function StatLogger({
         toY: dest?.y ?? null,
         // The entry being built is coloured and shaped by the same rules as a
         // saved one, so the mark settles as the outcome is picked.
-        colour: statColour(draft),
-        shape: statShape(draft),
-        label: playerAllowed ? jerseyLabel(players.get(playerId)) : null,
+        colour: statColour(entry),
+        shape: statShape(entry),
+        label: named ? (typedNumber(detail.playerNumber)?.toString() ?? null) : null,
         title: "This entry",
         selected: true,
       },
     ];
-  }, [
-    rows,
-    statType,
-    editingId,
-    players,
-    origin,
-    dest,
-    playerId,
-    outcome,
-    shotResult,
-    playerAllowed,
-  ]);
+  }, [rows, statType, editingId, sheet, origin, dest, detail, named]);
 
   /* ---------------------------------------------------------- submitting */
 
   const submit = () => {
     if (!ready || pending) return;
-    const input: Omit<StatInput, "matchId"> = {
-      statType,
-      outcome,
-      playerId: playerAllowed ? playerId || null : null,
+    const input = {
+      ...detailToDraft(statType, detail),
       originX: origin?.x ?? null,
       originY: origin?.y ?? null,
       destX: dest?.x ?? null,
       destY: dest?.y ?? null,
-      shotResult,
-      ledToScore: statType === "turnover" && outcome === "positive" ? ledToScore : null,
-      puckoutTakenBy: statType === "puckout" ? puckoutTakenBy : null,
       clipId: clipId || null,
       videoId: entryVideo.videoId,
       atMs: entryVideo.atMs,
@@ -252,11 +217,7 @@ export function StatLogger({
   const edit = (row: StatRow) => {
     setEditingId(row.id);
     setStatType(row.statType);
-    setOutcome(row.outcome);
-    setShotResult(row.shotResult);
-    setLedToScore(Boolean(row.ledToScore));
-    setPuckoutTakenBy(row.puckoutTakenBy ?? "us");
-    setPlayerId(row.playerId ?? "");
+    setDetail(detailFromRow(row));
     setClipId(row.clipId ?? "");
     setEntryVideo({ videoId: row.videoId, atMs: row.atMs });
     setOrigin(row.originX != null && row.originY != null ? { x: row.originX, y: row.originY } : null);
@@ -290,9 +251,14 @@ export function StatLogger({
           </p>
           <h1 className="display mt-1.5 text-[clamp(2rem,5vw,3rem)]">{match.opponent}</h1>
         </div>
-        <Link href={`/matches/${match.id}/stats`} className="btn-outline text-xs">
-          See the report
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href={`/matches/${match.id}/numbers`} className="btn-outline text-xs">
+            Put names to numbers
+          </Link>
+          <Link href={`/matches/${match.id}/stats`} className="btn-outline text-xs">
+            See the report
+          </Link>
+        </div>
       </header>
 
       <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
@@ -330,112 +296,35 @@ export function StatLogger({
           </div>
 
           <div className="mt-6 space-y-6">
-            {statType === "puckout" && (
-              <Choice
-                label="Whose poc amach"
-                options={[
-                  { value: "us", label: "Ours" },
-                  { value: "opposition", label: "Theirs" },
-                ]}
-                value={puckoutTakenBy}
-                onChange={(v) => setPuckoutTakenBy(v as PuckoutSide)}
-              />
-            )}
+            <StatFields
+              statType={statType}
+              detail={detail}
+              onChange={patch}
+              sheet={sheet}
+              idPrefix="stat"
+              halfNote={detail.half ? undefined : "Pick it once; it stays set for the entries after."}
+            />
 
-            {statType === "puckout" ? (
-              <Choice
-                label="Who won the break"
-                options={PUCKOUT_WINNERS.map((w) => ({
-                  value: w.value,
-                  label: w.label,
-                  colour: OUTCOME_COLOURS[puckoutOutcome(w.value)],
-                }))}
-                value={outcome ? puckoutWinner(outcome) : null}
-                onChange={(v) => setOutcome(puckoutOutcome(v as PuckoutWinner))}
-              />
-            ) : statType === "shot" ? (
-              <Choice
-                label="Result"
-                options={SHOT_RESULTS.map((r) => ({
-                  value: r,
-                  label: SHOT_RESULT_LABELS[r],
-                  colour: r === "wide" ? OUTCOME_COLOURS.negative : OUTCOME_COLOURS.positive,
-                }))}
-                value={shotResult}
-                onChange={(v) => setShotResult(v as ShotResult)}
-              />
-            ) : meta.outcomes.length > 0 ? (
-              <Choice
-                label="How it ended"
-                options={meta.outcomes.map((o) => ({
-                  value: o,
-                  label: outcomeLabel(statType, o),
-                  colour: OUTCOME_COLOURS[o],
-                }))}
-                value={outcome}
-                onChange={(v) => setOutcome(v as StatOutcome)}
-              />
-            ) : null}
-
-            {statType === "turnover" && outcome === "positive" && (
-              <label className="flex w-fit items-center gap-2.5 text-[14px]">
-                <input
-                  type="checkbox"
-                  checked={ledToScore}
-                  onChange={(e) => setLedToScore(e.target.checked)}
-                  className="h-4 w-4 accent-[var(--color-brand)]"
-                />
-                We scored from it
-              </label>
-            )}
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="label mb-1.5 block" htmlFor="stat-player">
-                  Player
+            {clips.length > 0 && (
+              <div className="sm:w-1/2 sm:pr-2">
+                <label className="label mb-1.5 block" htmlFor="stat-clip">
+                  Clip of the moment
                 </label>
                 <select
-                  id="stat-player"
-                  value={playerId}
-                  disabled={!playerAllowed}
-                  onChange={(e) => setPlayerId(e.target.value)}
+                  id="stat-clip"
+                  value={clipId}
+                  onChange={(e) => setClipId(e.target.value)}
                   className="field"
                 >
-                  <option value="">Nobody named</option>
-                  {panel.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {playerLabel(p)}
+                  <option value="">None</option>
+                  {clips.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
                     </option>
                   ))}
                 </select>
-                {!playerAllowed && (
-                  <p className="mt-1.5 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-                    A poc amach names the receiver, so only one we won takes a player.
-                  </p>
-                )}
               </div>
-
-              {clips.length > 0 && (
-                <div>
-                  <label className="label mb-1.5 block" htmlFor="stat-clip">
-                    Clip of the moment
-                  </label>
-                  <select
-                    id="stat-clip"
-                    value={clipId}
-                    onChange={(e) => setClipId(e.target.value)}
-                    className="field"
-                  >
-                    <option value="">None</option>
-                    {clips.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
+            )}
 
             {meta.points > 0 && (
               <div>
@@ -515,13 +404,12 @@ export function StatLogger({
 
           {newest.length === 0 ? (
             <p className="py-8 text-[14px]" style={{ color: "var(--color-ink-faint)" }}>
-              Nothing yet. Press <span className="kbd">1</span>–<span className="kbd">6</span> to
+              Nothing yet. Press <span className="kbd">1</span>–<span className="kbd">7</span> to
               pick what happened, then log it.
             </p>
           ) : (
             <ul className="min-h-0 flex-1 overflow-y-auto">
               {newest.map((r) => {
-                const player = r.playerId ? players.get(r.playerId) : undefined;
                 // A tackle has no outcome axis, so it gets a plain mark rather
                 // than borrowing the one that means "unclear".
                 const outcome = effectiveOutcome(r);
@@ -549,7 +437,8 @@ export function StatLogger({
                     <div className="min-w-0 flex-1">
                       <div className="text-[14px]">{describeStat(r)}</div>
                       <div className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-                        {player ? playerLabel(player) : "Nobody named"}
+                        {playerLabel(r.playerNumber, sheet)}
+                        {r.half && `, ${r.half === 1 ? "1st" : "2nd"} half`}
                         {r.originX != null && ", placed"}
                         {r.atMs != null && `, ${formatClock(r.atMs)}`}
                       </div>
@@ -578,57 +467,5 @@ export function StatLogger({
         </section>
       </div>
     </main>
-  );
-}
-
-/**
- * A row of mutually exclusive choices — faster to hit than a dropdown.
- * Shared with `StatPad`, the compact form embedded in the review workspace.
- */
-export function Choice({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  options: { value: string; label: string; colour?: string }[];
-  value: string | null;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div>
-      <span className="label mb-1.5 block">{label}</span>
-      <div className="flex flex-wrap gap-2">
-        {options.map((o) => {
-          const active = o.value === value;
-          const accent = o.colour ?? "var(--color-ash)";
-          return (
-            <button
-              key={o.value}
-              onClick={() => onChange(o.value)}
-              aria-pressed={active}
-              className="inline-flex items-center gap-2 rounded px-3 py-2 text-[14px] transition-colors"
-              style={{
-                border: `1px solid ${active ? accent : "var(--color-line-strong)"}`,
-                background: active
-                  ? `color-mix(in oklab, ${accent} 16%, transparent)`
-                  : "transparent",
-                color: active ? "var(--color-ink)" : "var(--color-ink-dim)",
-              }}
-            >
-              {o.colour && (
-                <span
-                  aria-hidden
-                  className="inline-block h-2.5 w-2.5 rounded-full"
-                  style={{ background: o.colour }}
-                />
-              )}
-              {o.label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
   );
 }

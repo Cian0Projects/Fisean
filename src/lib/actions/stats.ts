@@ -3,54 +3,23 @@
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { clips, matchStats, matches, users, videos } from "@/lib/db/schema";
+import { clips, matchStats, matches, videos } from "@/lib/db/schema";
 import { assertSameTeam, requireCoach } from "@/lib/auth/guard";
-import {
-  normaliseEntry,
-  type PuckoutSide,
-  type ShotResult,
-  type StatOutcome,
-  type StatType,
-} from "@/lib/hurling/stats";
+import { normaliseEntry, type StatDraft } from "@/lib/hurling/stats";
+import type { StatRow } from "@/components/stats/types";
 
-export type StatInput = {
+export type StatInput = StatDraft & {
   matchId: string;
-  statType: StatType;
-  outcome?: StatOutcome | null;
-  playerId?: string | null;
-  originX?: number | null;
-  originY?: number | null;
-  destX?: number | null;
-  destY?: number | null;
-  shotResult?: ShotResult | null;
-  ledToScore?: boolean | null;
-  puckoutTakenBy?: PuckoutSide | null;
   clipId?: string | null;
   /** Set by the live logging pad, off the video's own clock. Never typed. */
   videoId?: string | null;
   atMs?: number | null;
 };
 
-/** What the logging form keeps in its list. Names come from the squad prop. */
-export type SavedStat = {
-  id: string;
-  statType: StatType;
-  outcome: StatOutcome | null;
-  playerId: string | null;
-  originX: number | null;
-  originY: number | null;
-  destX: number | null;
-  destY: number | null;
-  shotResult: ShotResult | null;
-  ledToScore: boolean | null;
-  puckoutTakenBy: PuckoutSide | null;
-  clipId: string | null;
-  videoId: string | null;
-  atMs: number | null;
-  createdAt: number;
-};
+/** What the logging form keeps in its list. Names come from the match's number sheet. */
+export type SavedStat = StatRow;
 
-type StatValues = Omit<SavedStat, "id" | "createdAt">;
+type StatValues = Omit<SavedStat, "id" | "createdAt" | "gameMs">;
 
 /**
  * The rules live in src/lib/hurling/stats.ts, where they are unit tested; a
@@ -68,21 +37,15 @@ function normalise(input: StatInput | Omit<StatInput, "matchId">): StatValues {
   };
 }
 
-/** Everything a stat points at has to belong to the same squad. */
+/**
+ * Everything a stat points at has to belong to the same squad. Players are
+ * not among them: a stat names a jersey number, and a number is only a
+ * number until this match's own sheet puts a name to it.
+ */
 async function assertReferencesAreOurs(
   user: Awaited<ReturnType<typeof requireCoach>>,
   values: StatValues,
 ): Promise<void> {
-  if (values.playerId) {
-    const [player] = await db
-      .select({ id: users.id, teamId: users.teamId })
-      .from(users)
-      .where(eq(users.id, values.playerId))
-      .limit(1);
-    if (!player) throw new Error("That player is not on the panel.");
-    assertSameTeam(user, player);
-  }
-
   if (values.clipId) {
     const [clip] = await db
       .select({ id: clips.id, teamId: clips.teamId })
@@ -112,24 +75,11 @@ function revalidateStats(matchId: string): void {
   revalidatePath(`/matches/${matchId}/stats/log`);
 }
 
+/** The row as the forms hold it — the stored columns, less the bookkeeping. */
 function toSaved(row: typeof matchStats.$inferSelect): SavedStat {
-  return {
-    id: row.id,
-    statType: row.statType,
-    outcome: row.outcome,
-    playerId: row.playerId,
-    originX: row.originX,
-    originY: row.originY,
-    destX: row.destX,
-    destY: row.destY,
-    shotResult: row.shotResult,
-    ledToScore: row.ledToScore,
-    puckoutTakenBy: row.puckoutTakenBy,
-    clipId: row.clipId,
-    videoId: row.videoId,
-    atMs: row.atMs,
-    createdAt: row.createdAt,
-  };
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { matchId, teamId, createdBy, updatedAt, ...saved } = row;
+  return saved;
 }
 
 /**

@@ -15,7 +15,6 @@ export type EventTypeRow = {
 export type SquadMember = {
   id: string;
   displayName: string;
-  jerseyNumber: number | null;
   position: number | null;
   role: "admin" | "coach" | "player";
 };

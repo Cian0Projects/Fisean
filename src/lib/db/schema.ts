@@ -20,10 +20,16 @@ import {
 // ORM into the browser bundle. Imported relatively: drizzle-kit reads this
 // file outside the Next.js path aliases.
 import {
+  ATTEMPT_SOURCES,
+  POSSESSION_KINDS,
+  PUCKOUT_LENGTHS,
   PUCKOUT_SIDES,
+  SHOT_KINDS,
   SHOT_RESULTS,
+  SIDES,
   STAT_OUTCOMES,
   STAT_TYPES,
+  type Half,
 } from "../hurling/stats";
 
 const now = sql`(unixepoch() * 1000)`;
@@ -60,8 +66,11 @@ export const users = sqliteTable(
     displayName: text("display_name").notNull(),
     passwordHash: text("password_hash").notNull(),
     role: text("role", { enum: ROLES }).notNull().default("player"),
-    jerseyNumber: integer("jersey_number"),
-    /** Position 1–15; see src/lib/hurling/positions.ts */
+    /**
+     * Position 1–15, where they usually line out; see src/lib/hurling/positions.ts.
+     * There is no jersey number here on purpose: numbers change game to game,
+     * so they live on the match, in `match_lineups`.
+     */
     position: integer("position"),
     createdAt: integer("created_at").notNull().default(now),
     lastSeenAt: integer("last_seen_at"),
@@ -451,23 +460,53 @@ export const matchStats = sqliteTable(
     statType: text("stat_type", { enum: STAT_TYPES }).notNull(),
     /** Always relative to us. Null for a tackle or a free conceded. */
     outcome: text("outcome", { enum: STAT_OUTCOMES }),
-    /** Who it is credited to. Optional — a tally still counts without a name. */
-    playerId: text("player_id").references(() => users.id, { onDelete: "set null" }),
+    /**
+     * Who it is credited to, as the jersey number the logger saw — not a
+     * player. The name comes from this match's `match_lineups` when the sheet
+     * is read, so a number jotted down on the line can be put to a name
+     * afterwards, and every entry against it follows. Optional: a tally still
+     * counts without one.
+     */
+    playerNumber: integer("player_number"),
+    /** Deliveries only: the number it was aimed at, whether they won it or lost it. */
+    targetNumber: integer("target_number"),
     /** Where it happened, normalised 0–1 as everywhere else. */
     originX: real("origin_x"),
     originY: real("origin_y"),
     /** Deliveries only: where it landed. Drawn as an arrow, not a second dot. */
     destX: real("dest_x"),
     destY: real("dest_y"),
+    /**
+     * The half the coach said it was in. An entry logged against footage with
+     * the halves marked has its half worked out from the video instead, when
+     * the report is read — see `statTiming`.
+     */
+    half: integer("half").$type<Half>(),
+    /** Shots only: whose attempt. Null on rows from before both teams were logged, all ours. */
+    side: text("side", { enum: SIDES }),
     /** Shots only. A cúl or a cúilín also feeds the scoreline. */
     shotResult: text("shot_result", { enum: SHOT_RESULTS }),
+    /** Shots only: from play, or a free or 65. */
+    shotKind: text("shot_kind", { enum: SHOT_KINDS }),
+    /** Shots only, optional: what the attempt came from. */
+    attemptSource: text("attempt_source", { enum: ATTEMPT_SOURCES }),
     /**
      * Positive turnovers only. "Turnover leading to a score" is a flag rather
      * than a stat type of its own — it is the same turnover described twice.
      */
     ledToScore: integer("led_to_score", { mode: "boolean" }),
+    /** Turnovers only: how the ball changed hands. */
+    possession: text("possession", { enum: POSSESSION_KINDS }),
+    /** Tackles only: made by one of the six forwards or two midfielders. */
+    frontEight: integer("front_eight", { mode: "boolean" }),
+    /** Frees conceded only: within their free-taker's range. */
+    scorable: integer("scorable", { mode: "boolean" }),
     /** Poc amach only: whose it was. Who won it is `outcome`. */
     puckoutTakenBy: text("puckout_taken_by", { enum: PUCKOUT_SIDES }),
+    /** Poc amach only, optional: short, mid or long. */
+    puckoutLength: text("puckout_length", { enum: PUCKOUT_LENGTHS }),
+    /** Our short poc amach that we won only: was it worked out past our 65. */
+    pastSixtyFive: integer("past_sixty_five", { mode: "boolean" }),
     /** The clip covering this moment, when one already exists. */
     clipId: text("clip_id").references(() => clips.id, { onDelete: "set null" }),
     /**
@@ -485,8 +524,33 @@ export const matchStats = sqliteTable(
   (t) => [
     index("match_stats_match").on(t.matchId, t.createdAt),
     index("match_stats_team").on(t.teamId),
-    index("match_stats_player").on(t.playerId),
     index("match_stats_video").on(t.videoId, t.atMs),
+  ],
+);
+
+/**
+ * Who wore which number in one match.
+ *
+ * Numbers belong to the match, not the player: a panel reshuffles week to
+ * week, and a sub can wear 22 one day and 9 the next. The stat sheet is
+ * logged by number, so this is what puts names to it. A number with no row
+ * here is simply not assigned yet — its entries still count.
+ */
+export const matchLineups = sqliteTable(
+  "match_lineups",
+  {
+    matchId: text("match_id")
+      .notNull()
+      .references(() => matches.id, { onDelete: "cascade" }),
+    number: integer("number").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.matchId, t.number] }),
+    // One number each: a player is not two people in the same match.
+    uniqueIndex("match_lineups_player").on(t.matchId, t.userId),
   ],
 );
 
@@ -576,7 +640,6 @@ export const annotationsRel = relations(annotations, ({ one }) => ({
 export const matchStatsRel = relations(matchStats, ({ one }) => ({
   match: one(matches, { fields: [matchStats.matchId], references: [matches.id] }),
   team: one(teams, { fields: [matchStats.teamId], references: [teams.id] }),
-  player: one(users, { fields: [matchStats.playerId], references: [users.id] }),
   clip: one(clips, { fields: [matchStats.clipId], references: [clips.id] }),
   video: one(videos, { fields: [matchStats.videoId], references: [videos.id] }),
 }));

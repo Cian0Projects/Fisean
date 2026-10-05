@@ -13,6 +13,16 @@ function cleanUsername(raw: string): string {
   return raw.trim().toLowerCase().replace(/\s+/g, "");
 }
 
+/**
+ * Where to go after signing in. Only a path on this site is accepted — a
+ * `next` of `//evil.example` or a full URL would turn the sign-in form into
+ * an open redirect, so anything that is not a plain local path goes home.
+ */
+function destination(form: FormData): string {
+  const next = String(form.get("next") ?? "");
+  return next.startsWith("/") && !next.startsWith("//") && !next.includes("\\") ? next : "/";
+}
+
 export async function signIn(_prev: AuthState, form: FormData): Promise<AuthState> {
   const username = cleanUsername(String(form.get("username") ?? ""));
   const password = String(form.get("password") ?? "");
@@ -35,7 +45,7 @@ export async function signIn(_prev: AuthState, form: FormData): Promise<AuthStat
 
   await db.update(users).set({ lastSeenAt: Date.now() }).where(eq(users.id, user.id));
   await createSession(user.id);
-  redirect("/");
+  redirect(destination(form));
 }
 
 export async function joinTeam(_prev: AuthState, form: FormData): Promise<AuthState> {
@@ -43,7 +53,6 @@ export async function joinTeam(_prev: AuthState, form: FormData): Promise<AuthSt
   const displayName = String(form.get("displayName") ?? "").trim();
   const username = cleanUsername(String(form.get("username") ?? ""));
   const password = String(form.get("password") ?? "");
-  const jersey = String(form.get("jerseyNumber") ?? "").trim();
 
   if (!code) return { error: "Enter the join code your manager gave you." };
   if (!displayName) return { error: "Enter your name." };
@@ -68,15 +77,16 @@ export async function joinTeam(_prev: AuthState, form: FormData): Promise<AuthSt
       displayName,
       passwordHash: await hashPassword(password),
       role: "player",
-      jerseyNumber: jersey ? Number(jersey) : null,
     })
     .returning();
 
   await createSession(created.id);
-  redirect("/");
+  redirect(destination(form));
 }
 
-export async function signOut(): Promise<void> {
+/** Signing out from the phone layout keeps the next sign-in on the phone layout. */
+export async function signOut(form?: FormData): Promise<void> {
   await destroySession();
-  redirect("/login");
+  const next = form ? destination(form) : "/";
+  redirect(next === "/" ? "/login" : `/login?next=${encodeURIComponent(next)}`);
 }

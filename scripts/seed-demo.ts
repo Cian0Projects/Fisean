@@ -18,6 +18,7 @@ import {
   clips,
   comments,
   eventTypes,
+  matchLineups,
   matchStats,
   matches,
   playlistItems,
@@ -33,23 +34,43 @@ import { HURLING_EVENTS } from "../src/lib/hurling/events";
 
 const DEMO_PASSWORD = "hurling2026";
 
-/** A believable starting fifteen. */
+/**
+ * The actual panel: a starting fifteen with their usual positions, then the
+ * rest of the panel. No jersey numbers here — those belong to a match, so
+ * the demo match below hands them out in this order, 1 to 31.
+ */
 const SQUAD = [
-  ["Eoin Murphy", 1, 1],
-  ["Seán Ó Riain", 2, 2],
-  ["Pádraig Walsh", 3, 3],
-  ["Conor Delaney", 4, 4],
-  ["Mikey Carey", 5, 5],
-  ["Huw Lawlor", 6, 6],
-  ["Tommy Walsh", 7, 7],
-  ["Adrian Mullen", 8, 8],
-  ["Conor Fogarty", 9, 9],
-  ["Billy Ryan", 10, 10],
-  ["TJ Reid", 11, 11],
-  ["Martin Keoghan", 12, 12],
-  ["Eoin Cody", 13, 13],
-  ["Walter Walsh", 14, 14],
-  ["Ciarán Ó Broin", 15, 15],
+  ["Eddie Gibbons", 1],
+  ["Darragh Geraghty", 2],
+  ["David Lucey", 3],
+  ["Ben Lynch", 4],
+  ["Conal Ó Riain", 5],
+  ["Mark Grogan", 6],
+  ["Cian Ó Cathasaigh", 7],
+  ["Brian Hayes", 8],
+  ["Caolan Conway", 9],
+  ["Fergal Whitely", 10],
+  ["Ronan Hayes", 11],
+  ["Finnian Donohoe", 12],
+  ["Brendan Kenny", 13],
+  ["Alex Considine", 14],
+  ["Dara Purcell", 15],
+  ["Ben Hynes", null],
+  ["Tom Stakelum", null],
+  ["Cormac Keys", null],
+  ["Bill O'Carroll", null],
+  ["Padhraic Linehan", null],
+  ["Eoin Keys", null],
+  ["Cian Mac Gabhann", null],
+  ["Oisin O'Rorke", null],
+  ["Ger Veale", null],
+  ["Sean Purcell", null],
+  ["Alex Hatt", null],
+  ["Gearóid Flannery", null],
+  ["Ciarán Donovan", null],
+  ["Brian Sheehy", null],
+  ["Seán Kinsella", null],
+  ["Breandán Ó Conaill", null],
 ] as const;
 
 /** Clips laid out across a 30-minute-half game, as a coach would tag it. */
@@ -119,13 +140,12 @@ async function main() {
   const squad = await db
     .insert(users)
     .values(
-      SQUAD.map(([displayName, jersey, position]) => ({
+      SQUAD.map(([displayName, position]) => ({
         teamId: team.id,
         username: displayName.toLowerCase().replace(/[^a-z]/g, "").slice(0, 12),
         displayName,
         passwordHash: hash,
         role: "player" as const,
-        jerseyNumber: jersey,
         position,
       })),
     )
@@ -144,6 +164,11 @@ async function main() {
       createdBy: manager.id,
     })
     .returning();
+
+  // Who wore what that day. The stat sheet below is logged by these numbers.
+  await db
+    .insert(matchLineups)
+    .values(squad.map((p, i) => ({ matchId: match.id, number: i + 1, userId: p.id })));
 
   // A placeholder media key: every screen works, and the video element simply
   // has nothing to play until a real file is registered with `npm run ingest`.
@@ -288,119 +313,203 @@ async function main() {
    *
    * Deliberately not derived from the clips above — this is the notebook from
    * the line, typed up afterwards — so the report has something to show
-   * without anyone logging fifty entries by hand first. It comes out at 2-7
-   * from 14 shots, which is a respectable 64%.
+   * without anyone logging fifty entries by hand first. Every section of the
+   * report gets something: both teams' shots (ours 2-8 from 18, theirs 1-5
+   * from 10), poc amach by length, possession won and lost by kind, and frees
+   * both ways — all split across the halves. Typed up a team at a time, as a
+   * notebook often is, their shots close out each half and so show up in the
+   * spells-without-reply table.
    */
-  const jersey = (n: number) => squad[n - 1].id;
+  type H = 1 | 2;
 
   const statSheet = [
-    // Tackles: a tally, mostly the backs, and one nobody caught the number of.
-    ...[2, 3, 5, 6, 7, 8, 4].map((n) => ({
+    // Tackles, where they were made; the front eight flagged.
+    ...(
+      [
+        [0.22, 0.4, 2, false, 1],
+        [0.18, 0.62, 3, false, 1],
+        [0.3, 0.3, 5, false, 1],
+        [0.35, 0.55, 6, false, 2],
+        [0.28, 0.72, 7, false, 2],
+        [0.52, 0.45, 8, true, 1],
+        [0.62, 0.3, 11, true, 2],
+        [0.7, 0.6, 13, true, 2],
+        [0.25, 0.5, null, false, 2],
+      ] as const
+    ).map(([x, y, n, frontEight, half]) => ({
       statType: "tackle" as const,
-      playerId: jersey(n),
+      playerNumber: n,
+      originX: x,
+      originY: y,
+      frontEight,
+      half: half as H,
     })),
-    { statType: "tackle" as const },
 
-    // Deliveries: struck from our half, into the full forward line.
-    ...[
-      [0.34, 0.3, 0.78, 0.4, "positive", 6],
-      [0.41, 0.62, 0.8, 0.55, "positive", 7],
-      [0.3, 0.5, 0.72, 0.28, "negative", 5],
-      [0.45, 0.2, 0.83, 0.45, "positive", 9],
-      [0.38, 0.75, 0.75, 0.7, "negative", 8],
-      [0.5, 0.45, 0.86, 0.5, "positive", 11],
-      [0.28, 0.35, 0.68, 0.22, "negative", 6],
-      [0.44, 0.55, 0.81, 0.6, "positive", 9],
-    ].map(([ox, oy, dx, dy, outcome, n]) => ({
+    // Deliveries: struck from inside our 65, aimed into the full forward line.
+    ...(
+      [
+        [0.34, 0.3, 0.78, 0.4, "positive", 6, 14, 1],
+        [0.41, 0.62, 0.8, 0.55, "positive", 7, 13, 1],
+        [0.3, 0.5, 0.72, 0.28, "negative", 5, 15, 1],
+        [0.45, 0.2, 0.83, 0.45, "positive", 9, 14, 1],
+        [0.38, 0.75, 0.75, 0.7, "negative", 8, null, 2],
+        [0.5, 0.45, 0.86, 0.5, "positive", 11, 14, 2],
+        [0.28, 0.35, 0.68, 0.22, "negative", 6, 12, 2],
+        [0.44, 0.55, 0.81, 0.6, "positive", 9, 15, 2],
+      ] as const
+    ).map(([ox, oy, dx, dy, outcome, n, target, half]) => ({
       statType: "delivery" as const,
-      outcome: outcome as "positive" | "negative",
-      playerId: jersey(n as number),
-      originX: ox as number,
-      originY: oy as number,
-      destX: dx as number,
-      destY: dy as number,
+      outcome,
+      playerNumber: n,
+      targetNumber: target,
+      originX: ox,
+      originY: oy,
+      destX: dx,
+      destY: dy,
+      half: half as H,
     })),
 
-    // Turnovers, two of which we scored from.
-    ...[
-      [0.55, 0.4, "positive", 8, true],
-      [0.62, 0.65, "positive", 10, true],
-      [0.48, 0.3, "positive", 6, false],
-      [0.4, 0.55, "positive", 5, false],
-      [0.35, 0.45, "negative", 12, false],
-      [0.58, 0.7, "negative", 10, false],
-    ].map(([x, y, outcome, n, scored]) => ({
+    // Possessions won and lost, by how the ball changed hands.
+    ...(
+      [
+        [0.55, 0.4, "positive", "turnover", 8, true, 1],
+        [0.62, 0.65, "positive", "turnover", 10, true, 1],
+        [0.48, 0.3, "positive", "sixty_forty", 6, false, 1],
+        [0.4, 0.55, "positive", "sixty_plus", 5, false, 2],
+        [0.5, 0.5, "positive", "other", 9, false, 2],
+        [0.35, 0.45, "negative", "turnover", 12, false, 1],
+        [0.58, 0.7, "negative", "sixty_forty", null, false, 2],
+        [0.44, 0.2, "negative", "unforced", 10, false, 2],
+      ] as const
+    ).map(([x, y, outcome, possession, n, scored, half]) => ({
       statType: "turnover" as const,
-      outcome: outcome as "positive" | "negative",
-      playerId: jersey(n as number),
-      originX: x as number,
-      originY: y as number,
-      ledToScore: outcome === "positive" ? (scored as boolean) : null,
+      outcome,
+      possession,
+      playerNumber: n,
+      originX: x,
+      originY: y,
+      ledToScore: outcome === "positive" ? scored : null,
+      half: half as H,
     })),
 
-    // Fourteen shots: two cúil, seven cúilíní, five wides.
-    ...[
-      [0.88, 0.5, "goal", 14],
-      [0.84, 0.42, "goal", 13],
-      [0.79, 0.35, "point", 11],
-      [0.82, 0.6, "point", 12],
-      [0.76, 0.28, "point", 10],
-      [0.86, 0.55, "point", 14],
-      [0.73, 0.68, "point", 15],
-      [0.8, 0.48, "point", 11],
-      [0.71, 0.3, "point", 10],
-      [0.69, 0.22, "wide", 15],
-      [0.75, 0.8, "wide", 12],
-      [0.66, 0.5, "wide", 9],
-      [0.83, 0.18, "wide", 13],
-      [0.7, 0.75, "wide", 15],
-    ].map(([x, y, result, n]) => ({
+    // Our shots: 2-8 from 18 — frees included, and what each came from.
+    ...(
+      [
+        [0.88, 0.5, "goal", 14, "play", "turnover", 1],
+        [0.84, 0.42, "goal", 13, "play", "puckout", 2],
+        [0.79, 0.35, "point", 11, "play", "other", 1],
+        [0.82, 0.6, "point", 12, "play", "puckout", 1],
+        [0.76, 0.28, "point", 10, "play", "turnover", 1],
+        [0.86, 0.55, "point", 14, "play", "other", 2],
+        [0.73, 0.68, "point", 15, "play", "other", 2],
+        [0.8, 0.48, "point", 11, "free", null, 1],
+        [0.71, 0.3, "point", 11, "free", null, 2],
+        [0.66, 0.5, "point", 11, "free", null, 2],
+        [0.69, 0.22, "wide", 15, "play", "other", 1],
+        [0.75, 0.8, "wide", 12, "play", "puckout", 1],
+        [0.66, 0.5, "wide", 9, "play", "other", 2],
+        [0.83, 0.18, "wide", 13, "play", "turnover", 2],
+        [0.7, 0.75, "wide", 11, "free", null, 2],
+        [0.9, 0.45, "saved", 14, "play", "other", 2],
+        [0.87, 0.6, "lost", 13, "play", "puckout", 2],
+        [0.85, 0.35, "sixty_five", 15, "play", "other", 1],
+      ] as const
+    ).map(([x, y, shotResult, n, shotKind, attemptSource, half]) => ({
       statType: "shot" as const,
-      // A wide is the negative outcome, a score the positive one; the logger
-      // derives this rather than asking twice.
-      outcome: result === "wide" ? ("negative" as const) : ("positive" as const),
-      shotResult: result as "goal" | "point" | "wide",
-      playerId: jersey(n as number),
-      originX: x as number,
-      originY: y as number,
+      side: "us" as const,
+      // The logger derives the outcome from the result rather than asking twice.
+      outcome: (["goal", "point"].includes(shotResult)
+        ? "positive"
+        : ["retained", "sixty_five"].includes(shotResult)
+          ? "unclear"
+          : "negative") as "positive" | "negative" | "unclear",
+      shotResult,
+      shotKind,
+      attemptSource,
+      playerNumber: n,
+      originX: x,
+      originY: y,
+      half: half as H,
     })),
 
-    // Frees conceded, all of them in our own half where they hurt.
-    ...[
-      [0.18, 0.4, 3],
-      [0.24, 0.6, 6],
-      [0.12, 0.55, 2],
-      [0.3, 0.3, 5],
-      [0.22, 0.48, 4],
-    ].map(([x, y, n]) => ({
-      statType: "free_conceded" as const,
-      playerId: jersey(n as number),
-      originX: x as number,
-      originY: y as number,
+    // Their shots, coloured from our side: their score is against us.
+    ...(
+      [
+        [0.14, 0.45, "point", "play", 1],
+        [0.2, 0.3, "wide", "play", 1],
+        [0.24, 0.5, "point", "free", 1],
+        [0.18, 0.7, "saved", "play", 1],
+        [0.12, 0.52, "goal", "play", 2],
+        [0.22, 0.4, "point", "play", 2],
+        [0.28, 0.6, "wide", "play", 2],
+        [0.3, 0.45, "point", "free", 2],
+        [0.16, 0.35, "lost", "play", 2],
+        [0.2, 0.55, "point", "play", 2],
+      ] as const
+    ).map(([x, y, shotResult, shotKind, half]) => ({
+      statType: "shot" as const,
+      side: "opposition" as const,
+      outcome: (["goal", "point"].includes(shotResult) ? "negative" : "positive") as
+        | "positive"
+        | "negative",
+      shotResult,
+      shotKind,
+      originX: x,
+      originY: y,
+      half: half as H,
     })),
 
-    // Poc amach, both ways: ours five of seven, theirs two of five to us.
-    ...[
-      ["us", "positive", 0.52, 0.3, 8],
-      ["us", "positive", 0.48, 0.65, 9],
-      ["us", "positive", 0.56, 0.45, 6],
-      ["us", "positive", 0.5, 0.2, 10],
-      ["us", "positive", 0.54, 0.7, 8],
-      ["us", "negative", 0.47, 0.5, null],
-      ["us", "unclear", 0.51, 0.38, null],
-      ["opposition", "positive", 0.44, 0.55, 7],
-      ["opposition", "positive", 0.4, 0.35, 5],
-      ["opposition", "negative", 0.46, 0.6, null],
-      ["opposition", "negative", 0.38, 0.45, null],
-      ["opposition", "negative", 0.42, 0.25, null],
-    ].map(([side, outcome, x, y, n]) => ({
+    // Frees, both ways; the scorable ones given away in our own half.
+    ...(
+      [
+        ["free_conceded", 0.18, 0.4, 3, true, 1],
+        ["free_conceded", 0.24, 0.6, 6, true, 1],
+        ["free_conceded", 0.12, 0.55, 2, true, 2],
+        ["free_conceded", 0.55, 0.3, 9, false, 2],
+        ["free_conceded", 0.22, 0.48, 4, true, 2],
+        ["free_won", 0.8, 0.45, 14, null, 1],
+        ["free_won", 0.72, 0.3, 11, null, 1],
+        ["free_won", 0.66, 0.5, 13, null, 2],
+      ] as const
+    ).map(([statType, x, y, n, scorable, half]) => ({
+      statType,
+      playerNumber: n,
+      originX: x,
+      originY: y,
+      scorable,
+      half: half as H,
+    })),
+
+    // Poc amach, both ways, by length. Ours: two short ones held inside our
+    // 65, which the report does not count as retained.
+    ...(
+      [
+        ["us", "positive", "short", true, 0.3, 0.2, 5, 1],
+        ["us", "positive", "short", true, 0.28, 0.75, 7, 1],
+        ["us", "positive", "short", false, 0.2, 0.3, 2, 2],
+        ["us", "positive", "short", false, 0.18, 0.7, 4, 2],
+        ["us", "positive", "medium", null, 0.45, 0.45, 8, 1],
+        ["us", "positive", "long", null, 0.56, 0.3, 9, 2],
+        ["us", "negative", "long", null, 0.52, 0.6, null, 1],
+        ["us", "negative", "medium", null, 0.42, 0.5, null, 2],
+        ["us", "unclear", "long", null, 0.51, 0.38, null, 2],
+        ["opposition", "positive", "long", null, 0.44, 0.55, 7, 1],
+        ["opposition", "positive", "medium", null, 0.6, 0.35, 5, 2],
+        ["opposition", "negative", "short", null, 0.8, 0.6, null, 1],
+        ["opposition", "negative", "short", null, 0.82, 0.3, null, 2],
+        ["opposition", "negative", "long", null, 0.42, 0.25, null, 2],
+      ] as const
+    ).map(([side, outcome, puckoutLength, pastSixtyFive, x, y, n, half]) => ({
       statType: "puckout" as const,
-      puckoutTakenBy: side as "us" | "opposition",
-      outcome: outcome as "positive" | "negative" | "unclear",
+      puckoutTakenBy: side,
+      outcome,
+      puckoutLength,
+      pastSixtyFive,
       // Only a won poc amach names anybody: it is the receiver.
-      playerId: n == null ? null : jersey(n as number),
-      originX: x as number,
-      originY: y as number,
+      playerNumber: n,
+      originX: x,
+      originY: y,
+      half: half as H,
     })),
   ];
 
@@ -424,7 +533,7 @@ async function main() {
     Join code   ${joinCode}
 
     Sign in as the manager:   bainisteoir  /  ${DEMO_PASSWORD}
-    Or as a player:           tjreid       /  ${DEMO_PASSWORD}
+    Or as a player:           ${squad[0].username.padEnd(12)} /  ${DEMO_PASSWORD}
 
     ${created.length} clips, 2 playlists, ${squad.length} players,
     and a full stat sheet for the match.

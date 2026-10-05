@@ -2,12 +2,12 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { clips, matchStats, matches, users, videos } from "@/lib/db/schema";
+import { clips, matches, videos } from "@/lib/db/schema";
 import { isCoach, requireUser } from "@/lib/auth/guard";
 import { Nav } from "@/components/ui/Nav";
 import { StatLogger } from "@/components/stats/StatLogger";
 import { formatClock } from "@/lib/hurling/notation";
-import type { StatRow } from "@/components/stats/types";
+import { loadNumberSheet, loadStatRows } from "@/lib/queries/stats";
 
 /**
  * Logging the stat sheet.
@@ -44,51 +44,10 @@ export default async function LogMatchStatsPage({
     );
   }
 
-  const rows: StatRow[] = await db
-    .select({
-      id: matchStats.id,
-      statType: matchStats.statType,
-      outcome: matchStats.outcome,
-      playerId: matchStats.playerId,
-      originX: matchStats.originX,
-      originY: matchStats.originY,
-      destX: matchStats.destX,
-      destY: matchStats.destY,
-      shotResult: matchStats.shotResult,
-      ledToScore: matchStats.ledToScore,
-      puckoutTakenBy: matchStats.puckoutTakenBy,
-      clipId: matchStats.clipId,
-      videoId: matchStats.videoId,
-      atMs: matchStats.atMs,
-      createdAt: matchStats.createdAt,
-    })
-    .from(matchStats)
-    .where(and(eq(matchStats.matchId, matchId), eq(matchStats.teamId, user.teamId)))
-    .orderBy(asc(matchStats.createdAt));
-
-  const squad = await db
-    .select({
-      id: users.id,
-      displayName: users.displayName,
-      jerseyNumber: users.jerseyNumber,
-      position: users.position,
-      role: users.role,
-    })
-    .from(users)
-    .where(eq(users.teamId, user.teamId))
-    .orderBy(asc(users.jerseyNumber), asc(users.displayName));
-
-  // The same list the report's table shows: the panel, plus anyone already
-  // credited with something — a coach who came on, say.
-  const credited = new Set(rows.map((r) => r.playerId).filter((id): id is string => !!id));
-  const panel = squad
-    .filter((u) => u.role === "player" || credited.has(u.id))
-    .map(({ id, displayName, jerseyNumber, position }) => ({
-      id,
-      displayName,
-      jerseyNumber,
-      position,
-    }));
+  const [rows, numbers] = await Promise.all([
+    loadStatRows(matchId, user.teamId),
+    loadNumberSheet(matchId, user.teamId),
+  ]);
 
   // A stat may point at a clip that already covers the moment. Optional, and
   // only ever in that direction — the stat sheet does not need footage.
@@ -114,7 +73,7 @@ export default async function LogMatchStatsPage({
           venue: match.venue,
           playedOn: match.playedOn,
         }}
-        panel={panel}
+        numbers={numbers}
         initialRows={rows}
         clips={clipRows.map((c) => ({
           id: c.id,

@@ -135,7 +135,7 @@ export async function setMemberRole(userId: string, role: Role): Promise<void> {
 
 export async function updateMember(
   userId: string,
-  patch: { displayName?: string; jerseyNumber?: number | null; position?: number | null },
+  patch: { displayName?: string; position?: number | null },
 ): Promise<void> {
   const user = await requireUserOrThrow();
   const [target] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
@@ -149,12 +149,10 @@ export async function updateMember(
   if (patch.position != null && (patch.position < 1 || patch.position > 15)) {
     throw new Error("Positions run from 1 to 15.");
   }
-
   await db
     .update(users)
     .set({
       ...(patch.displayName !== undefined ? { displayName: patch.displayName.trim() } : {}),
-      ...(patch.jerseyNumber !== undefined ? { jerseyNumber: patch.jerseyNumber } : {}),
       ...(patch.position !== undefined ? { position: patch.position } : {}),
     })
     .where(eq(users.id, userId));
@@ -169,7 +167,9 @@ export async function removeMember(userId: string): Promise<void> {
   if (!target) return;
   assertSameTeam(admin, target);
 
-  // Deleting the user cascades their sessions, so access ends immediately.
+  // Deleting the user cascades their sessions, so access ends immediately,
+  // and their places on match number sheets — the stats logged against those
+  // numbers stay, unnamed.
   await db.delete(users).where(eq(users.id, userId));
   revalidatePath("/admin/members");
 }
