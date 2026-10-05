@@ -554,6 +554,35 @@ export const matchLineups = sqliteTable(
   ],
 );
 
+/* ----------------------------------------------------------------- drills */
+
+/**
+ * A training drill, animated on a pitch; see src/lib/hurling/drill.ts.
+ *
+ * The pieces and steps are one JSON column rather than tables of their own.
+ * A drill is always loaded and saved whole by its editor, and nothing ever
+ * asks "which drills have a player at the 65" — so rows per position would
+ * be joins with no question to answer. `parseDrill` validates it both ways.
+ */
+export const drills = sqliteTable(
+  "drills",
+  {
+    id: id(),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    title: text("title").notNull(),
+    /** The coaching points: what the drill is for, and what to look for. */
+    notes: text("notes").notNull().default(""),
+    /** A serialised `DrillData`. */
+    data: text("data").notNull(),
+    createdAt: integer("created_at").notNull().default(now),
+    updatedAt: integer("updated_at").notNull().default(now),
+  },
+  (t) => [index("drills_team").on(t.teamId, t.updatedAt)],
+);
+
 /* -------------------------------------------------------------- relations */
 
 export const teamsRel = relations(teams, ({ many }) => ({
