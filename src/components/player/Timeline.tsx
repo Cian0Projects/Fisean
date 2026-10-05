@@ -36,6 +36,12 @@ type Props = {
    * bar's time axis exactly — a playhead at 40% has to be at 40% in both.
    */
   labelGutterPx?: number;
+  /**
+   * Half height, for when the bar is a scrubber and nothing else. With the
+   * clips hidden the full depth is empty sod, and the lanes below have a far
+   * better use for it.
+   */
+  compact?: boolean;
 };
 
 const MARKER_LABELS: { key: keyof Markers; label: string }[] = [
@@ -56,6 +62,7 @@ export function Timeline({
   outMs,
   onSelectClip,
   labelGutterPx = 0,
+  compact = false,
 }: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
@@ -125,7 +132,7 @@ export function Timeline({
     <div className="pt-1 pr-3 pb-3" style={{ paddingLeft: 12 + labelGutterPx }}>
       <div
         ref={trackRef}
-        className="group relative h-14 cursor-pointer touch-none select-none rounded-lg"
+        className={`group relative ${compact ? "h-7" : "h-14"} cursor-pointer touch-none select-none rounded-lg`}
         style={{ background: "var(--color-surface-2)" }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -151,7 +158,7 @@ export function Timeline({
               style={{ left: `${pct(at)}%`, background: "var(--color-line-strong)" }}
             >
               <span
-                className="absolute -top-0.5 left-1 text-[10px] font-semibold"
+                className="absolute -top-0.5 left-1 text-[10px] font-semibold whitespace-nowrap"
                 style={{ color: "var(--color-ink-faint)" }}
               >
                 {label}
@@ -161,7 +168,7 @@ export function Timeline({
         })}
 
         {/* Saved clips. Colour comes from the clip's first hurling tag. */}
-        <div className="absolute inset-x-0 bottom-1.5 top-6">
+        <div className={`absolute inset-x-0 ${compact ? "bottom-1 top-3.5" : "bottom-1.5 top-6"}`}>
           {clips.map((c) => {
             const left = pct(c.startMs);
             const width = Math.max(0.35, pct(c.endMs) - left);

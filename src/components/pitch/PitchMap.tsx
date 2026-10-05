@@ -19,16 +19,8 @@
  * map survives being photocopied.
  */
 import { useId } from "react";
-import {
-  DEFAULT_PITCH,
-  GOAL,
-  LARGE_RECTANGLE,
-  LINE_DISTANCES_M,
-  SMALL_RECTANGLE,
-  clampToPitch,
-  lineFractions,
-  type PitchSize,
-} from "@/lib/hurling/pitch";
+import { DEFAULT_PITCH, clampToPitch, type PitchSize } from "@/lib/hurling/pitch";
+import { PITCH_FILL, PitchMarkings, VIEW_W, pitchViewHeight } from "./PitchMarkings";
 
 /** Filled is for us, a ring is against us, a dashed ring is unclear. */
 export type MarkShape = "filled" | "ring" | "dashed";
@@ -44,6 +36,8 @@ export type PitchMark = {
   shape: MarkShape;
   /** Jersey number. Numbers keep the map readable; names live in the table. */
   label?: string | null;
+  /** Set small under the mark — the game minute, on the report's maps. */
+  note?: string | null;
   /** Tooltip, e.g. "Cúilín — TJ Reid". */
   title?: string;
   /** The entry being edited, or the one just placed. */
@@ -52,12 +46,7 @@ export type PitchMark = {
   muted?: boolean;
 };
 
-/** The drawing happens in these units; the browser scales them to the box. */
-const VIEW_W = 1000;
 const DOT_R = 14;
-/** The sod the marks sit on; a hollow mark is filled with it, not with black.
- *  A token rather than a literal so the print stylesheet can put it on paper. */
-const PITCH_FILL = "var(--color-pitch)";
 
 export function PitchMap({
   marks,
@@ -79,15 +68,7 @@ export function PitchMap({
   decorative?: boolean;
 }) {
   const uid = useId().replace(/:/g, "");
-  const H = Math.round((VIEW_W * size.widthM) / size.lengthM);
-  const { own, opp } = lineFractions(size);
-
-  // Metre-denominated furniture, as fractions of the drawing.
-  const goalH = (GOAL.widthM / size.widthM) * H;
-  const smallH = (SMALL_RECTANGLE.widthM / size.widthM) * H;
-  const smallW = (SMALL_RECTANGLE.depthM / size.lengthM) * VIEW_W;
-  const largeH = (LARGE_RECTANGLE.widthM / size.widthM) * H;
-  const largeW = (LARGE_RECTANGLE.depthM / size.lengthM) * VIEW_W;
+  const H = pitchViewHeight(size);
 
   const arrows = marks.filter((m) => m.toX != null && m.toY != null);
   const dots = marks.filter((m) => m.toX == null || m.toY == null);
@@ -120,23 +101,6 @@ export function PitchMap({
       role="img"
       aria-label={caption ? `${caption}, drawn on a pitch map` : "Pitch map"}
     >
-      {/* Mowing bands. Every pitch has them, and they help place a dot along
-          the length without reading the numbers. */}
-      <g pointerEvents="none">
-        {!decorative &&
-          Array.from({ length: 10 }, (_, i) => (
-          <rect
-            key={i}
-            x={(i * VIEW_W) / 10}
-            y={0}
-            width={VIEW_W / 10}
-            height={H}
-            fill="#ffffff"
-            opacity={i % 2 ? 0.022 : 0}
-          />
-        ))}
-      </g>
-
       <defs>
         {arrowColours.map((colour) => (
           <marker
@@ -154,36 +118,7 @@ export function PitchMap({
         ))}
       </defs>
 
-      <g
-        fill="none"
-        stroke="var(--color-ink)"
-        strokeWidth={1.5}
-        opacity={0.32}
-        pointerEvents="none"
-      >
-        <rect x={1} y={1} width={VIEW_W - 2} height={H - 2} strokeWidth={2.5} />
-        <line x1={VIEW_W / 2} y1={0} x2={VIEW_W / 2} y2={H} />
-
-        {/* 13, 20, 45 and 65 at both ends. The 65 is hurling's own line. */}
-        {LINE_DISTANCES_M.map((d) => (
-          <g key={d}>
-            <line x1={own[d] * VIEW_W} y1={0} x2={own[d] * VIEW_W} y2={H} />
-            <line x1={opp[d] * VIEW_W} y1={0} x2={opp[d] * VIEW_W} y2={H} />
-          </g>
-        ))}
-
-        {/* Small and large rectangles, mirrored at each end. */}
-        <rect x={0} y={(H - smallH) / 2} width={smallW} height={smallH} />
-        <rect x={VIEW_W - smallW} y={(H - smallH) / 2} width={smallW} height={smallH} />
-        <rect x={0} y={(H - largeH) / 2} width={largeW} height={largeH} />
-        <rect x={VIEW_W - largeW} y={(H - largeH) / 2} width={largeW} height={largeH} />
-      </g>
-
-      {/* The goals: the one piece of the marking drawn at full strength. */}
-      <g stroke="var(--color-ink)" strokeWidth={5} strokeLinecap="round" pointerEvents="none">
-        <line x1={3} y1={(H - goalH) / 2} x2={3} y2={(H + goalH) / 2} />
-        <line x1={VIEW_W - 3} y1={(H - goalH) / 2} x2={VIEW_W - 3} y2={(H + goalH) / 2} />
-      </g>
+      <PitchMarkings size={size} decorative={decorative} />
 
       <g
         fill="var(--color-ink-faint)"
@@ -192,16 +127,6 @@ export function PitchMap({
         pointerEvents="none"
         display={decorative ? "none" : undefined}
       >
-        {LINE_DISTANCES_M.map((d) => (
-          <g key={d}>
-            <text x={own[d] * VIEW_W + 5} y={H - 7}>
-              {d}
-            </text>
-            <text x={opp[d] * VIEW_W - 5} y={H - 7} textAnchor="end">
-              {d}
-            </text>
-          </g>
-        ))}
         <text x={10} y={19}>
           Our end
         </text>
@@ -295,6 +220,19 @@ function Dot({ mark, r, h }: { mark: PitchMark; r: number; h: number }) {
           pointerEvents="none"
         >
           {mark.label}
+        </text>
+      )}
+      {mark.note && (
+        <text
+          x={cx}
+          y={cy + r + 14}
+          textAnchor="middle"
+          fontSize={12}
+          fontFamily="var(--font-sans)"
+          fill="var(--color-ink-dim)"
+          pointerEvents="none"
+        >
+          {mark.note}
         </text>
       )}
     </>

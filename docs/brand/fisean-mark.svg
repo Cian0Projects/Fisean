@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160" role="img" aria-label="Físeán">
+  <!-- The mark on a tile of sod. Geometry matches src/components/ui/Mark.tsx:
+       change one, change the other. Chalk posts, ash sliotar. -->
+  <rect width="160" height="160" rx="0" fill="#0a0f0d"/>
+  <g transform="translate(41.6 32) scale(0.96)" fill="#eceee7">
+    <rect x="0" y="0" width="12" height="100"/>
+    <rect x="68" y="0" width="12" height="100"/>
+    <rect x="0" y="60" width="80" height="9"/>
+  </g>
+  <circle cx="88.64" cy="58.88" r="9.6" fill="#e3d2ae"/>
+</svg>

@@ -70,8 +70,11 @@ export function ClipList({
                     opacity: c.pending ? 0.55 : 1,
                   }}
                 >
-                  <div
-                    className="mt-0.5 w-1 shrink-0 rounded-full"
+                  {/* The first tag's colour as a dot beside the time, the same
+                      mark its chip carries — not a stripe down the row. */}
+                  <span
+                    aria-hidden
+                    className="mt-[5px] h-2 w-2 shrink-0 rounded-full"
                     style={{ background: tags[0]?.colour ?? "var(--color-line-strong)" }}
                   />
 

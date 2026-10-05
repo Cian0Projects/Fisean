@@ -1,24 +1,23 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo } from "next/font/google";
+import { Chivo } from "next/font/google";
 import "./globals.css";
 
 /**
- * One typeface, working across its width axis.
+ * One typeface, working across its weights.
  *
- * Archivo is a grotesque drawn for signage and tables, and it carries a real
- * width axis — so the same family squeezes to 68% for a scoreline read across
- * a dressing room and relaxes to normal for a paragraph. Scoreboards and
- * jersey numbers are condensed for exactly that reason: the space is fixed
- * and the number is the message.
+ * Chivo is a grotesque with the heft of the faces a local printer sets a
+ * match programme in: at black weight it carries an opponent's name across
+ * a page, at regular it reads as plainly as a fixture list. It is sturdy in
+ * its figures — squared, open, tabular on request — which is what a
+ * scoreline, a timecode and a column of jersey numbers all need.
  *
  * next/font downloads it at build time and serves it from this app, so a
  * player's phone never asks Google for anything.
  */
-const archivo = Archivo({
-  subsets: ["latin"],
-  axes: ["wdth"],
+const chivo = Chivo({
+  subsets: ["latin", "latin-ext"],
   display: "swap",
-  variable: "--font-archivo",
+  variable: "--font-chivo",
 });
 
 export const metadata: Metadata = {
@@ -26,11 +25,11 @@ export const metadata: Metadata = {
   description:
     "Clip, tag and share hurling match footage. Built for GAA teams.",
   applicationName: "Físeán",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Físeán" },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Físeán" },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0f0d",
+  themeColor: "#ffffff",
   width: "device-width",
   initialScale: 1,
   // Players watch clips on phones; the video stage should reach the edges.
@@ -39,7 +38,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={archivo.variable}>
+    <html lang="en" className={chivo.variable}>
       <body>{children}</body>
     </html>
   );

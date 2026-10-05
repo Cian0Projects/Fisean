@@ -18,6 +18,7 @@ import { useEffect, useRef, useState } from "react";
 import type { PlayerEngine, Transport } from "./engine";
 import { AnnotationLayer, type Tool } from "./AnnotationLayer";
 import type { Shape } from "@/lib/db/schema";
+import { PauseIcon, PlayIcon } from "@/components/ui/Icon";
 import { formatClock, formatClockPrecise, toGameTime, type Markers } from "@/lib/hurling/notation";
 
 type Props = {
@@ -133,9 +134,7 @@ export function PlayToggle({ engine }: { engine: PlayerEngine }) {
       title={playing ? "Pause" : "Play"}
       className="btn-outline shrink-0 text-xs"
     >
-      <span aria-hidden className="text-[10px] leading-none">
-        {playing ? "❚❚" : "▶"}
-      </span>
+      {playing ? <PauseIcon size={11} /> : <PlayIcon size={11} />}
       {playing ? "Pause" : "Play"}
       <span className="kbd">Space</span>
     </button>
@@ -199,7 +198,7 @@ export function RateBadge({ engine }: { engine: PlayerEngine }) {
         }
         ref.current.style.opacity = "1";
         ref.current.textContent =
-          t.rate < 0 ? `◀ ${Math.abs(t.rate)}×` : t.rate === 1 ? "" : `${t.rate}×`;
+          t.rate < 0 ? `Reverse ${Math.abs(t.rate)}×` : t.rate === 1 ? "" : `${t.rate}×`;
       }),
     [engine],
   );

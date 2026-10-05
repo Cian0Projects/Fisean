@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PitchMap } from "@/components/pitch/PitchMap";
+import { Mark } from "@/components/ui/Mark";
 
 /**
  * The shell for the two screens you see before you are on a panel.
@@ -26,7 +27,10 @@ export function Gate({
 
       <div className="relative mx-auto grid w-full max-w-4xl items-center gap-10 md:grid-cols-2">
         <div>
-          <h1 className="wordmark text-[clamp(3rem,10vw,4.5rem)] leading-none">Físeán</h1>
+          <div className="flex items-center gap-4">
+            <Mark className="h-[clamp(2.75rem,9vw,4rem)]" />
+            <h1 className="wordmark text-[clamp(3rem,10vw,4.5rem)] leading-none">Físeán</h1>
+          </div>
           <div
             className="mt-4 h-px w-24"
             style={{ background: "var(--color-line-strong)" }}
@@ -38,10 +42,11 @@ export function Gate({
         </div>
 
         <div
-          className="rounded-md p-6"
+          className="p-6"
           style={{
-            background: "var(--color-surface)",
-            border: "1px solid var(--color-line-strong)",
+            background: "var(--color-stage)",
+            borderTop: "3px solid var(--color-rule)",
+            borderBottom: "1px solid var(--color-line)",
           }}
         >
           <h2 className="title mb-5 text-lg">{title}</h2>

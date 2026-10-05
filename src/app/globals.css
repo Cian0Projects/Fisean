@@ -3,60 +3,76 @@
 /*
  * Físeán's surface.
  *
- * The palette is a floodlit pitch at dusk: sod underfoot, chalk lines, and
- * the warm bone of an ash hurley. It runs dark because a bright interface
- * beside 70 minutes of footage is tiring and washes out the video — the thing
- * you are actually trying to look at.
+ * Two rooms. The list pages — matches, playlists, the squad — are the club's
+ * match programme: white card, black ink, and one spot colour the way a local
+ * printer runs a programme or a raffle ticket in a single reflex blue. They
+ * are read in daylight, on a laptop at the kitchen table or a phone on the
+ * bus, and a printed sheet is what everyone on a panel already knows how to
+ * read.
  *
- * Colour carries meaning here and nothing else. Chalk is the ink; ash marks
- * figures and the wordmark; green, red and amber are reserved for what
- * happened on the field — good for us, against us, unclear. That rule is what
- * makes a shot map readable at a glance, so nothing decorative is allowed to
- * borrow those three.
+ * The screens with footage on them — review, live stat logging, the playlist
+ * player, the phone watch screen — are a screening room: graphite, with the
+ * same ink lifted pale. A bright surround beside 70 minutes of video tires
+ * the eye and washes out the picture, which is the thing you came to see.
+ * Those routes put `.dark-room` round themselves and every token below flips.
+ *
+ * Colour carries meaning here and nothing else. Black is the ink; the spot
+ * blue marks the club's own furniture — the wordmark, boxed numbers, where
+ * you are, the one action that matters. Green, red and amber are reserved
+ * for what happened on the field — good for us, against us, unclear — so
+ * nothing decorative is allowed to borrow those three.
  */
 @theme {
-  /* Sod: the field, from deep shadow to a raised control. */
-  --color-stage: #0a0f0d;
-  --color-surface: #0f1613;
-  --color-surface-2: #16201b;
-  --color-surface-3: #1e2a23;
+  /* The card: page, a raised row, a pressed control. */
+  --color-stage: #ffffff;
+  --color-surface: #f4f5f7;
+  --color-surface-2: #eceef2;
+  --color-surface-3: #e1e4ea;
 
-  /* Pitch markings. Line is a whisper; line-strong is a fresh chalking. */
-  --color-line: #1f2b25;
-  --color-line-strong: #33463b;
+  /* Hairlines between rows; line-strong is a field's edge. */
+  --color-line: #dcdfe5;
+  --color-line-strong: #a3a9b4;
+  /* The heavy black rule a programme opens every section with. */
+  --color-rule: #15171b;
 
-  /* Chalk: warm white, the way a line marking reads under lights. */
-  --color-ink: #eceee7;
-  --color-ink-dim: #a2afa4;
-  --color-ink-faint: #6d7c71;
+  /* Ink. Faint still clears 4.5:1 on the card. */
+  --color-ink: #15171b;
+  --color-ink-dim: #484d57;
+  --color-ink-faint: #676d79;
 
-  /* Ash: a hurley's bone. Figures, the wordmark, the line under where you are. */
-  --color-ash: #e3d2ae;
-  --color-ash-dim: #9a8f74;
+  /*
+   * The spot ink. Named ash for history — it was a hurley's bone when the app
+   * was all dark — and kept under that name so every figure, jersey and
+   * wordmark follows it without a rename across forty files.
+   */
+  --color-ash: #1f2f96;
+  --color-ash-dim: #6c77b9;
+  --color-spot-tint: #e9ebf7;
+  /* What sits on a spot-filled button. */
+  --color-on-spot: #ffffff;
 
   /* The sod a pitch map is drawn on, and what a hollow mark is filled with. */
-  --color-pitch: #0d1a13;
+  --color-pitch: #eef3ee;
 
   /*
    * The three that mean something: good for us, against us, unclear.
    *
-   * Green against red is the one pair colour-blind readers cannot separate by
-   * hue, so these are separated by lightness as well — checked, not eyeballed:
-   * ΔE 13.6 under deuteranopia, and every one of them clears 4:1 on the sod.
-   * The pitch maps back them up with shape (filled, ring, ring-and-centre) so
-   * a shot map still reads with the colour taken away.
+   * Darker than their screening-room versions so each still clears 4.5:1 on
+   * white when set small. The pitch maps back them up with shape (filled,
+   * ring, ring-and-centre) so a shot map still reads with the colour taken
+   * away — and on a photocopy.
    */
-  --color-brand: #4cc17a;
-  --color-brand-dim: #23764c;
-  --color-brand-glow: #8ce3ab;
-  --color-danger: #d2442f;
-  /* A step lighter, for red set small enough to need the extra contrast. */
-  --color-danger-ink: #e05a44;
-  --color-mark: #e0b95e;
+  --color-brand: #17803f;
+  --color-brand-dim: #0f6a33;
+  --color-brand-glow: #3da366;
+  --color-danger: #c2361f;
+  /* A step darker, for red set small enough to need the extra contrast. */
+  --color-danger-ink: #a92c18;
+  --color-mark: #946000;
 
   /* Cúl and cúilín, kept apart so a scoreline reads without labels. */
-  --color-goal: #35a862;
-  --color-point: #7ddfa5;
+  --color-goal: #17803f;
+  --color-point: #3da366;
 
   /*
    * One per kind of stat, for telling the timeline's lanes apart.
@@ -67,16 +83,82 @@
    * lost. Every lane is labelled in words as well, so the hue is the second
    * way of telling them apart and never the only one.
    */
+  --color-lane-tackle: #57758d;
+  --color-lane-delivery: #22818d;
+  --color-lane-turnover: #6d57b3;
+  --color-lane-shot: #1f2f96;
+  --color-lane-free: #a8506f;
+  --color-lane-puckout: #3a5db0;
+  --color-lane-free-won: #8e57b5;
+
+  /*
+   * The two sides in a training drill, and the ball they play with. A side
+   * is a bib, not an outcome, so neither borrows green, red or amber. Side A
+   * is drawn filled and side B as a ring, so the board still reads in black
+   * and white.
+   */
+  --color-side-a: #1f2f96;
+  --color-side-b: #a8506f;
+  --color-ball: #ffffff;
+
+  --font-sans: var(--font-chivo), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+}
+
+/*
+ * The screening room. Graphite rather than a tinted near-black, and the spot
+ * ink lifted to a pale blue so it still reads as the same printer's colour
+ * with the lights down. The outcome colours are brighter here because they
+ * have to clear the same contrast against a dark ground.
+ *
+ * `display: contents` so the wrapper adds a scope and nothing else — the
+ * workspace's own full-height layout never sees it.
+ */
+.dark-room {
+  display: contents;
+
+  --color-stage: #111317;
+  --color-surface: #171a1f;
+  --color-surface-2: #1e2229;
+  --color-surface-3: #272c34;
+  --color-line: #262b33;
+  --color-line-strong: #3d4450;
+  --color-rule: #eceef2;
+
+  --color-ink: #eceef2;
+  --color-ink-dim: #a6acb8;
+  --color-ink-faint: #737a88;
+
+  --color-ash: #b3bcf6;
+  --color-ash-dim: #7a84c2;
+  --color-spot-tint: #232846;
+  --color-on-spot: #111317;
+
+  --color-pitch: #0d1a13;
+
+  --color-brand: #4cc17a;
+  --color-brand-dim: #23764c;
+  --color-brand-glow: #8ce3ab;
+  --color-danger: #d2442f;
+  --color-danger-ink: #e05a44;
+  --color-mark: #e0b95e;
+  --color-goal: #35a862;
+  --color-point: #7ddfa5;
+
   --color-lane-tackle: #8ea9bf;
   --color-lane-delivery: #57b8c4;
   --color-lane-turnover: #a38fd6;
-  --color-lane-shot: #e3d2ae;
+  --color-lane-shot: #b3bcf6;
   --color-lane-free: #cf8fa8;
   --color-lane-puckout: #6f8fd0;
+  --color-lane-free-won: #c49bdf;
 
-  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", Roboto, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  --color-side-a: #b3bcf6;
+  --color-side-b: #cf8fa8;
+  --color-ball: #f4f1e8;
+
+  color: var(--color-ink);
 }
 
 @layer base {
@@ -85,10 +167,19 @@
   }
 
   html {
-    color-scheme: dark;
+    color-scheme: light;
     background: var(--color-stage);
     /* The workspace manages its own scrolling; the page should not bounce. */
     overscroll-behavior: none;
+  }
+
+  /* A dark room darkens the whole page, overscroll and scrollbars included. */
+  html:has(.dark-room) {
+    color-scheme: dark;
+    background: #111317;
+  }
+  body:has(.dark-room) {
+    background: #111317;
   }
 
   body {
@@ -103,7 +194,7 @@
 
   /*
    * Figures line up in a column whatever the digits, without reaching for a
-   * monospace face — Archivo's own tabular set keeps a timecode steady while
+   * monospace face — Chivo's own tabular set keeps a timecode steady while
    * still looking like the rest of the page.
    */
   .tabular {
@@ -117,10 +208,19 @@
   }
 
   ::selection {
-    background: color-mix(in oklab, var(--color-brand) 40%, transparent);
+    background: color-mix(in oklab, var(--color-ash) 22%, transparent);
   }
 
-  /* Dark, slim scrollbars so clip lists do not draw attention to themselves. */
+  a {
+    text-underline-offset: 3px;
+  }
+
+  input,
+  textarea {
+    caret-color: var(--color-ash);
+  }
+
+  /* Slim scrollbars in the room's own greys, so lists do not draw the eye. */
   * {
     scrollbar-width: thin;
     scrollbar-color: var(--color-line-strong) transparent;
@@ -153,25 +253,46 @@
 
 @layer components {
   /*
+   * The printed sheet's measure. Wide enough that a fixture table and its
+   * rail sit side by side on a laptop without a dead gutter either side,
+   * and no wider, because past this a row's name and its actions drift too
+   * far apart to read as one line.
+   */
+  .sheet {
+    margin-inline: auto;
+    width: 100%;
+    max-width: 88rem;
+    padding-inline: 1rem;
+  }
+  @media (min-width: 640px) {
+    .sheet {
+      padding-inline: 1.5rem;
+    }
+  }
+  @media (min-width: 1024px) {
+    .sheet {
+      padding-inline: 2.5rem;
+    }
+  }
+
+  /*
    * Type.
    *
-   * One family doing several jobs through its width axis: squeezed hard and
-   * heavy for names and figures, normal for reading. Scoreboards and jersey
-   * numbers are condensed because the space is fixed and the number is what
-   * matters — the same reason it works here.
+   * One grotesque, Chivo, doing every job through weight alone: black for a
+   * name set across a page, bold for headings and figures, regular for
+   * reading. A programme is set this way — a heavy name, a plain line under
+   * it — and the contrast between the two is the whole hierarchy.
    */
   .display {
-    font-weight: 800;
-    font-stretch: 72%;
-    letter-spacing: -0.015em;
-    line-height: 0.95;
+    font-weight: 900;
+    letter-spacing: -0.035em;
+    line-height: 0.92;
   }
 
   .title {
     font-weight: 700;
-    font-stretch: 86%;
-    letter-spacing: -0.01em;
-    line-height: 1.15;
+    letter-spacing: -0.012em;
+    line-height: 1.2;
   }
 
   /*
@@ -181,9 +302,28 @@
    */
   .figure {
     font-weight: 800;
-    font-stretch: 68%;
-    letter-spacing: -0.01em;
-    line-height: 0.9;
+    letter-spacing: -0.02em;
+    line-height: 0.95;
+  }
+
+  /*
+   * A section opens on a heavy rule, the way every block of a programme does
+   * — the fixtures, the team, the notes. It is the one strong line on the
+   * page, so rows below it only ever get hairlines.
+   */
+  .section-head {
+    border-top: 3px solid var(--color-rule);
+    padding-top: 0.6rem;
+  }
+
+  /*
+   * What a figure counts, printed under it. Constant size wherever it
+   * appears, so no caption outranks another.
+   */
+  .caption {
+    font-size: 12px;
+    line-height: 1.3;
+    color: var(--color-ink-faint);
   }
 
   /*
@@ -195,7 +335,7 @@
     display: flex;
     gap: 2px;
     height: 8px;
-    border-radius: 4px;
+    border-radius: 2px;
     overflow: hidden;
     background: var(--color-surface-3);
   }
@@ -203,17 +343,10 @@
     display: block;
     height: 100%;
   }
-  .meter > span:first-child {
-    border-radius: 4px 0 0 4px;
-  }
-  .meter > span:last-child {
-    border-radius: 0 4px 4px 0;
-  }
 
   .wordmark {
-    font-weight: 800;
-    font-stretch: 76%;
-    letter-spacing: -0.02em;
+    font-weight: 900;
+    letter-spacing: -0.03em;
     color: var(--color-ash);
   }
 
@@ -232,32 +365,22 @@
   }
 
   /*
-   * Structure comes from rules and surface tone, the way a pitch is marked,
+   * Structure comes from rules and tone, the way a programme is laid out,
    * rather than from putting everything in its own box. A panel is for
    * content that genuinely sits apart.
    */
-  .panel {
-    background: var(--color-surface);
-    border: 1px solid var(--color-line);
-    border-radius: 5px;
-  }
-
-  /* Kept because the workspace and admin lean on it; same treatment. */
+  .panel,
   .card {
     background: var(--color-surface);
     border: 1px solid var(--color-line);
-    border-radius: 5px;
+    border-radius: 3px;
   }
 
   /* A slab is where a number is the whole point: the scoreboard treatment. */
   .slab {
-    background: linear-gradient(
-      180deg,
-      var(--color-surface-2) 0%,
-      var(--color-surface) 100%
-    );
+    background: var(--color-surface);
     border: 1px solid var(--color-line-strong);
-    border-radius: 5px;
+    border-radius: 3px;
   }
 
   /*
@@ -276,20 +399,21 @@
   .btn-primary,
   .btn-ghost,
   .btn-outline {
-    @apply inline-flex items-center justify-center gap-2 rounded px-3 py-2
-           text-[13px] font-medium transition-colors select-none
+    @apply inline-flex items-center justify-center gap-2 px-3 py-2
+           text-[13px] font-semibold transition-colors select-none
            disabled:opacity-40 disabled:pointer-events-none;
-    font-stretch: 94%;
+    border-radius: 2px;
   }
 
+  /* The one action on a page that matters, printed solid in the spot ink. */
   .btn-primary {
-    background: var(--color-brand-dim);
-    border: 1px solid color-mix(in oklab, var(--color-brand) 60%, transparent);
-    color: #f2fbf5;
+    background: var(--color-ash);
+    border: 1px solid var(--color-ash);
+    color: var(--color-on-spot);
   }
   .btn-primary:hover {
-    background: var(--color-brand);
-    border-color: var(--color-brand);
+    background: color-mix(in oklab, var(--color-ash) 82%, var(--color-ink));
+    border-color: color-mix(in oklab, var(--color-ash) 82%, var(--color-ink));
   }
 
   .btn-ghost {
@@ -302,22 +426,23 @@
   }
 
   .btn-outline {
-    border: 1px solid var(--color-line-strong);
+    border: 1px solid var(--color-ink);
     color: var(--color-ink);
   }
   .btn-outline:hover {
     background: var(--color-surface-2);
-    border-color: color-mix(in oklab, var(--color-ash) 45%, var(--color-line-strong));
   }
 
   .field {
-    @apply w-full rounded px-3 py-2 text-[14px] outline-none transition-colors;
+    @apply w-full px-3 py-2 text-[14px] outline-none transition-colors;
+    border-radius: 2px;
     background: var(--color-stage);
     border: 1px solid var(--color-line-strong);
     color: var(--color-ink);
   }
   .field:focus {
     border-color: var(--color-ash);
+    box-shadow: 0 0 0 1px var(--color-ash);
   }
   .field::placeholder {
     color: var(--color-ink-faint);
@@ -325,32 +450,34 @@
 
   /* A key on the cheatsheet and in inline hints. */
   .kbd {
-    @apply inline-flex min-w-5 items-center justify-center rounded-sm border px-1.5
+    @apply inline-flex min-w-5 items-center justify-center border px-1.5
            py-0.5 text-[11px] font-semibold;
-    background: var(--color-surface-3);
+    border-radius: 2px;
+    background: var(--color-surface-2);
     border-color: var(--color-line-strong);
     color: var(--color-ink-dim);
     font-variant-numeric: tabular-nums;
   }
 
   /*
-   * A jersey number. Square, because that is how a number sits on a team
-   * sheet and on a back — and because it keeps 1 and 15 the same width.
+   * A jersey number, boxed in the spot ink the way a team sheet prints it.
+   * Square, because that is how a number sits on a sheet and on a back — and
+   * because it keeps 1 and 15 the same width.
    */
   .jersey {
-    @apply inline-flex items-center justify-center rounded-sm text-[12px] font-bold;
+    @apply inline-flex items-center justify-center text-[12px] font-bold;
     min-width: 1.5rem;
     height: 1.5rem;
     padding: 0 0.25rem;
-    background: var(--color-surface-3);
+    border: 1.5px solid currentColor;
+    border-radius: 2px;
     color: var(--color-ash);
     font-variant-numeric: tabular-nums;
-    font-stretch: 80%;
   }
 
-  /* The current page, marked the way a line is chalked under it. */
+  /* The current page, marked by a bar of the spot ink under it. */
   .here {
-    box-shadow: inset 0 -2px 0 0 var(--color-ash);
+    box-shadow: inset 0 -3px 0 0 var(--color-ash);
     color: var(--color-ink);
   }
 }
@@ -360,36 +487,42 @@
  *
  * The stat sheet is the one thing in Físeán that leaves the screen — it gets
  * handed round a dressing room, or sent on as a PDF. The browser does both
- * already, so rather than add a PDF library the report swaps its palette for
- * ink on paper and hides anything you cannot click on a page.
+ * already, so rather than add a PDF library the report drops to ink on paper
+ * and hides anything you cannot click on a page. The list pages are already
+ * printed in spirit; this mostly clears the dark rooms back to white.
  *
  * Deliberately outside `@layer`: unlayered rules beat layered ones whatever
  * the order, so these override the theme tokens without !important.
  */
 @media print {
-  :root {
+  :root,
+  .dark-room {
     color-scheme: light;
 
     --color-stage: #ffffff;
     --color-surface: #ffffff;
-    --color-surface-2: #f3f5f2;
-    --color-surface-3: #e9ede9;
-    --color-line: #cbd2cc;
-    --color-line-strong: #8a968c;
+    --color-surface-2: #f3f4f6;
+    --color-surface-3: #e9ebef;
+    --color-line: #cfd3d9;
+    --color-line-strong: #8a909b;
+    --color-rule: #111317;
 
-    --color-ink: #111714;
-    --color-ink-dim: #39443d;
-    --color-ink-faint: #6b7770;
-    --color-ash: #6b5a32;
+    --color-ink: #111317;
+    --color-ink-dim: #3b404a;
+    --color-ink-faint: #6a707c;
+    --color-ash: #1f2f96;
     /* A pitch map prints on paper, not on sod — otherwise the markings, which
        are drawn in ink, would be black on near-black. */
     --color-pitch: #f2f6f2;
+    --color-side-a: #1f2f96;
+    --color-side-b: #a8506f;
+    --color-ball: #ffffff;
   }
 
   html,
   body {
     background: #fff;
-    color: #111714;
+    color: #111317;
     font-size: 11pt;
   }
 
@@ -411,7 +544,7 @@
   .card,
   .panel,
   .slab {
-    border-color: #cbd2cc;
+    border-color: #cfd3d9;
     background: #fff;
     break-inside: avoid;
   }
