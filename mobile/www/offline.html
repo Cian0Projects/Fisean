@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Físeán</title>
+    <style>
+      /* Tokens copied from src/app/globals.css: this page ships inside the
+         app, so it cannot load the server's stylesheet — that is the one
+         thing it knows is unreachable. */
+      :root {
+        --stage: #0a0f0d;
+        --ink: #eceee7;
+        --ink-dim: #a2afa4;
+        --ash: #e3d2ae;
+        --brand-dim: #23764c;
+        --brand: #4cc17a;
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: var(--stage);
+        color: var(--ink);
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      main {
+        padding: calc(env(safe-area-inset-top) + 4rem) 1.5rem 2rem;
+        max-width: 28rem;
+        margin: 0 auto;
+      }
+      .wordmark {
+        color: var(--ash);
+        font-weight: 800;
+        font-size: 28px;
+        letter-spacing: -0.02em;
+      }
+      h1 {
+        font-size: 26px;
+        margin: 2rem 0 0.5rem;
+      }
+      p {
+        color: var(--ink-dim);
+        line-height: 1.5;
+      }
+      button {
+        margin-top: 1.5rem;
+        width: 100%;
+        min-height: 48px;
+        border-radius: 4px;
+        border: 1px solid var(--brand);
+        background: var(--brand-dim);
+        color: #f2fbf5;
+        font-size: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="wordmark">Físeán</div>
+      <h1>Cannot reach the club</h1>
+      <p>
+        Físeán plays the footage from your club's own server, so it needs a connection. Check your
+        WiFi or mobile data, then try again.
+      </p>
+      <button onclick="history.length > 1 ? history.back() : location.reload()">Try again</button>
+    </main>
+  </body>
+</html>

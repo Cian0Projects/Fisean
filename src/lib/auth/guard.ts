@@ -24,6 +24,17 @@ export async function requireUser(): Promise<SessionUser> {
   return user;
 }
 
+/**
+ * As `requireUser`, but signing in brings you back to `path`. The phone
+ * screens use it, so someone who opens the app signed out lands back on the
+ * phone layout afterwards rather than on the desktop dashboard.
+ */
+export async function requireUserFor(path: string): Promise<SessionUser> {
+  const user = await currentUser();
+  if (!user) redirect(`/login?next=${encodeURIComponent(path)}`);
+  return user;
+}
+
 /** For server actions: throws rather than redirecting. */
 export async function requireUserOrThrow(): Promise<SessionUser> {
   const user = await currentUser();

@@ -1,10 +1,16 @@
 "use client";
 
-import { useActionState } from "react";
+import { use, useActionState } from "react";
 import { signIn } from "@/lib/actions/auth";
 import { Gate, GateLink } from "@/components/ui/Gate";
 
-export default function LoginPage() {
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  // Carried through the form so the app lands back where it was opened.
+  const { next } = use(searchParams);
   const [state, action, pending] = useActionState(signIn, undefined);
 
   return (
@@ -13,11 +19,12 @@ export default function LoginPage() {
       intro="Match footage, clipped and tagged, with the stat sheet beside it. For one club, on one machine."
       footer={
         <>
-          New to the panel? <GateLink href="/join">Join with your team code</GateLink>
+          New to the panel? <GateLink href={next ? `/join?next=${encodeURIComponent(next)}` : "/join"}>Join with your team code</GateLink>
         </>
       }
     >
       <form action={action} className="space-y-4">
+        {next && <input type="hidden" name="next" value={next} />}
         <div>
           <label htmlFor="username" className="label mb-1.5 block">
             Username

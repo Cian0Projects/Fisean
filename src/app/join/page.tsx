@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { use, useActionState } from "react";
 import { joinTeam } from "@/lib/actions/auth";
 import { Gate, GateLink } from "@/components/ui/Gate";
 
@@ -9,7 +9,13 @@ import { Gate, GateLink } from "@/components/ui/Gate";
  * minute. One code, a name, a username and a password — no email to verify,
  * no invitation to chase, nothing for the manager to approve afterwards.
  */
-export default function JoinPage() {
+export default function JoinPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  // Carried through the form so the app lands back where it was opened.
+  const { next } = use(searchParams);
   const [state, action, pending] = useActionState(joinTeam, undefined);
 
   return (
@@ -18,11 +24,12 @@ export default function JoinPage() {
       intro="Your manager has a six-character code. That is the whole sign-up — no email to verify, nothing to approve."
       footer={
         <>
-          Already set up? <GateLink href="/login">Sign in</GateLink>
+          Already set up? <GateLink href={next ? `/login?next=${encodeURIComponent(next)}` : "/login"}>Sign in</GateLink>
         </>
       }
     >
       <form action={action} className="space-y-4">
+        {next && <input type="hidden" name="next" value={next} />}
         <div>
           <label htmlFor="joinCode" className="label mb-1.5 block">
             Team code
@@ -45,27 +52,11 @@ export default function JoinPage() {
           <input id="displayName" name="displayName" autoComplete="name" className="field" />
         </div>
 
-        <div className="grid grid-cols-[1fr_5.5rem] gap-3">
-          <div>
-            <label htmlFor="username" className="label mb-1.5 block">
-              Username
-            </label>
-            <input id="username" name="username" autoComplete="username" className="field" />
-          </div>
-          <div>
-            <label htmlFor="jerseyNumber" className="label mb-1.5 block">
-              Jersey
-            </label>
-            <input
-              id="jerseyNumber"
-              name="jerseyNumber"
-              type="number"
-              min={1}
-              max={40}
-              inputMode="numeric"
-              className="field tabular"
-            />
-          </div>
+        <div>
+          <label htmlFor="username" className="label mb-1.5 block">
+            Username
+          </label>
+          <input id="username" name="username" autoComplete="username" className="field" />
         </div>
 
         <div>

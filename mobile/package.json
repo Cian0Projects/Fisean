@@ -1,0 +1,21 @@
+{
+  "name": "fisean-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Android and iOS shells for Físeán — a native window onto the club's own server",
+  "scripts": {
+    "sync": "cap sync",
+    "android": "cap sync android && cap open android",
+    "ios": "cap sync ios && cap open ios",
+    "run:android": "cap sync android && cap run android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/ios": "^8.5.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
+    "typescript": "~5.9.3"
+  }
+}

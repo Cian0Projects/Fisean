@@ -4,7 +4,13 @@ import {
   MAX_ROOM_MS,
   MIN_ROOM_MS,
   ROOM_STEP_MS,
+  MAX_CLIP_MS,
+  MIN_CLIP_MS,
+  PREVIEW_MAX_MS,
   clampRoom,
+  nudgeEdge,
+  previewClip,
+  previewWindow,
   trimWindow,
 } from "../src/lib/hurling/clip-rules.ts";
 
@@ -66,4 +72,65 @@ test("the window always contains the clip, whatever the room", () => {
     assert.ok(win.startMs <= clip.startMs, `start at ${room}`);
     assert.ok(win.endMs >= clip.endMs, `end at ${room}`);
   }
+});
+
+test("a nudge moves only the end it was asked to", () => {
+  const clip = { startMs: 60_000, endMs: 70_000 };
+  assert.deepEqual(nudgeEdge(clip, "start", -1000, HOUR), { startMs: 59_000, endMs: 70_000 });
+  assert.deepEqual(nudgeEdge(clip, "end", 1000, HOUR), { startMs: 60_000, endMs: 71_000 });
+});
+
+test("a nudge stops at the edges of the file", () => {
+  assert.equal(nudgeEdge({ startMs: 400, endMs: 5000 }, "start", -1000, HOUR).startMs, 0);
+  assert.equal(nudgeEdge({ startMs: HOUR - 5000, endMs: HOUR - 400 }, "end", 1000, 2 * HOUR).endMs, HOUR + 600);
+  assert.equal(nudgeEdge({ startMs: HOUR - 5000, endMs: HOUR - 400 }, "end", 1000, HOUR).endMs, HOUR);
+});
+
+test("a nudge never makes a clip the server would refuse", () => {
+  const short = { startMs: 10_000, endMs: 10_000 + MIN_CLIP_MS };
+  // Pulling either end inwards past the minimum holds at the minimum.
+  assert.equal(nudgeEdge(short, "start", 1000, HOUR).startMs, 10_000);
+  assert.equal(nudgeEdge(short, "end", -1000, HOUR).endMs, 10_000 + MIN_CLIP_MS);
+
+  const long = { startMs: 60_000, endMs: 60_000 + MAX_CLIP_MS };
+  assert.equal(nudgeEdge(long, "start", -1000, HOUR).startMs, 60_000);
+  assert.equal(nudgeEdge(long, "end", 1000, HOUR).endMs, 60_000 + MAX_CLIP_MS);
+});
+
+test("an unknown duration does not pin the end at zero", () => {
+  assert.equal(nudgeEdge({ startMs: 0, endMs: 5000 }, "end", 1000, 0).endMs, 6000);
+});
+
+const clipAt = (startMs, lengthMs, title = "") => ({ startMs, endMs: startMs + lengthMs, title });
+
+test("a preview comes from the start of the match, not the latest tag", () => {
+  const late = clipAt(3_000_000, 10_000, "Winning point");
+  const early = clipAt(60_000, 10_000, "Throw-in");
+  assert.equal(previewClip([late, early]), early);
+});
+
+test("a preview prefers a named clip among the first few", () => {
+  const untitled = clipAt(10_000, 10_000);
+  const named = clipAt(20_000, 10_000, "Point off the left");
+  assert.equal(previewClip([named, untitled]), named);
+  // …but only from the first few: a named clip later on does not jump the queue.
+  const fourth = clipAt(90_000, 10_000, "Goal");
+  const three = [clipAt(1_000, 5_000), clipAt(2_000, 5_000), clipAt(3_000, 5_000)];
+  assert.equal(previewClip([...three, fourth]), three[0]);
+});
+
+test("a flicker only stands in when nothing longer will", () => {
+  const flicker = clipAt(1_000, 800, "Blink");
+  const real = clipAt(5_000, 6_000);
+  assert.equal(previewClip([flicker, real]), real);
+  assert.equal(previewClip([flicker]), flicker);
+  assert.equal(previewClip([]), null);
+});
+
+test("a preview loops a glimpse, not the whole clip", () => {
+  assert.deepEqual(previewWindow({ startMs: 1_000, endMs: 60_000 }), {
+    startMs: 1_000,
+    endMs: 1_000 + PREVIEW_MAX_MS,
+  });
+  assert.deepEqual(previewWindow({ startMs: 1_000, endMs: 4_000 }), { startMs: 1_000, endMs: 4_000 });
 });

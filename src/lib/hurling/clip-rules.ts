@@ -49,3 +49,70 @@ export function trimWindow(
   const endMs = Math.min(Math.max(videoDurationMs, clip.endMs), clip.endMs + room);
   return { startMs, endMs };
 }
+
+/* ------------------------------------------------------ the phone's nudges */
+
+/**
+ * Move one end of a clip by a fixed step, as the phone's −1 s / +1 s buttons
+ * do in place of the desktop's drag handles.
+ *
+ * A thumb cannot drag a handle to a tenth of a second on a 6 cm strip, but it
+ * can tap a button four times. Each tap is clamped the same way the server
+ * checks a save: never before zero or past the end of the file, never
+ * shorter than `MIN_CLIP_MS`, never longer than `MAX_CLIP_MS`. An end that
+ * cannot move holds still rather than dragging the other end with it — the
+ * point you already set is the one you meant.
+ */
+export function nudgeEdge(
+  clip: { startMs: number; endMs: number },
+  edge: "start" | "end",
+  deltaMs: number,
+  videoDurationMs: number,
+): { startMs: number; endMs: number } {
+  const fileEnd = videoDurationMs > 0 ? videoDurationMs : Number.MAX_SAFE_INTEGER;
+  if (edge === "start") {
+    const lo = Math.max(0, clip.endMs - MAX_CLIP_MS);
+    const hi = clip.endMs - MIN_CLIP_MS;
+    return { startMs: Math.min(hi, Math.max(lo, clip.startMs + deltaMs)), endMs: clip.endMs };
+  }
+  const lo = clip.startMs + MIN_CLIP_MS;
+  const hi = Math.min(fileEnd, clip.startMs + MAX_CLIP_MS);
+  return { startMs: clip.startMs, endMs: Math.min(hi, Math.max(lo, clip.endMs + deltaMs)) };
+}
+
+/* ------------------------------------------------------ the match preview */
+
+/**
+ * Which clip stands in for a match on the matches page.
+ *
+ * No ffmpeg means no generated thumbnails, so a match's picture is one of its
+ * own clips, played from the footage itself. It comes from the first few by
+ * game time — the preview should look like the start of that match, not
+ * whichever moment was tagged last — and among those a clip somebody took the
+ * trouble to name is the better bet than an untitled one. A clip shorter than
+ * a couple of seconds is a flicker, so it only wins when nothing else will.
+ */
+export const PREVIEW_CANDIDATES = 3;
+export const PREVIEW_MIN_MS = 2_000;
+
+/** A preview loops this much of its clip at most: a glimpse, not a replay. */
+export const PREVIEW_MAX_MS = 8_000;
+
+export function previewClip<T extends { title: string; startMs: number; endMs: number }>(
+  clips: readonly T[],
+): T | null {
+  const early = [...clips].sort((a, b) => a.startMs - b.startMs).slice(0, PREVIEW_CANDIDATES);
+  const longEnough = early.filter((c) => c.endMs - c.startMs >= PREVIEW_MIN_MS);
+  return longEnough.find((c) => c.title.trim()) ?? longEnough[0] ?? early[0] ?? null;
+}
+
+/** The stretch of a clip the preview loops over. */
+export function previewWindow(clip: { startMs: number; endMs: number }): {
+  startMs: number;
+  endMs: number;
+} {
+  return {
+    startMs: clip.startMs,
+    endMs: Math.max(clip.startMs, Math.min(clip.endMs, clip.startMs + PREVIEW_MAX_MS)),
+  };
+}
