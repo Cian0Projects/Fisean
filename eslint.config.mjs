@@ -6,7 +6,19 @@ import coreWebVitals from "eslint-config-next/core-web-vitals";
 import typescript from "eslint-config-next/typescript";
 
 const config = [
-  { ignores: [".next/**", "node_modules/**", "data/**", "next-env.d.ts"] },
+  {
+    ignores: [
+      ".next/**",
+      "node_modules/**",
+      "data/**",
+      "mobile/**",
+      "next-env.d.ts",
+      // Agent tooling and its working files, not app source.
+      ".claude/**",
+      ".agents/**",
+      ".impeccable/**",
+    ],
+  },
   ...coreWebVitals,
   ...typescript,
   {

@@ -13,3 +13,13 @@ data/
 next-env.d.ts
 .DS_Store
 Thumbs.db
+
+# Agent tooling and what it produces — installed skills, design-review
+# screenshots, launch videos. Working files, not Físeán; DESIGN.md and
+# PRODUCT.md keep the decisions that matter.
+.agents/
+.claude/
+.impeccable/
+brag-output/
+skills-lock.json
+.vscode/
