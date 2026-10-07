@@ -10,6 +10,7 @@ import {
   playlists,
   videos,
 } from "@/lib/db/schema";
+import { currentUser } from "@/lib/auth/session";
 import { requireUser } from "@/lib/auth/guard";
 import { Nav } from "@/components/ui/Nav";
 import { formatClock, formatScore, scoreTotal } from "@/lib/hurling/notation";
@@ -26,7 +27,165 @@ import { previewClip, previewWindow } from "@/lib/hurling/clip-rules";
 import { store } from "@/lib/storage";
 import { MatchPreview, type PreviewSource } from "@/components/matches/MatchPreview";
 
-export default async function Dashboard() {
+export default async function Home() {
+  const user = await currentUser();
+  if (!user) return <PublicHomepage />;
+  return <Dashboard />;
+}
+
+function PublicHomepage() {
+  return (
+    <main className="min-h-screen overflow-hidden bg-[var(--ardawn-night)] text-[var(--ardawn-paper)]">
+      <header className="border-b" style={{ borderColor: "rgba(240, 238, 231, 0.14)" }}>
+        <div className="sheet flex items-center justify-between py-4">
+          <Link href="/" className="flex items-center gap-3" aria-label="Ardawn home">
+            <ArdawnMark className="h-7 w-7" />
+            <span className="wordmark text-[25px] leading-none text-[var(--ardawn-paper)]">Ardawn</span>
+          </Link>
+          <nav className="flex items-center gap-2 sm:gap-5" aria-label="Main navigation">
+            <a href="#how-it-works" className="hidden text-[13px] font-semibold text-[var(--ardawn-paper)]/65 sm:inline">
+              How it works
+            </a>
+            <a href="#the-difference" className="hidden text-[13px] font-semibold text-[var(--ardawn-paper)]/65 sm:inline">
+              Why Ardawn
+            </a>
+            <a href="/login" className="ardawn-outline">
+              Sign in
+            </a>
+          </nav>
+        </div>
+      </header>
+
+      <section className="sheet grid gap-12 pb-16 pt-14 sm:pb-24 sm:pt-20 lg:grid-cols-[minmax(0,1fr)_minmax(25rem,0.88fr)] lg:items-center lg:gap-20 lg:pt-28">
+        <div>
+          <p className="mb-5 flex items-center gap-3 text-[12px] font-semibold tracking-[0.08em] text-[var(--color-ash)]">
+            <span className="h-[3px] w-8 bg-[var(--ardawn-green)]" />
+            GAA video review, clipping, stats and drills
+          </p>
+          <h1 className="display max-w-3xl text-[clamp(3.25rem,8vw,7.4rem)]">
+            Turn match day into your next advantage.
+          </h1>
+          <p className="measure mt-7 text-[17px] leading-relaxed text-[var(--ardawn-paper)]/70 sm:text-[19px]">
+            Ardawn gives your club one calm place to watch the match back, mark
+            the moments that matter, and bring a better question to training.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <a href="/join" className="ardawn-primary px-5 py-3 text-[14px]">
+              Join your team
+            </a>
+            <a href="#how-it-works" className="ardawn-ghost px-4 py-3 text-[14px]">
+              See how it works <span aria-hidden>↓</span>
+            </a>
+          </div>
+          <p className="mt-7 text-[12px] text-[var(--color-ink-faint)]">
+            Private to your squad. Built for the way GAA is actually reviewed.
+          </p>
+        </div>
+
+        <BrandBanner />
+      </section>
+
+      <section className="border-y border-white/10 bg-[#0d1712]" id="the-difference">
+        <div className="sheet grid divide-y lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+          <div className="py-7 lg:pr-10">
+            <p className="figure text-[2.7rem] text-[var(--ardawn-green)]">01</p>
+            <h2 className="title mt-3 text-[20px]">See the whole match</h2>
+            <p className="mt-2 text-[14px] text-[var(--ardawn-paper)]/65">
+              Keep the footage, fixture and scoreline together. No hunting through camera rolls.
+            </p>
+          </div>
+          <div className="py-7 lg:px-10">
+            <p className="figure text-[2.7rem] text-[var(--ardawn-green)]">02</p>
+            <h2 className="title mt-3 text-[20px]">Keep the moments</h2>
+            <p className="mt-2 text-[14px] text-[var(--ardawn-paper)]/65">
+              Clip a delivery, a turnover or a score in seconds. Add context while it is fresh.
+            </p>
+          </div>
+          <div className="py-7 lg:pl-10">
+            <p className="figure text-[2.7rem] text-[var(--ardawn-green)]">03</p>
+            <h2 className="title mt-3 text-[20px]">Share the lesson</h2>
+            <p className="mt-2 text-[14px] text-[var(--ardawn-paper)]/65">
+              Build playlists for the panel, then arrive at training ready to work on the detail.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="sheet py-20 sm:py-28" id="how-it-works">
+        <div className="grid gap-12 lg:grid-cols-[0.72fr_1.28fr] lg:gap-24">
+          <div>
+            <p className="mb-3 text-[12px] font-semibold tracking-[0.08em] text-[var(--ardawn-green)]">The match desk</p>
+            <h2 className="display max-w-lg text-[clamp(2.6rem,5vw,4.7rem)]">
+              From raw footage to a useful conversation.
+            </h2>
+          </div>
+          <div className="grid gap-0 border-t-[3px] border-[var(--ardawn-paper)]">
+            <LandingStep number="01" title="Upload once" copy="Your match footage belongs to the club, alongside its fixture and stat sheet." />
+            <LandingStep number="02" title="Mark what matters" copy="Use the timeline to cut clips, tag players and draw the shape of the play." />
+            <LandingStep number="03" title="Give the panel a path" copy="Send a playlist to the team so review becomes shared language, not another chore." />
+          </div>
+        </div>
+      </section>
+
+      <footer className="border-t border-white/10">
+        <div className="sheet flex flex-col gap-4 py-8 text-[13px] text-[var(--ardawn-paper)]/50 sm:flex-row sm:items-center sm:justify-between">
+          <span className="wordmark text-[18px] text-[var(--ardawn-paper)]">Ardawn</span>
+          <span>Match footage, made useful.</span>
+          <a href="/login" className="font-semibold text-[var(--ardawn-paper)]">Sign in to your team</a>
+        </div>
+      </footer>
+    </main>
+  );
+}
+
+function BrandBanner() {
+  return (
+    <div className="relative overflow-hidden border border-white/10 bg-[var(--ardawn-night)]">
+      <video
+        className="block aspect-[16/10] h-full w-full object-cover"
+        src="/Ardawn_Promo.mp4"
+        controls
+        muted
+        playsInline
+        preload="metadata"
+        aria-label="Ardawn promo video"
+      >
+        Your browser does not support the Ardawn promo video.
+      </video>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-black/80 to-transparent px-4 pb-4 pt-12 sm:px-5 sm:pb-5">
+        <div>
+          <p className="display text-[clamp(2rem,4vw,3.8rem)] leading-none text-[var(--ardawn-paper)]">Ardawn</p>
+          <p className="mt-2 text-[11px] font-semibold text-[var(--ardawn-paper)]/75 sm:text-[13px]">GAA video review, clipping, stats and drills</p>
+        </div>
+        <span className="hidden text-[11px] font-semibold text-[var(--ardawn-paper)]/70 sm:inline">Watch the story</span>
+      </div>
+    </div>
+  );
+}
+
+function ArdawnMark({ className = "" }: { className?: string }) {
+  return (
+    <span className={`relative inline-block shrink-0 ${className}`} aria-hidden>
+      <span className="absolute inset-x-0 top-0 h-full border-x-[0.18em] border-[var(--ardawn-paper)]" />
+      <span className="absolute inset-x-0 top-[53%] h-[0.18em] bg-[var(--ardawn-paper)]" />
+      <span className="absolute inset-x-[0.18em] bottom-0 h-[47%] bg-[var(--ardawn-green)]" />
+    </span>
+  );
+}
+
+function LandingStep({ number, title, copy }: { number: string; title: string; copy: string }) {
+  return (
+    <div className="grid grid-cols-[3.5rem_1fr] gap-4 border-b border-[var(--color-line)] py-6 sm:grid-cols-[4.5rem_1fr] sm:gap-7">
+      <span className="jersey h-8 w-8">{number}</span>
+      <div>
+        <h3 className="title text-[20px]">{title}</h3>
+        <p className="mt-1 max-w-xl text-[14px] text-[var(--color-ink-dim)]">{copy}</p>
+      </div>
+    </div>
+  );
+}
+
+async function Dashboard() {
   const user = await requireUser();
 
   /**

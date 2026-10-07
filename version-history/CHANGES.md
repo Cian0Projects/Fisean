@@ -16,6 +16,19 @@ is used, how it is deployed).
 
 -->
 
+## A public home page before sign-in
+*2026-10-07*
+
+Someone arriving at `/` without a session used to be sent straight to the
+sign-in gate, with nothing to say what the tool was. They now see a home page:
+the promo video, three short reasons to use it, the three steps from raw
+footage to a playlist for the panel, and links to sign in or join a team. A
+signed-in user still lands on the matches dashboard at the same address, so no
+links change. The page uses a dark night-and-green palette of its own, set as
+`--ardawn-*` tokens and `.ardawn-*` buttons in `globals.css`, kept apart from
+the outcome colours the rest of the app reserves. The video is served from
+`public/Ardawn_Promo.mp4`, so it is part of the deploy.
+
 ## Físeán becomes Ardawn
 *2026-10-07*
 

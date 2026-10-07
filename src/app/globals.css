@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+:root {
+  --ardawn-night: #080f0c;
+  --ardawn-paper: #f0eee7;
+  --ardawn-green: #35c46b;
+}
+
 /*
  * Físeán's surface.
  *
@@ -431,6 +437,40 @@
   }
   .btn-outline:hover {
     background: var(--color-surface-2);
+  }
+
+  .ardawn-primary,
+  .ardawn-outline,
+  .ardawn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-3 py-2
+           text-[13px] font-semibold transition-colors select-none;
+    border-radius: 2px;
+  }
+
+  .ardawn-primary {
+    background: var(--ardawn-green);
+    border: 1px solid var(--ardawn-green);
+    color: var(--ardawn-night);
+  }
+
+  .ardawn-primary:hover {
+    background: #62d98b;
+    border-color: #62d98b;
+  }
+
+  .ardawn-outline {
+    border: 1px solid color-mix(in oklab, var(--ardawn-paper) 70%, transparent);
+    color: var(--ardawn-paper);
+  }
+
+  .ardawn-outline:hover,
+  .ardawn-ghost:hover {
+    background: color-mix(in oklab, var(--ardawn-paper) 10%, transparent);
+  }
+
+  .ardawn-ghost {
+    border: 1px solid transparent;
+    color: color-mix(in oklab, var(--ardawn-paper) 80%, transparent);
   }
 
   .field {
