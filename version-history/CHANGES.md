@@ -15,3 +15,15 @@ One paragraph: what changed, why, and anything it affects (data, how the app
 is used, how it is deployed).
 
 -->
+
+## Físeán becomes Ardawn
+*2026-10-07*
+
+The product's public name is now Ardawn, and it describes itself as GAA video
+review rather than hurling video review. The rename covers the page title,
+the web app manifest, the Android app name, and the wordmark in the nav, the
+sign-in gate, the phone home screen and the review workspace. The mark keeps
+its two posts and crossbar, but the sliotar over the bar is replaced by a
+block of pitch green under it, matching the new identity artwork. Package
+ids (`ie.fisean.app`), the repository and the code's own comments keep the
+old name for now, so installed apps and existing data are untouched.

@@ -37,7 +37,7 @@ export function Nav({ user }: { user: SessionUser }) {
       <div className="sheet flex items-stretch gap-3 sm:gap-5">
         <Link href="/" className="flex items-center gap-3 py-3.5">
           <Mark className="h-[22px]" />
-          <span className="wordmark -ml-0.5 hidden text-[22px] leading-none sm:inline">Físeán</span>
+          <span className="wordmark -ml-0.5 hidden text-[22px] leading-none sm:inline">Ardawn</span>
           <span
             aria-hidden
             className="hidden h-4 w-px md:block"

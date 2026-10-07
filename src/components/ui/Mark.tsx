@@ -1,21 +1,17 @@
 /**
- * The Físeán mark: a GAA goalpost with a sliotar sailing over the bar.
+ * The Ardawn mark: a GAA goalpost with the green of the pitch held below its bar.
  *
- * Three things are being drawn at once, which is why it is worth having.
- * It is the goal end at Croke Park and every pitch in the parish — two tall
- * posts, a low crossbar, in the real proportions, where the bar sits about a
- * third of the way up. The ball above the bar and between the posts is a
- * point. And it is the trim strip: the posts are the in and out handles, the
- * bar is the clip between them, the ball is the moment you stopped to keep.
+ * The two posts and crossbar make the sport immediately legible. The green
+ * block is the field and the moments held inside it are the work Ardawn keeps.
  *
- * Kept as plain rectangles and a circle so it survives everything it is asked
+ * Kept as plain rectangles so it survives everything it is asked
  * to do — a 16 px tab icon, a home-screen tile, an embroidered crest. The bar
  * is a hair thinner than the posts because a horizontal stroke of equal
  * weight looks heavier to the eye, and the drawing would sag. The strokes are
  * as heavy as the wordmark's stems, so the two sit side by side as one word.
  *
- * Chalk for the posts, ash for the ball, the same two inks as the rest of the
- * app: no green or red, which are reserved for what happened on the field.
+ * Warm white for the posts and Ardawn green for the field keep the mark
+ * consistent with the supplied identity artwork.
  */
 
 /** Width and height of the drawing, in its own units. */
@@ -25,8 +21,6 @@ export const MARK_H = 100;
 const POST = 12;
 const BAR = 9;
 const BAR_TOP = 60;
-const BALL = { cx: 49, cy: 28, r: 10 };
-
 type Ink = { posts?: string; ball?: string };
 
 export function Mark({
@@ -51,7 +45,13 @@ export function Mark({
         <rect x={MARK_W - POST} y={0} width={POST} height={MARK_H} />
         <rect x={0} y={BAR_TOP} width={MARK_W} height={BAR} />
       </g>
-      <circle cx={BALL.cx} cy={BALL.cy} r={BALL.r} fill={ball} />
+      <rect
+        x={POST}
+        y={BAR_TOP + BAR}
+        width={MARK_W - POST * 2}
+        height={MARK_H - BAR_TOP - BAR}
+        fill={ball}
+      />
     </svg>
   );
 }
@@ -84,7 +84,13 @@ export function MarkTile({ px, fill = 0.58 }: { px: number; fill?: number }) {
           <rect x={MARK_W - POST} y={0} width={POST} height={MARK_H} />
           <rect x={0} y={BAR_TOP} width={MARK_W} height={BAR} />
         </g>
-        <circle cx={BALL.cx} cy={BALL.cy} r={BALL.r} fill="#e3d2ae" />
+        <rect
+          x={POST}
+          y={BAR_TOP + BAR}
+          width={MARK_W - POST * 2}
+          height={MARK_H - BAR_TOP - BAR}
+          fill="#35c46b"
+        />
       </svg>
     </div>
   );

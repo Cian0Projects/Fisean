@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 /**
- * What a phone needs to install Físeán to its home screen.
+ * What a phone needs to install Ardawn to its home screen.
  *
  * It starts on `/m`, the phone layout, because someone tapping an icon on a
  * phone wants to watch Sunday's match, not the coach's desk. The native
@@ -14,8 +14,8 @@ import type { MetadataRoute } from "next";
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Físeán",
-    short_name: "Físeán",
+    name: "Ardawn",
+    short_name: "Ardawn",
     description: "Watch and clip hurling match footage.",
     start_url: "/m",
     scope: "/",

@@ -73,7 +73,7 @@ export default async function PhoneHome() {
     >
       <header className="flex items-center gap-3 px-4 py-3">
         <Mark className="h-6" />
-        <span className="wordmark -ml-0.5 text-[24px]">Físeán</span>
+        <span className="wordmark -ml-0.5 text-[24px]">Ardawn</span>
         <span className="truncate text-[13px]" style={{ color: "var(--color-ink-dim)" }}>
           {user.teamName}
         </span>

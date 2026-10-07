@@ -29,7 +29,7 @@ export function Gate({
         <div>
           <div className="flex items-center gap-4">
             <Mark className="h-[clamp(2.75rem,9vw,4rem)]" />
-            <h1 className="wordmark text-[clamp(3rem,10vw,4.5rem)] leading-none">Físeán</h1>
+            <h1 className="wordmark text-[clamp(3rem,10vw,4.5rem)] leading-none">Ardawn</h1>
           </div>
           <div
             className="mt-4 h-px w-24"

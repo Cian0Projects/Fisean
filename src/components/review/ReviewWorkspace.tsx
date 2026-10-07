@@ -552,7 +552,7 @@ export function ReviewWorkspace({
       >
         <Link href="/" className="flex items-center gap-2" title="Back to the matches">
           <Mark className="h-[17px]" />
-          <span className="wordmark text-[17px]">Físeán</span>
+          <span className="wordmark text-[17px]">Ardawn</span>
         </Link>
         <span
           aria-hidden

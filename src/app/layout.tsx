@@ -21,11 +21,11 @@ const chivo = Chivo({
 });
 
 export const metadata: Metadata = {
-  title: "Físeán — hurling video review",
+  title: "Ardawn — GAA video review",
   description:
-    "Clip, tag and share hurling match footage. Built for GAA teams.",
-  applicationName: "Físeán",
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "Físeán" },
+    "Clip, tag and share GAA match footage. Built for teams.",
+  applicationName: "Ardawn",
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Ardawn" },
 };
 
 export const viewport: Viewport = {

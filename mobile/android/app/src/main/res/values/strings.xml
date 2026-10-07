@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Físeán</string>
-    <string name="title_activity_main">Físeán</string>
+    <string name="app_name">Ardawn</string>
+    <string name="title_activity_main">Ardawn</string>
     <string name="package_name">ie.fisean.app</string>
     <string name="custom_url_scheme">ie.fisean.app</string>
 </resources>
