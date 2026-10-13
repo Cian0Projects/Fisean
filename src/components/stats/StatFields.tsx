@@ -344,7 +344,7 @@ export function StatFields({
         <Check
           checked={d.frontEight}
           onChange={(v) => onChange({ frontEight: v })}
-          label="Front eight — made by a forward or a midfielder"
+          label="Made by the front eight, a forward or a midfielder"
         />
       )}
 
@@ -352,7 +352,7 @@ export function StatFields({
         <Check
           checked={d.scorable}
           onChange={(v) => onChange({ scorable: v })}
-          label="Scorable — within their free-taker's range"
+          label="Scorable, within their free-taker's range"
         />
       )}
 

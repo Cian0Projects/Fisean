@@ -91,7 +91,7 @@ export function PitchMap({
       style={{
         background: decorative ? "transparent" : PITCH_FILL,
         border: decorative ? "none" : "1px solid var(--color-line)",
-        borderRadius: decorative ? 0 : 4,
+        borderRadius: decorative ? 0 : 2,
         // Browsers drop background colours when printing unless told not to,
         // and a shot map without its colours says nothing at all.
         printColorAdjust: "exact",

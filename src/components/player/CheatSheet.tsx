@@ -6,6 +6,8 @@
  */
 import { cheatsheet } from "@/lib/keyboard/keymap";
 import type { EventTypeRow } from "@/components/review/types";
+import { TagMark } from "@/components/ui/TagMark";
+import { tagTone } from "@/lib/hurling/events";
 
 export function CheatSheet({
   open,
@@ -33,8 +35,7 @@ export function CheatSheet({
           <div>
             <h2 className="text-lg font-semibold">Keyboard</h2>
             <p className="mt-1 text-sm" style={{ color: "var(--color-ink-dim)" }}>
-              Everything here is designed so you can tag a full match without
-              reaching for the mouse.
+              Tag a full match without reaching for the mouse.
             </p>
           </div>
           <button onClick={onClose} className="btn-ghost">
@@ -51,10 +52,9 @@ export function CheatSheet({
                   ? hotkeyEvents.map((e) => (
                       <li key={e.id} className="flex items-center gap-2 text-[13px]">
                         <span className="kbd">{e.hotkey}</span>
-                        <span
-                          className="h-2 w-2 shrink-0 rounded-full"
-                          style={{ background: e.colour }}
-                        />
+                        <span className="flex w-2.5 justify-center">
+                          <TagMark tone={tagTone(e.slug)} />
+                        </span>
                         <span style={{ color: "var(--color-ink-dim)" }}>
                           {e.labelGa ?? e.labelEn}
                         </span>

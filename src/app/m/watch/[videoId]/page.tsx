@@ -26,7 +26,8 @@ export default async function PhoneWatchPage({
   const user = await requireUserFor(`/m/watch/${videoId}${clip ? `?clip=${clip}` : ""}`);
 
   const [video] = await db.select().from(videos).where(eq(videos.id, videoId)).limit(1);
-  if (!video || video.teamId !== user.teamId) notFound();
+  // A file still uploading is half a file; it opens once it has all arrived.
+  if (!video || video.teamId !== user.teamId || video.status !== "ready") notFound();
 
   const [match] = video.matchId
     ? await db.select().from(matches).where(eq(matches.id, video.matchId)).limit(1)

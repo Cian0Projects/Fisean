@@ -57,10 +57,10 @@ export function positionByNumber(n: number | null | undefined): Position | undef
   return n == null ? undefined : POSITIONS.find((p) => p.number === n);
 }
 
-/** e.g. 6 -> "6 · Centre back". Falls back cleanly for panel players. */
+/** e.g. 6 -> "6, centre back". Falls back cleanly for panel players. */
 export function positionLabel(n: number | null | undefined): string {
   const p = positionByNumber(n);
-  return p ? `${p.number} · ${p.name}` : "Squad";
+  return p ? `${p.number}, ${p.name.toLowerCase()}` : "Squad";
 }
 
 export function positionsByLine(line: Line): Position[] {

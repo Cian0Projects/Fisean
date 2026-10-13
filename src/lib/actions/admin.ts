@@ -12,7 +12,7 @@ import {
   type Role,
   MARKER_KINDS,
 } from "@/lib/db/schema";
-import { generateJoinCode } from "@/lib/auth/password";
+import { freshJoinCode } from "@/lib/db/clubs";
 import {
   assertSameTeam,
   requireAdmin,
@@ -104,7 +104,10 @@ export async function deleteVideo(videoId: string): Promise<void> {
   await db.delete(videos).where(eq(videos.id, videoId));
   try {
     const { store } = await import("@/lib/storage");
-    await (await store()).remove(video.storageKey);
+    const media = await store();
+    // A file stopped part-way is a set of parts, not yet an object.
+    if (video.uploadId) await media.abortMultipart(video.storageKey, video.uploadId);
+    else await media.remove(video.storageKey);
   } catch {
     // Leave the file; the database is the source of truth.
   }
@@ -177,7 +180,7 @@ export async function removeMember(userId: string): Promise<void> {
 /** Rotate the join code — for when it has been shared beyond the panel. */
 export async function rotateJoinCode(): Promise<{ joinCode: string }> {
   const admin = await requireAdmin();
-  const joinCode = generateJoinCode();
+  const joinCode = await freshJoinCode();
   await db.update(teams).set({ joinCode }).where(eq(teams.id, admin.teamId));
   revalidatePath("/admin");
   return { joinCode };

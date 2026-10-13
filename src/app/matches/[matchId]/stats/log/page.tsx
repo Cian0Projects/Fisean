@@ -77,7 +77,7 @@ export default async function LogMatchStatsPage({
         initialRows={rows}
         clips={clipRows.map((c) => ({
           id: c.id,
-          label: `${formatClock(c.startMs)} · ${c.title || "Untitled clip"}`,
+          label: `${formatClock(c.startMs)}, ${c.title || "Untitled clip"}`,
         }))}
       />
     </>

@@ -16,10 +16,12 @@ export default function LoginPage({
   return (
     <Gate
       title="Sign in"
-      intro="Match footage, clipped and tagged, with the stat sheet beside it. For one club, on one machine."
+      intro="Match footage, clipped and tagged, with the stat sheet beside it. Private to your club."
       footer={
         <>
           New to the panel? <GateLink href={next ? `/join?next=${encodeURIComponent(next)}` : "/join"}>Join with your team code</GateLink>
+          <br />
+          Setting up a new club? <GateLink href="/start">Start here</GateLink>
         </>
       }
     >

@@ -13,19 +13,25 @@ import {
 import { currentUser } from "@/lib/auth/session";
 import { requireUser } from "@/lib/auth/guard";
 import { Nav } from "@/components/ui/Nav";
-import { formatClock, formatScore, scoreTotal } from "@/lib/hurling/notation";
+import { formatClock, formatScore } from "@/lib/hurling/notation";
 import {
-  countShots,
   matchResult,
-  shootingEfficiency,
-  type Efficiency,
+  shotSide,
+  statColour,
+  statShape,
+  summariseShooting,
   type MatchResult,
+  type SideShooting,
   type StatEntry,
 } from "@/lib/hurling/stats";
+import { ShootingFigure } from "@/components/stats/ShootingFigure";
 import { matchDate, matchDateLong } from "@/lib/format";
-import { previewClip, previewWindow } from "@/lib/hurling/clip-rules";
+import { footageFrame, previewClip, previewWindow } from "@/lib/hurling/clip-rules";
 import { store } from "@/lib/storage";
 import { MatchPreview, type PreviewSource } from "@/components/matches/MatchPreview";
+import { PitchMap, type PitchMark } from "@/components/pitch/PitchMap";
+import { ResultBox, verdict, verdictColour } from "@/components/matches/ResultBox";
+import { PromoVideo } from "@/components/home/PromoVideo";
 
 export default async function Home() {
   const user = await currentUser();
@@ -72,6 +78,9 @@ function PublicHomepage() {
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <a href="/join" className="ardawn-primary px-5 py-3 text-[14px]">
               Join your team
+            </a>
+            <a href="/start" className="ardawn-outline px-4 py-3 text-[14px]">
+              Set up your club
             </a>
             <a href="#how-it-works" className="ardawn-ghost px-4 py-3 text-[14px]">
               See how it works <span aria-hidden>↓</span>
@@ -141,24 +150,7 @@ function PublicHomepage() {
 function BrandBanner() {
   return (
     <div className="relative overflow-hidden border border-white/10 bg-[var(--ardawn-night)]">
-      <video
-        className="block aspect-[16/10] h-full w-full object-cover"
-        src="/Ardawn_Promo.mp4"
-        controls
-        muted
-        playsInline
-        preload="metadata"
-        aria-label="Ardawn promo video"
-      >
-        Your browser does not support the Ardawn promo video.
-      </video>
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-black/80 to-transparent px-4 pb-4 pt-12 sm:px-5 sm:pb-5">
-        <div>
-          <p className="display text-[clamp(2rem,4vw,3.8rem)] leading-none text-[var(--ardawn-paper)]">Ardawn</p>
-          <p className="mt-2 text-[11px] font-semibold text-[var(--ardawn-paper)]/75 sm:text-[13px]">GAA video review, clipping, stats and drills</p>
-        </div>
-        <span className="hidden text-[11px] font-semibold text-[var(--ardawn-paper)]/70 sm:inline">Watch the story</span>
-      </div>
+      <PromoVideo src="/Ardawn_Promo.mp4" />
     </div>
   );
 }
@@ -189,17 +181,36 @@ async function Dashboard() {
   const user = await requireUser();
 
   /**
-   * The last match played leads, because that is what everyone came to look
-   * at. Below it the season runs as a fixture list, and beside that a rail of
-   * ways back into moments already picked out — not a gate in front of the
-   * footage.
+   * The match whose footage arrived last leads, because a new video is what
+   * everyone came to look at — even when it is of a game played a fortnight
+   * ago. Only finished uploads count, so a file stopped part-way never takes
+   * the cover. With no footage at all, the last match played leads instead.
+   * Below it the season runs as a fixture list in date order, and beside that
+   * a rail of ways back into moments already picked out.
    */
-  const matchRows = await db
+  const [lastUpload] = await db
+    .select({ matchId: videos.matchId, videoId: videos.id, createdAt: videos.createdAt })
+    .from(videos)
+    .innerJoin(matches, eq(matches.id, videos.matchId))
+    .where(and(eq(videos.teamId, user.teamId), eq(videos.status, "ready")))
+    .orderBy(desc(videos.createdAt))
+    .limit(1);
+
+  const season = await db
     .select()
     .from(matches)
     .where(eq(matches.teamId, user.teamId))
     .orderBy(desc(matches.playedOn))
     .limit(20);
+
+  // The lead may be older than the twenty listed; fetch it so it still leads.
+  const leadRow =
+    season.find((m) => m.id === lastUpload?.matchId) ??
+    (lastUpload?.matchId
+      ? (await db.select().from(matches).where(eq(matches.id, lastUpload.matchId)).limit(1))[0]
+      : undefined) ??
+    season[0];
+  const matchRows = leadRow ? [leadRow, ...season.filter((m) => m.id !== leadRow.id)] : season;
 
   const ids = matchRows.map((m) => m.id);
 
@@ -213,12 +224,21 @@ async function Dashboard() {
   const statRows = ids.length
     ? await db
         .select({
+          id: matchStats.id,
           matchId: matchStats.matchId,
           statType: matchStats.statType,
           outcome: matchStats.outcome,
           shotResult: matchStats.shotResult,
+          // From play or a placed ball, and what led to it, for the cover's
+          // shooting panel — the same split the stat sheet makes.
+          shotKind: matchStats.shotKind,
+          attemptSource: matchStats.attemptSource,
           // Their shots are on the sheet too, and must not count as ours.
           side: matchStats.side,
+          // Where each was struck from, for the cover's shot map.
+          originX: matchStats.originX,
+          originY: matchStats.originY,
+          playerNumber: matchStats.playerNumber,
         })
         .from(matchStats)
         .where(inArray(matchStats.matchId, ids))
@@ -240,7 +260,7 @@ async function Dashboard() {
   }
   const statsByMatch = new Map<string, StatEntry[]>();
   for (const s of statRows) {
-    statsByMatch.set(s.matchId, [...(statsByMatch.get(s.matchId) ?? []), s as StatEntry]);
+    statsByMatch.set(s.matchId, [...(statsByMatch.get(s.matchId) ?? []), s as StatEntry & { id: string }]);
   }
   const clipsByMatch = new Map(clipCounts.map((r) => [r.matchId ?? "", Number(r.n)]));
 
@@ -285,6 +305,20 @@ async function Dashboard() {
       src: media.readUrl(pick.storageKey),
       title: pick.title,
       ...previewWindow(pick),
+    });
+  }
+  // A match nobody has clipped yet still gets a picture: a frame from its own
+  // footage, the same one each visit.
+  for (const id of ids) {
+    if (previews.has(id)) continue;
+    const footage = (videosByMatch.get(id) ?? []).find((v) => v.status === "ready" && v.durationMs > 0);
+    if (!footage) continue;
+    previews.set(id, {
+      clipId: null,
+      videoId: footage.id,
+      src: media.readUrl(footage.storageKey),
+      title: "",
+      ...footageFrame(footage.id, footage.durationMs),
     });
   }
 
@@ -368,10 +402,13 @@ async function Dashboard() {
             match={latest}
             teamName={user.teamName}
             footage={videosByMatch.get(latest.id) ?? []}
+            upload={lastUpload?.matchId === latest.id ? lastUpload : null}
             clipCount={clipsByMatch.get(latest.id) ?? 0}
             preview={previews.get(latest.id) ?? null}
             result={matchResult(latestStats)}
-            shooting={latestStats.length ? shootingEfficiency(countShots(latestStats)) : null}
+            ours={latestStats.length ? summariseShooting(latestStats, "us") : null}
+            theirs={latestStats.length ? summariseShooting(latestStats, "opposition") : null}
+            shotMarks={shotMarks(latestStats)}
             statCount={latestStats.length}
             isCoach={isCoach}
           />
@@ -379,13 +416,13 @@ async function Dashboard() {
           <section className="py-16">
             <h1 className="display text-5xl">No matches yet</h1>
             <p className="measure mt-4 text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
-              Add the fixture first — it can exist before the footage does. Then
-              drop the file into <code>data/media/</code> and register it with{" "}
-              <code>npm run ingest</code>.
+              {isCoach
+                ? "Upload a match video and it appears here, ready for the panel to watch."
+                : "When a coach uploads a match, it appears here."}
             </p>
             {isCoach && (
               <Link href="/admin" className="btn-primary mt-6">
-                Add a match
+                Upload a match
               </Link>
             )}
           </section>
@@ -399,7 +436,7 @@ async function Dashboard() {
         >
           <section>
             <div className="section-head flex items-baseline justify-between gap-4">
-              <h2 className="title text-xl">Earlier matches</h2>
+              <h2 className="title text-xl">Other matches</h2>
               {isCoach && (
                 <Link
                   href="/admin"
@@ -432,7 +469,7 @@ async function Dashboard() {
                 <tbody>
                   {earlier.map((m) => {
                     const vids = videosByMatch.get(m.id) ?? [];
-                    const ready = vids.find((v) => v.status === "ready") ?? vids[0];
+                    const ready = vids.find((v) => v.status === "ready");
                     const stats = statsByMatch.get(m.id) ?? [];
                     const clipN = clipsByMatch.get(m.id) ?? 0;
                     return (
@@ -448,7 +485,13 @@ async function Dashboard() {
                             <MatchPreview
                               preview={previews.get(m.id) ?? null}
                               size="row"
-                              empty={vids.length ? "No clips yet" : "No footage"}
+                              empty={
+                                vids.some((v) => v.status === "uploading")
+                                  ? "Video uploading"
+                                  : vids.length
+                                    ? "No clips yet"
+                                    : "No footage"
+                              }
                             />
                             <div className="min-w-0">
                               <div className="title text-[17px]">{m.opponent}</div>
@@ -571,74 +614,95 @@ async function Dashboard() {
 }
 
 /**
- * The lead match: the programme's cover. Opponent across the page, the
- * result boxed beside it, then the three things you can actually do with it.
- * Everything anyone opens Físeán for on a Sunday night is in this block.
+ * The lead match: the newest footage, shown big.
+ *
+ * The picture is the largest thing on the page, because the video is what
+ * people open the app for. The fixture sits over it as a line — our club, a
+ * light "v", theirs — at heading size, not poster size: set huge on its own,
+ * the opponent's name read as if it were the club that owns the account.
+ * Beside the picture, the result and how well we took our chances, which is
+ * the conversation after any match; the full stat sheet is a click away.
  */
 function LeadMatch({
   match,
   teamName,
   footage,
+  upload,
   clipCount,
   preview,
   result,
-  shooting,
+  ours,
+  theirs,
+  shotMarks,
   statCount,
   isCoach,
 }: {
   match: typeof matches.$inferSelect;
   teamName: string;
   footage: (typeof videos.$inferSelect)[];
+  /** The upload that put this match on the cover, when that is why it leads. */
+  upload: { videoId: string; createdAt: number } | null;
   clipCount: number;
   preview: PreviewSource | null;
   result: MatchResult | null;
-  shooting: Efficiency | null;
+  ours: SideShooting | null;
+  theirs: SideShooting | null;
+  shotMarks: PitchMark[];
   statCount: number;
   isCoach: boolean;
 }) {
-  const ready = footage.find((v) => v.status === "ready");
-  const pending = footage.find((v) => v.status !== "ready");
+  // Watch the file that was just added, not whichever angle happens to be first.
+  const ready =
+    footage.find((v) => v.id === upload?.videoId) ?? footage.find((v) => v.status === "ready");
+  const arriving = !ready && footage.some((v) => v.status === "uploading");
+  const where = [match.competition, match.venue].filter(Boolean).join(" at ") || "Friendly";
+  const ground = match.homeAway === "home" ? ", at home" : match.homeAway === "away" ? ", away" : "";
 
   return (
-    <section className="pt-10 lg:pt-14">
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+    <section className="pt-8 lg:pt-12" aria-labelledby="lead-fixture">
+      <header className="max-w-4xl">
+        <h1
+          id="lead-fixture"
+          className="title text-[clamp(1.65rem,3.4vw,2.4rem)] leading-[1.1]"
+          style={{ textWrap: "balance" }}
+        >
+          {teamName}{" "}
+          <span className="font-normal" style={{ color: "var(--color-ink-faint)" }}>
+            v
+          </span>{" "}
+          {match.opponent}
+        </h1>
+        <p className="mt-2 text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
+          {where}, {matchDateLong(match.playedOn)}
+          {ground}.
+        </p>
+        {/* Why this match leads, and what it holds, said in a line. */}
+        <p className="tabular mt-1 text-[14px]" style={{ color: "var(--color-ink-faint)" }}>
+          {upload && <>Video added {matchDateLong(new Date(upload.createdAt).toISOString().slice(0, 10))}. </>}
+          {sentence([
+            footage.length ? count(footage.length, "camera angle", "camera angles") : "no footage yet",
+            count(clipCount, "clip", "clips"),
+            count(statCount, "stat logged", "stats logged"),
+          ])}
+        </p>
+      </header>
+
+      <div className="mt-6 grid gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
         <div>
-          <h1 className="display text-[clamp(3rem,8.5vw,6rem)]" style={{ textWrap: "balance" }}>
-            {match.opponent}
-          </h1>
+          <MatchPreview
+            preview={preview}
+            size="lead"
+            empty=""
+            fallback={<NoPicture arriving={arriving} isCoach={isCoach} />}
+          />
 
-          <p className="mt-4 text-[16px]" style={{ color: "var(--color-ink-dim)" }}>
-            {[match.competition, match.venue].filter(Boolean).join(" at ") || "Friendly"}. Last
-            out on {matchDateLong(match.playedOn)}
-            {match.homeAway === "home" && ", at home"}
-            {match.homeAway === "away" && ", away"}.
-          </p>
-
-          {/* What the match holds, said in a line rather than set as figures. */}
-          <p className="tabular mt-1.5 text-[14px]" style={{ color: "var(--color-ink-faint)" }}>
-            {sentence([
-              footage.length
-                ? count(footage.length, "camera angle", "camera angles")
-                : "no footage yet",
-              count(clipCount, "clip", "clips"),
-              count(statCount, "stat logged", "stats logged"),
-            ])}
-          </p>
-
-          <div className="mt-8 flex flex-wrap items-center gap-2">
-            {ready ? (
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            {ready && (
               <Link href={`/review/${ready.id}`} className="btn-primary px-4 py-2.5 text-[14px]">
                 Watch the match
-                <span className="tabular font-normal opacity-80">
-                  {formatClock(ready.durationMs)}
-                </span>
+                <span className="tabular font-normal opacity-80">{formatClock(ready.durationMs)}</span>
               </Link>
-            ) : pending ? (
-              <span className="btn-outline pointer-events-none opacity-60">
-                Footage {pending.status}
-              </span>
-            ) : null}
-
+            )}
             <Link href={`/matches/${match.id}/stats`} className="btn-outline px-4 py-2.5 text-[14px]">
               Stat sheet
             </Link>
@@ -650,20 +714,9 @@ function LeadMatch({
           </div>
         </div>
 
-        {/* The cover's picture over its scores panel, one column wide. */}
-        <div className="flex w-full flex-col gap-4 lg:w-[22rem]">
-          <MatchPreview
-            preview={preview}
-            size="lead"
-            empty={footage.length ? "No clips cut from this match yet" : "No footage attached yet"}
-          />
+        <div className="flex flex-col gap-8">
           {result ? (
-            <ResultBox
-              result={result}
-              shooting={shooting}
-              teamName={teamName}
-              opponent={match.opponent}
-            />
+            <ResultBox result={result} teamName={teamName} opponent={match.opponent} />
           ) : (
             // Held open rather than left out, so the cover keeps its shape from
             // one match to the next, and says where the scoreline will appear.
@@ -678,90 +731,135 @@ function LeadMatch({
               </p>
             </div>
           )}
+
+          <ShootingPanel
+            matchId={match.id}
+            opponent={match.opponent}
+            ours={ours}
+            theirs={theirs}
+            shotMarks={shotMarks}
+            isCoach={isCoach}
+          />
         </div>
       </div>
-
     </section>
   );
 }
 
 /**
- * The result, boxed and ruled like the scores panel on a programme's back
- * page: one line per side, the total in brackets because that is how a
- * margin is read at a glance, and the verdict in words under it. The verdict
- * is the one thing here in an outcome colour, and it says what it means in
- * words too.
+ * The picture's place when there is no picture: the same 16:9, so the cover
+ * keeps its shape, saying what will fill it and how.
  */
-function ResultBox({
-  result,
-  shooting,
-  teamName,
-  opponent,
-}: {
-  result: MatchResult;
-  shooting: Efficiency | null;
-  teamName: string;
-  opponent: string;
-}) {
+function NoPicture({ arriving, isCoach }: { arriving: boolean; isCoach: boolean }) {
   return (
     <div
-      className="min-w-[19rem] border-[1.5px] lg:min-w-[22rem]"
-      style={{ borderColor: "var(--color-rule)" }}
+      className="flex aspect-video w-full flex-col items-center justify-center gap-3 border-[1.5px] border-dashed px-6 text-center"
+      style={{ borderColor: "var(--color-line-strong)", borderRadius: 2 }}
     >
-      <ScoreRow name={teamName} score={result.us} />
-      {result.them ? (
-        <ScoreRow name={opponent} score={result.them} ruled />
-      ) : (
-        <p
-          className="caption border-t px-4 py-3"
-          style={{ borderColor: "var(--color-line)" }}
-        >
-          Their shots were not logged, so there is no margin.
-        </p>
-      )}
-      {shooting && shooting.total > 0 && (
-        <p
-          className="caption tabular border-t px-4 py-2.5"
-          style={{ borderColor: "var(--color-line)" }}
-        >
-          We scored {shooting.scored} of {shooting.total} shots, {shooting.percent}%.
-        </p>
-      )}
-      {result.margin != null && (
-        <p
-          className="border-t-[1.5px] px-4 py-2.5 text-[14px] font-bold"
-          style={{ borderColor: "var(--color-rule)", color: verdictColour(result.margin) }}
-        >
-          {verdict(result.margin)}
-        </p>
+      <p className="text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
+        {arriving
+          ? "The video is still uploading. It appears here once it has all arrived."
+          : "No video for this match yet."}
+      </p>
+      {isCoach && !arriving && (
+        <Link href="/admin" className="btn-outline text-[13px]">
+          Upload the video
+        </Link>
       )}
     </div>
   );
 }
 
-function ScoreRow({
-  name,
-  score,
-  ruled,
+/**
+ * How well we took our chances — the stat sheet's own shooting figure, set
+ * the same way — with theirs beside it for comparison and the map of where
+ * ours came from. The rest of the shooting breakdown is on the sheet, which
+ * the link opens at that section.
+ */
+function ShootingPanel({
+  matchId,
+  opponent,
+  ours,
+  theirs,
+  shotMarks,
+  isCoach,
 }: {
-  name: string;
-  score: MatchResult["us"];
-  ruled?: boolean;
+  matchId: string;
+  opponent: string;
+  ours: SideShooting | null;
+  theirs: SideShooting | null;
+  shotMarks: PitchMark[];
+  isCoach: boolean;
 }) {
+  const logged = ours !== null && ours.overall.total > 0;
+
   return (
-    <div
-      className={`flex items-baseline justify-between gap-6 px-4 py-3 ${ruled ? "border-t" : ""}`}
-      style={{ borderColor: "var(--color-line)" }}
-    >
-      <span className="truncate text-[14px] font-semibold">{name}</span>
-      <span className="flex shrink-0 items-baseline gap-2">
-        <span className="figure text-[2.5rem]">{formatScore(score)}</span>
-        <span className="tabular text-[14px]" style={{ color: "var(--color-ink-faint)" }}>
-          ({scoreTotal(score)})
-        </span>
-      </span>
-    </div>
+    <section className="section-head" aria-labelledby="lead-shooting">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 id="lead-shooting" className="title text-[16px]">
+          Shooting
+        </h2>
+        {logged && (
+          <Link
+            href={`/matches/${matchId}/stats#shooting`}
+            className="text-[13px] font-semibold underline"
+            style={{ color: "var(--color-ash)" }}
+          >
+            Full shooting stats
+          </Link>
+        )}
+      </div>
+
+      {logged ? (
+        <div className="mt-3">
+          <ShootingFigure s={ours} ours />
+          {theirs && theirs.overall.total > 0 && (
+            <p className="tabular mt-3 text-[13px]" style={{ color: "var(--color-ink-dim)" }}>
+              {opponent} scored {theirs.overall.label}.
+            </p>
+          )}
+          {shotMarks.length > 0 && (
+            <figure className="m-0 mt-5">
+              <PitchMap marks={shotMarks} caption="Our shots" />
+              <figcaption className="caption mt-1.5">
+                Where our shots came from. Filled ones scored.
+              </figcaption>
+            </figure>
+          )}
+        </div>
+      ) : (
+        <p className="mt-2 text-[14px]" style={{ color: "var(--color-ink-faint)" }}>
+          No shots logged for this match yet.
+          {isCoach && (
+            <>
+              {" "}
+              <Link
+                href={`/matches/${matchId}/stats/log`}
+                className="font-semibold underline"
+                style={{ color: "var(--color-ash)" }}
+              >
+                Log stats
+              </Link>
+            </>
+          )}
+        </p>
+      )}
+    </section>
   );
+}
+
+/** Our shots that were placed on the pitch, as the stat sheet draws them. */
+function shotMarks(rows: StatEntry[]): PitchMark[] {
+  return (rows as (StatEntry & { id: string })[])
+    .filter((r) => r.statType === "shot" && shotSide(r) === "us" && r.originX != null && r.originY != null)
+    .map((r) => ({
+      id: r.id,
+      x: r.originX!,
+      y: r.originY!,
+      colour: statColour(r),
+      shape: statShape(r),
+      label: r.playerNumber != null ? String(r.playerNumber) : null,
+    }));
 }
 
 /** A fixture's scoreline on one line, with the verdict beside it. */
@@ -793,19 +891,6 @@ function ResultLine({ result }: { result: MatchResult | null }) {
       )}
     </div>
   );
-}
-
-function verdict(margin: number): string {
-  if (margin === 0) return "Level";
-  const by = Math.abs(margin);
-  return `${margin > 0 ? "Won" : "Lost"} by ${by} point${by === 1 ? "" : "s"}`;
-}
-
-/** Green good for us, red against — and a draw is neither, so it stays ink. */
-function verdictColour(margin: number): string {
-  if (margin > 0) return "var(--color-brand)";
-  if (margin < 0) return "var(--color-danger-ink)";
-  return "var(--color-ink-dim)";
 }
 
 function Count({ n }: { n: number }) {

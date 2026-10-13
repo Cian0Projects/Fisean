@@ -57,6 +57,27 @@
       "when": 1790844945582,
       "tag": "0007_drills",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1791203296248,
+      "tag": "0008_poc_amach_labels",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1791578324043,
+      "tag": "0009_hosted_clubs",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1791579624476,
+      "tag": "0010_multipart_uploads",
+      "breakpoints": true
     }
   ]
 }

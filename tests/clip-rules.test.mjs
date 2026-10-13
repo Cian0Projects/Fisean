@@ -8,6 +8,7 @@ import {
   MIN_CLIP_MS,
   PREVIEW_MAX_MS,
   clampRoom,
+  footageFrame,
   nudgeEdge,
   previewClip,
   previewWindow,
@@ -133,4 +134,25 @@ test("a preview loops a glimpse, not the whole clip", () => {
     endMs: 1_000 + PREVIEW_MAX_MS,
   });
   assert.deepEqual(previewWindow({ startMs: 1_000, endMs: 4_000 }), { startMs: 1_000, endMs: 4_000 });
+});
+
+test("an unclipped match is pictured by a frame from the middle of its footage", () => {
+  const hour = 3_600_000;
+  for (const id of ["a", "60aa3275-236b-42da-830c-5e5b50407a78", "e03a5900-b18d", "zzz"]) {
+    const { startMs, endMs } = footageFrame(id, hour);
+    assert.ok(startMs >= hour * 0.15 && startMs <= hour * 0.85, `${id}: ${startMs}`);
+    assert.equal(endMs - startMs, PREVIEW_MAX_MS);
+  }
+});
+
+test("the frame is the same for the same file, and differs between files", () => {
+  assert.deepEqual(footageFrame("video-1", 600_000), footageFrame("video-1", 600_000));
+  const starts = new Set(["v1", "v2", "v3", "v4", "v5", "v6"].map((id) => footageFrame(id, 3_600_000).startMs));
+  assert.ok(starts.size >= 5, `only ${starts.size} distinct frames`);
+});
+
+test("a short recording's loop stops at its end, and no length means no frame", () => {
+  const { startMs, endMs } = footageFrame("short", 20_000);
+  assert.ok(startMs >= 3_000 && endMs <= 20_000 && endMs > startMs, `${startMs}-${endMs}`);
+  assert.deepEqual(footageFrame("x", 0), { startMs: 0, endMs: 0 });
 });

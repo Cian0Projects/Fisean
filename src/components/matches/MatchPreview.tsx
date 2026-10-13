@@ -5,9 +5,12 @@ import { useEffect, useRef, useState } from "react";
 import { PlayIcon } from "@/components/ui/Icon";
 import { formatClock } from "@/lib/hurling/notation";
 
-/** One of the match's first few clips, and the footage it lives in. */
+/**
+ * One of the match's first few clips and the footage it lives in — or, for a
+ * match with no clips yet, a frame from the footage itself (`clipId` null).
+ */
 export type PreviewSource = {
-  clipId: string;
+  clipId: string | null;
   videoId: string;
   /** The footage URL; the preview seeks inside it rather than fetching a copy. */
   src: string;
@@ -36,11 +39,14 @@ export function MatchPreview({
   preview,
   size,
   empty,
+  fallback = null,
 }: {
   preview: PreviewSource | null;
   size: "lead" | "row";
   /** Said in the slot when there is nothing to show. */
   empty: string;
+  /** Shown instead when there is no picture — the cover's shot map. */
+  fallback?: React.ReactNode;
 }) {
   const box = useRef<HTMLAnchorElement>(null);
   const video = useRef<HTMLVideoElement>(null);
@@ -108,12 +114,19 @@ export function MatchPreview({
   }, [near, preview]);
 
   if (!preview || failed) {
+    if (fallback) return <>{fallback}</>;
+    // On the cover, an empty slot is a line of text, not a dashed box the
+    // size of a picture: the biggest thing on the page should be something.
+    // A fixture row keeps its box so the list stays aligned.
+    if (size === "lead") {
+      return <p className="caption">{preview ? "This footage will not play in this browser." : empty}</p>;
+    }
     return (
       <div
         className={`${frame} flex items-center justify-center border-[1.5px] border-dashed px-2 text-center`}
         style={{ borderColor: "var(--color-line-strong)", borderRadius: 2 }}
       >
-        <span className="caption">{preview ? "Preview unavailable" : empty}</span>
+        <span className="caption">{preview ? "Will not play here" : empty}</span>
       </div>
     );
   }
@@ -123,8 +136,12 @@ export function MatchPreview({
   return (
     <Link
       ref={box}
-      href={`/review/${preview.videoId}?clip=${preview.clipId}`}
-      aria-label={`Watch ${preview.title || "the opening clip"}, at ${formatClock(preview.startMs)}`}
+      href={preview.clipId ? `/review/${preview.videoId}?clip=${preview.clipId}` : `/review/${preview.videoId}`}
+      aria-label={
+        preview.clipId
+          ? `Watch ${preview.title || "the opening clip"}, at ${formatClock(preview.startMs)}`
+          : "Watch the match"
+      }
       className={`${frame} relative block overflow-hidden`}
       // The frame is a little screening room of its own: black while the
       // first frame loads, so the thumbnail never flashes white.
@@ -163,7 +180,7 @@ export function MatchPreview({
         >
           <PlayIcon size={10} />
           <span className="min-w-0 flex-1 truncate font-semibold">
-            {preview.title || "Opening clip"}
+            {preview.title || (preview.clipId ? "Opening clip" : "From the match")}
           </span>
           <span className="tabular shrink-0 opacity-75">{formatClock(preview.startMs)}</span>
         </span>

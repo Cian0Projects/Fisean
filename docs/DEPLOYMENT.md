@@ -1,50 +1,126 @@
-# Deploying Físeán
+# Deploying Ardawn
 
-Nothing here is required to use the app. It runs on your own machine for free,
-and the [README](../README.md) covers sharing it over the club WiFi or a
-Tailscale network while it still does. This is the path for when that stops
-being enough — when the panel needs it available whether or not your PC is on.
+This is the host's job, done once, for every club. Clubs never see any of it:
+a club secretary opens `/start`, creates the club, drops a match file onto the
+squad page, and sends the panel a join code. Each club sees only its own
+matches, footage and people — every row carries its team, and footage is only
+ever handed out on a signed link to someone from the club that owns it.
 
 ---
 
-## Why a single VPS, and not a cloud platform
+## The shape: a small server, and footage in R2
+
+Two pieces. The app — Next.js and a SQLite file — runs on one small server.
+The footage lives in a Cloudflare R2 bucket. The browser uploads straight to
+the bucket and plays straight from it, so the server never carries the
+gigabytes, and its disk only has to hold the database.
 
 The deciding factor is egress. A 3 GB match watched by 40 players is 120 GB of
-traffic per round.
+traffic a round, and R2 charges nothing for it. Everyone can watch full
+matches by design; nothing about that was restricted to make the hosting
+numbers work.
 
 | | Monthly | Notes |
 |---|---|---|
-| **Hetzner CX32 (recommended)** | **~€6.80** | 4 vCPU, 8 GB RAM, 80 GB NVMe, **20 TB traffic included**. Holds roughly 20 matches. EU-hosted, which matters if any of the panel are minors. |
-| Hetzner CX32 + 1 TB Storage Box | ~€11 | Same box, with an archive for older matches. |
-| Contabo VPS S | ~€5.40 | 200 GB NVMe — cheaper disk, worse network. |
-| Vercel + Cloudflare R2 | $20–23 | Zero egress on R2, best deploy experience, but two accounts and serverless body limits to work around. |
-| Bunny.net Stream | ~$3 | Cheapest headline, but it takes over the video pipeline and gives you HLS — which surrenders the seek accuracy the whole tool is built on. |
+| **Hetzner CX22 (app)** | **~€4.50** | 2 vCPU, 4 GB RAM. Holds the database for any number of clubs. EU-hosted, which matters when any of a panel are minors. |
+| **Cloudflare R2 (footage)** | **$0.015 per GB stored** | Egress free. The first 10 GB are free. Ten clubs with thirty 3 GB matches each is 900 GB, about $13.50. |
+| Hetzner CX32, footage on its own disk | ~€6.80 | No R2 at all: 80 GB is about 20 matches across every club. Fine for one or two clubs while you find out whether anyone wants this. |
 
-**Hetzner's 20 TB allowance closes the bandwidth question permanently.** Even
-the worst case — all 40 players watching a full match, every match, every
-week in season — lands under 500 GB a month, roughly 2% of the allowance.
-Everyone can watch full matches by design; nothing about that was restricted
-to make the hosting numbers work. And because storage sits behind an adapter,
-moving to R2 later is a configuration change.
+Each club is capped by `TEAM_STORAGE_GB` (100 GB by default), so one club's
+season cannot run up the bill for the rest.
 
-Storage is the thing to watch, not bandwidth: 80 GB is around 20 matches at
-1080p. Add a Storage Box and archive the ones nobody watches any more.
+---
+
+## Before any of this: try it on your own machine
+
+You do not need a server or a Cloudflare account to see exactly what a club
+will see. With `STORAGE_DRIVER=local` (the default) the app runs its own
+stand-in for R2: it hands the browser signed upload links, takes the parts at
+them, stitches the file together, and plays it back from signed links — the
+same steps, in the same order, with the same screens, as the hosted app. The
+only difference is that the bytes land in `data/media/` instead of a bucket.
+
+```bash
+npm run db:migrate
+npm run dev
+```
+
+Open `http://localhost:3000/start`, set up a club, and drag a match file onto
+the squad page; give the match a title and it goes up. To feel a dropped connection, start an upload, close
+the tab part-way, open the page again and drop the same file: it carries on
+from where it stopped.
+
+When a server and a bucket exist, the switch is the four `R2_` settings and
+`STORAGE_DRIVER=r2` in step 4. No code changes.
+
+---
+
+## The short way
+
+Steps 3 to 6 below, plus the firewall and the backup, are one script. On a
+fresh Ubuntu 24.04 server, as root:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/Cian0Projects/Fisean/main/deploy/setup.sh
+bash setup.sh
+```
+
+It asks for the domain, an optional sign-up code and the R2 details (leave
+those blank to keep footage on the server's disk), then builds and starts
+everything. It deploys what is on `main` on GitHub, so push first. Later
+releases are `bash /srv/fisean/app/deploy/update.sh`.
+
+The steps are kept in full below so that what the script does is never a
+mystery, and so that any one of them can be redone by hand.
 
 ---
 
 ## Steps
 
-### 1. The box
+### 1. The bucket
 
-Create a Hetzner CX32 running **Ubuntu 24.04**, in Nuremberg or Helsinki. Add
+In the Cloudflare dashboard, under **R2 Object Storage**:
+
+1. **Create bucket.** Name it, say, `ardawn-footage`. Under location, choose
+   the **EU jurisdiction** — the footage is of players, some of them minors.
+2. **CORS policy** (the bucket's Settings tab). Without this the browser
+   refuses to send the upload parts:
+
+   ```json
+   [
+     {
+       "AllowedOrigins": ["https://ardawnsport.ie"],
+       "AllowedMethods": ["PUT", "GET", "HEAD"],
+       "AllowedHeaders": ["content-type", "range"],
+       "MaxAgeSeconds": 3600
+     }
+   ]
+   ```
+
+3. **Object lifecycle rules.** Keep (or add) the rule that aborts incomplete
+   multipart uploads after 7 days. An upload abandoned part-way is otherwise
+   paid-for storage nobody can see. Ardawn notices when R2 has cleared one and
+   starts that file afresh the next time it is dropped.
+4. **API token** (R2 overview → Manage R2 API Tokens → Create). Permission
+   **Object Read & Write**, applied to this bucket only. Note the **Access Key
+   ID**, the **Secret Access Key**, and your **account ID** from the endpoint
+   URL (`https://<account id>.r2.cloudflarestorage.com`).
+
+Leave the bucket private. Nothing in it is public; every link the app hands out
+is signed and expires.
+
+### 2. The box
+
+Create a Hetzner CX22 running **Ubuntu 24.04**, in Nuremberg or Helsinki. Add
 your SSH key during creation. Note the IP.
 
-### 2. DNS
+### 3. DNS and server setup
 
-Point an A record — `fisean.yourclub.ie` — at that IP. Let it propagate before
-step 5, because Caddy needs to answer a challenge on that name.
-
-### 3. Server setup
+In Cloudflare's DNS for `ardawnsport.ie`, add an **A** record for `@` pointing
+at that IP, and a **CNAME** for `www` pointing at `ardawnsport.ie`. Set both to
+**DNS only** (the grey cloud), not proxied: Caddy fetches its own certificate
+by answering a challenge on that name, and a proxy in front would answer
+instead. Let them propagate before step 5.
 
 ```bash
 ssh root@<ip>
@@ -69,34 +145,47 @@ git clone <your repo> app && cd app
 npm ci
 npm run build
 
-mkdir -p data/media
 cat > .env.local <<EOF
 SESSION_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
 DATABASE_PATH=/srv/fisean/app/data/fisean.db
-STORAGE_DRIVER=local
-MEDIA_DIR=/srv/fisean/app/data/media
+STORAGE_DRIVER=r2
+R2_ACCOUNT_ID=<account id>
+R2_ACCESS_KEY_ID=<access key id>
+R2_SECRET_ACCESS_KEY=<secret access key>
+R2_BUCKET=ardawn-footage
+# The EU bucket from step 1 answers only on its own hostname.
+R2_JURISDICTION=eu
+TEAM_STORAGE_GB=100
+# Optional: only clubs you give this to can set up at /start.
+SIGNUP_CODE=<something you choose>
 NODE_ENV=production
 EOF
 chmod 600 .env.local
 
 npm run db:migrate
-npm run create-admin      # note the join code it prints
 exit
 ```
+
+Without R2 (the CX32 row above), use `STORAGE_DRIVER=local` and
+`MEDIA_DIR=/srv/fisean/app/data/media` instead of the four `R2_` lines.
 
 ### 5. Caddy
 
 ```
 # /etc/caddy/Caddyfile
-fisean.yourclub.ie {
+ardawnsport.ie {
 	reverse_proxy 127.0.0.1:3000
 	encode zstd gzip
 
-	# Match files are large. Don't let a slow phone on bad reception time out
-	# mid-clip, and don't buffer gigabytes in the proxy.
+	# Upload parts are at most about 11 MB, and on R2 they never come here at
+	# all. Anything bigger than this is not from the app.
 	request_body {
-		max_size 8GB
+		max_size 32MB
 	}
+}
+
+www.ardawnsport.ie {
+	redir https://ardawnsport.ie{uri} permanent
 }
 ```
 
@@ -112,7 +201,7 @@ no renewal cron.
 ```ini
 # /etc/systemd/system/fisean.service
 [Unit]
-Description=Físeán
+Description=Ardawn
 After=network.target
 
 [Service]
@@ -120,11 +209,11 @@ Type=simple
 User=fisean
 Group=fisean
 WorkingDirectory=/srv/fisean/app
-ExecStart=/usr/bin/npm run start
+# Bound to localhost: only Caddy talks to the app.
+ExecStart=/usr/bin/npm run start -- -H 127.0.0.1 -p 3000
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
-Environment=PORT=3000
 
 [Install]
 WantedBy=multi-user.target
@@ -136,35 +225,45 @@ systemctl enable --now fisean
 systemctl status fisean
 ```
 
-### 7. Give the panel the link
+### 7. Hand it to the clubs
 
-Send them `https://fisean.yourclub.ie/join` and the join code. They enter the
-code, their name and a password, and they are in. Nothing to approve.
+Send a club `https://ardawnsport.ie/start`, and the sign-up code if you set
+one. Whoever fills it in becomes that club's admin and lands on the squad
+page, with the join code to send the panel and a place to drop the first
+match. Players go to `/join`, enter the code, their name and a password, and
+they are in. Nothing to approve.
+
+Usernames are unique across the whole instance, not per club, because signing
+in asks for nothing else.
 
 ---
 
-## Getting footage onto the server
+## How footage gets in
 
-The ingest script is the right tool — it avoids pushing gigabytes through a
-browser:
+Clubs upload in the browser: drag the file onto the squad page, or press
+Upload video on a match. It goes up as an S3 multipart upload — 8 MB parts,
+three at a time, each PUT straight to the bucket on its own signed link. A
+dropped connection is retried, and an upload that dies altogether resumes when
+the same file is dropped again, sending only the parts the bucket does not
+already hold.
+
+When a file is already on the server — a club posted you a USB stick — the
+ingest script sends it to the bucket (or registers it on local disk) without a
+browser. `--match` decides which club it belongs to:
 
 ```bash
-# From your machine
-scp "match.mp4" fisean@<ip>:/srv/fisean/app/data/media/
-
-# On the server
-sudo -u fisean -H bash -c 'cd /srv/fisean/app && npm run ingest -- data/media/match.mp4 --match <match id>'
+scp "match.mp4" fisean@<ip>:/srv/fisean/
+sudo -u fisean -H bash -c 'cd /srv/fisean/app && npm run ingest -- /srv/fisean/match.mp4 --match <match id>'
 ```
-
-Ingest notices when a file is already inside the media directory and registers
-it in place rather than copying it again.
 
 ---
 
 ## Backups
 
-A single-file database makes this trivial. Both matter — the database holds
-every clip, tag and comment, which is the actual work product.
+The database holds every club, clip, tag and comment, which is the actual
+work product. A single SQLite file makes backing it up trivial. The footage in
+R2 is stored redundantly by Cloudflare; on the local driver, back up
+`data/media/` as well.
 
 ```bash
 # /etc/cron.daily/fisean-backup
@@ -187,12 +286,14 @@ machine:
 
 ```bash
 rsync -az fisean@<ip>:/srv/fisean/backups/ ./backups/
-rsync -az fisean@<ip>:/srv/fisean/app/data/media/ ./media/
 ```
 
 ---
 
 ## Updating
+
+`bash /srv/fisean/app/deploy/update.sh` as root, which takes a backup first and
+then does this:
 
 ```bash
 sudo -u fisean -H bash -c 'cd /srv/fisean/app && git pull && npm ci && npm run build && npm run db:migrate'
@@ -203,12 +304,16 @@ Run `npm run db:migrate`, not `db:push` — push infers a diff and can drop data
 
 ---
 
-## Moving to object storage later
+## How storage is put together
 
-`src/lib/storage/` defines a four-method interface with a local-disk
-implementation. Adding an S3/R2 one means writing `s3.ts` against the same
-interface and switching `STORAGE_DRIVER`. Nothing that calls it changes.
+`src/lib/storage/` has one interface, shaped like S3's, and two drivers:
+`r2.ts` for the bucket and `local.ts` for the stand-in. Every call to R2 is a
+fetch of a presigned URL, signed by `sigv4.ts` — sixty lines over
+`node:crypto`, checked against AWS's own worked example in the tests — so
+there is no SDK. Playback links are signed against a six-hour window, so a page
+that re-renders (a coach saving a tag) produces the identical link and the
+video does not reload.
 
-Worth doing if footage outgrows the box's disk. Use `aws4fetch` (~65 KB)
-rather than `@aws-sdk/client-s3` (~3.3 MB) — presigning is the only thing
-needed.
+Not yet tried against a live bucket: the signing matches AWS's reference, and
+the whole upload has been run end to end through the local stand-in, but the
+first real R2 upload is the test of the CORS rule and the token.

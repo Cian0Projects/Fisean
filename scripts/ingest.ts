@@ -3,23 +3,54 @@
  *
  *   npm run ingest -- "C:\footage\ballygunner.mp4" --match <match id>
  *
- * Pushing three or four gigabytes through a browser upload is slow and
- * fragile, and pointless when the file is already on the machine running the
- * app. This copies it into the media directory (or registers it in place if
- * it is already there) and reads its metadata directly.
+ * Clubs upload in the browser, by dropping a file on the squad page. This is
+ * for the host, when a file is already on the server and sending it through
+ * a browser again would be pointless. It copies it into the media directory
+ * (or registers it in place if it is already there) and reads its metadata
+ * directly.
  */
 import "./_env";
-import { copyFile, mkdir, stat } from "node:fs/promises";
+import { copyFile, mkdir, open, stat } from "node:fs/promises";
 import { basename, extname, join, resolve } from "node:path";
 import { desc, eq } from "drizzle-orm";
 import { db } from "../src/lib/db/client";
 import { matches, teams, videos } from "../src/lib/db/schema";
 import { codecWarning, probeFile } from "../src/lib/media/probe";
+import { partBytes, planParts } from "../src/lib/media/upload";
+import { contentTypeFor, storageDriver, store } from "../src/lib/storage";
 import { formatClock } from "../src/lib/hurling/notation";
 
 function arg(flag: string): string | undefined {
   const i = process.argv.indexOf(`--${flag}`);
   return i !== -1 ? process.argv[i + 1] : undefined;
+}
+
+/**
+ * The same multipart upload the browser does, from the server's disk: start
+ * it, PUT each part to its signed URL, finish it. One part at a time is fine
+ * from a server with a fast link.
+ */
+async function sendToBucket(source: string, key: string, size: number): Promise<void> {
+  const media = await store();
+  const plan = planParts(size);
+  const uploadId = await media.createMultipart(key, contentTypeFor(source));
+  const file = await open(source, "r");
+  try {
+    for (let n = 1; n <= plan.count; n++) {
+      const bytes = new Uint8Array(partBytes(n, plan, size));
+      await file.read(bytes, 0, bytes.length, (n - 1) * plan.partSize);
+      const res = await fetch(media.presignPart(key, uploadId, n), { method: "PUT", body: bytes });
+      if (!res.ok) throw new Error(`Part ${n} was refused: ${res.status}`);
+      process.stdout.write(`\r  ${Math.round((n / plan.count) * 100)}%`);
+    }
+    process.stdout.write("\n");
+    await media.completeMultipart(key, uploadId, await media.listParts(key, uploadId));
+  } catch (err) {
+    await media.abortMultipart(key, uploadId).catch(() => {});
+    throw err;
+  } finally {
+    await file.close();
+  }
 }
 
 async function main() {
@@ -41,13 +72,27 @@ async function main() {
     process.exit(1);
   }
 
-  const [team] = await db.select().from(teams).orderBy(desc(teams.createdAt)).limit(1);
+  // With --match the club is whichever owns that match, so on a hosted
+  // instance the host can load footage for any club. Without it, this is a
+  // one-club install and the newest team is the only one.
+  const matchId = arg("match");
+  const [owner] = matchId
+    ? await db
+        .select({ teamId: matches.teamId })
+        .from(matches)
+        .where(eq(matches.id, matchId))
+        .limit(1)
+    : [];
+  const [team] = owner
+    ? await db.select().from(teams).where(eq(teams.id, owner.teamId)).limit(1)
+    : await db.select().from(teams).orderBy(desc(teams.createdAt)).limit(1);
   if (!team) {
-    console.error("  No team yet. Run `npm run create-admin` first.");
+    console.error(
+      matchId ? `  No match with id ${matchId}.` : "  No team yet. Run `npm run create-admin` first.",
+    );
     process.exit(1);
   }
 
-  const matchId = arg("match");
   const [match] = matchId
     ? await db.select().from(matches).where(eq(matches.id, matchId)).limit(1)
     : await db
@@ -77,8 +122,12 @@ async function main() {
   const mediaDir = resolve(process.env.MEDIA_DIR ?? "./data/media");
   const key = `${team.id}/${crypto.randomUUID()}${extname(source) || ".mp4"}`;
   const destination = join(mediaDir, key);
+  const onR2 = storageDriver() === "r2";
 
-  if (source.startsWith(mediaDir)) {
+  if (onR2) {
+    console.log("  Sending to the R2 bucket…");
+    await sendToBucket(source, key, info.size);
+  } else if (source.startsWith(mediaDir)) {
     console.log("  Already inside the media directory — registering in place.");
   } else {
     await mkdir(join(mediaDir, team.id), { recursive: true });
@@ -103,7 +152,7 @@ async function main() {
       // HTTP range requests, which is both faster and more accurate than
       // segmenting it would be.
       status: "ready",
-      storageKey: source.startsWith(mediaDir)
+      storageKey: !onR2 && source.startsWith(mediaDir)
         ? source.slice(mediaDir.length + 1).replace(/\\/g, "/")
         : key,
     })

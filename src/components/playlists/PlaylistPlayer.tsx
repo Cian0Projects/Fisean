@@ -9,6 +9,7 @@
  * handed to the video stage as a preload target, the element beside the
  * visible one is already parked there when the current clip ends.
  */
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PlayerEngine } from "@/components/player/engine";
 import { VideoStage, Timecode } from "@/components/player/VideoStage";
@@ -21,6 +22,9 @@ import { addComment } from "@/lib/actions/review";
 import { listComments } from "@/lib/actions/reads";
 import type { Shape } from "@/lib/db/schema";
 import type { CommentRow } from "@/components/review/types";
+import type { TagTone } from "@/lib/hurling/events";
+import { TagMark } from "@/components/ui/TagMark";
+import { ChevronIcon, PauseIcon, PlayIcon } from "@/components/ui/Icon";
 
 export type PlaylistClip = {
   itemId: string;
@@ -31,18 +35,23 @@ export type PlaylistClip = {
   note: string | null;
   startMs: number;
   endMs: number;
-  tags: { label: string; colour: string }[];
+  tags: { label: string; tone: TagTone }[];
   annotations: { atMs: number; durationMs: number; shapes: Shape[] }[];
 };
 
 export function PlaylistPlayer({
   playlistId,
   title,
+  note,
+  setBy,
   clips,
   viewerName,
 }: {
   playlistId: string;
   title: string;
+  /** What the coach said when they set it: the reason to watch. */
+  note: string | null;
+  setBy: string | null;
   clips: PlaylistClip[];
   viewerName: string;
 }) {
@@ -50,6 +59,7 @@ export function PlaylistPlayer({
   const [index, setIndex] = useState(0);
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [positionMs, setPositionMs] = useState(0);
+  const [playing, setPlaying] = useState(false);
   const [comments, setComments] = useState<CommentRow[] | null>(null);
   const [draft, setDraft] = useState("");
   const [typing, setTyping] = useState(false);
@@ -84,7 +94,14 @@ export function PlaylistPlayer({
     });
   }, [current, engine, autoAdvance, next]);
 
-  useEffect(() => engine.subscribe((t) => setPositionMs(t.positionMs)), [engine]);
+  useEffect(
+    () =>
+      engine.subscribe((t) => {
+        setPositionMs(t.positionMs);
+        setPlaying(t.playing);
+      }),
+    [engine],
+  );
 
   useEffect(() => {
     if (!current || comments !== null) return;
@@ -155,167 +172,183 @@ export function PlaylistPlayer({
   };
 
   return (
-    <div className="flex min-h-dvh flex-col lg:flex-row" style={{ background: "var(--color-stage)" }}>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="relative aspect-video w-full bg-black">
-          <VideoStage engine={engine} src={current.src} preloadMs={preloadMs} />
-          {/* Saved drawings replay on top; they are never burned into the file. */}
-          <div className="pointer-events-none absolute inset-0">
-            <AnnotationLayer shapes={visibleShapes} />
-          </div>
-        </div>
-
-        <div
-          className="flex flex-wrap items-center gap-3 border-b px-4 py-3"
-          style={{ borderColor: "var(--color-line)" }}
+    <div className="flex min-h-dvh flex-col" style={{ background: "var(--color-stage)" }}>
+      {/* The playlist as it was handed over: what it is, who set it, why. */}
+      <header className="border-b px-4 py-3" style={{ borderColor: "var(--color-line)" }}>
+        <Link
+          href="/playlists"
+          className="inline-flex items-center gap-1 text-[13px]"
+          style={{ color: "var(--color-ink-dim)" }}
         >
-          <button onClick={() => goTo(index - 1)} disabled={index === 0} className="btn-outline text-xs">
-            Previous
-          </button>
-          <button onClick={() => engine.toggle()} className="btn-primary text-xs">
-            Play / pause
-          </button>
-          <button
-            onClick={next}
-            disabled={index + 1 >= clips.length}
-            className="btn-outline text-xs"
-          >
-            Next
-          </button>
+          <ChevronIcon direction="left" className="h-3.5 w-3.5" />
+          Playlists
+        </Link>
+        <h1 className="title mt-1 text-[22px]">{title}</h1>
+        {(setBy || note) && (
+          <p className="measure mt-1 text-[14px]" style={{ color: "var(--color-ink-dim)" }}>
+            {setBy && <>Set by {setBy}.</>} {note}
+          </p>
+        )}
+      </header>
 
-          <Timecode engine={engine} markers={{}} halfLengthMin={30} />
-
-          <div className="flex-1" />
-
-          <label className="flex items-center gap-1.5 text-[12px]" style={{ color: "var(--color-ink-dim)" }}>
-            <input
-              type="checkbox"
-              checked={autoAdvance}
-              onChange={(e) => setAutoAdvance(e.target.checked)}
-              className="accent-[var(--color-brand)]"
-            />
-            Autoplay
-          </label>
-          <span className="tabular text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-            {index + 1} / {clips.length}
-          </span>
-        </div>
-
-        <div className="space-y-4 p-4">
-          <div>
-            <h1 className="text-base font-semibold">{current.title || "Untitled clip"}</h1>
-            {current.note && (
-              <p className="mt-1 text-[13px]" style={{ color: "var(--color-ink-dim)" }}>
-                {current.note}
-              </p>
-            )}
-            {current.tags.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {current.tags.map((t, i) => (
-                  <span
-                    key={i}
-                    className="rounded px-1.5 py-0.5 text-[11px]"
-                    style={{
-                      background: `color-mix(in oklab, ${t.colour} 26%, transparent)`,
-                      color: "var(--color-ink)",
-                    }}
-                  >
-                    {t.label}
-                  </span>
-                ))}
-              </div>
-            )}
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="relative aspect-video w-full bg-black">
+            <VideoStage engine={engine} src={current.src} preloadMs={preloadMs} />
+            {/* Saved drawings replay on top; they are never burned into the file. */}
+            <div className="pointer-events-none absolute inset-0">
+              <AnnotationLayer shapes={visibleShapes} />
+            </div>
           </div>
 
-          <div>
-            <h2 className="label mb-2">Comments</h2>
-            {comments === null ? (
-              <p className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-                Loading…
-              </p>
-            ) : comments.length === 0 ? (
-              <p className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-                Nothing yet. Say what you see.
-              </p>
-            ) : (
-              <ul className="space-y-2.5">
-                {comments.map((c) => (
-                  <li key={c.id} className="text-[13px]">
-                    <div className="flex items-baseline gap-2">
-                      <span className="font-medium">{c.authorName}</span>
-                      {c.atMs != null && (
-                        <button
-                          onClick={() => engine.seek(current.startMs + c.atMs!, { exact: true })}
-                          className="tabular text-[11px]"
-                          style={{ color: "var(--color-brand)" }}
-                        >
-                          {formatClock(c.atMs)}
-                        </button>
-                      )}
-                    </div>
-                    <p className="mt-0.5 whitespace-pre-wrap" style={{ color: "var(--color-ink-dim)" }}>
-                      {c.body}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
+          <div
+            className="flex flex-wrap items-center gap-3 border-b px-4 py-3"
+            style={{ borderColor: "var(--color-line)" }}
+          >
+            <button onClick={() => goTo(index - 1)} disabled={index === 0} className="btn-outline text-xs">
+              <ChevronIcon direction="left" className="h-3.5 w-3.5" />
+              Previous
+            </button>
+            <button onClick={() => engine.toggle()} className="btn-primary w-24 text-xs">
+              {playing ? <PauseIcon className="h-3.5 w-3.5" /> : <PlayIcon className="h-3.5 w-3.5" />}
+              {playing ? "Pause" : "Play"}
+            </button>
+            <button
+              onClick={next}
+              disabled={index + 1 >= clips.length}
+              className="btn-outline text-xs"
+            >
+              Next
+              <ChevronIcon direction="right" className="h-3.5 w-3.5" />
+            </button>
 
-            <div className="mt-3 space-y-2">
-              <textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onFocus={() => setTyping(true)}
-                onBlur={() => setTyping(false)}
-                rows={2}
-                placeholder={`Comment as ${viewerName}…`}
-                className="field resize-none"
+            <Timecode engine={engine} markers={{}} halfLengthMin={30} />
+
+            <div className="flex-1" />
+
+            <label className="flex items-center gap-1.5 text-[12px]" style={{ color: "var(--color-ink-dim)" }}>
+              <input
+                type="checkbox"
+                checked={autoAdvance}
+                onChange={(e) => setAutoAdvance(e.target.checked)}
+                className="accent-[var(--color-ink)]"
               />
-              <button onClick={() => void post()} className="btn-primary text-xs">
-                Post
-              </button>
+              Play on to the next clip
+            </label>
+            <span className="tabular text-[13px]" style={{ color: "var(--color-ink-dim)" }}>
+              Clip {index + 1} of {clips.length}
+            </span>
+          </div>
+
+          <div className="space-y-4 p-4">
+            <div>
+              <h2 className="title text-[17px]">{current.title || "Untitled clip"}</h2>
+              {current.note && (
+                <p className="measure mt-1 text-[14px]" style={{ color: "var(--color-ink-dim)" }}>
+                  {current.note}
+                </p>
+              )}
+              {current.tags.length > 0 && (
+                <div
+                  className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[13px]"
+                  style={{ color: "var(--color-ink-dim)" }}
+                >
+                  {current.tags.map((t, i) => (
+                    <span key={i} className="inline-flex items-center gap-1.5">
+                      <TagMark tone={t.tone} />
+                      {t.label}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h2 className="label mb-2">Comments</h2>
+              {comments === null ? (
+                <p className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+                  Loading…
+                </p>
+              ) : comments.length === 0 ? (
+                <p className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+                  No comments on this clip yet.
+                </p>
+              ) : (
+                <ul className="space-y-2.5">
+                  {comments.map((c) => (
+                    <li key={c.id} className="text-[13px]">
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-medium">{c.authorName}</span>
+                        {c.atMs != null && (
+                          <button
+                            onClick={() => engine.seek(current.startMs + c.atMs!, { exact: true })}
+                            className="tabular text-[12px] underline"
+                            style={{ color: "var(--color-ash)" }}
+                          >
+                            {formatClock(c.atMs)}
+                          </button>
+                        )}
+                      </div>
+                      <p className="mt-0.5 whitespace-pre-wrap" style={{ color: "var(--color-ink-dim)" }}>
+                        {c.body}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="mt-3 space-y-2">
+                <textarea
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onFocus={() => setTyping(true)}
+                  onBlur={() => setTyping(false)}
+                  rows={2}
+                  placeholder={`Comment as ${viewerName}…`}
+                  className="field resize-none"
+                />
+                <button onClick={() => void post()} className="btn-primary text-xs">
+                  Post
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <aside
-        className="w-full shrink-0 border-t lg:w-80 lg:border-l lg:border-t-0"
-        style={{ borderColor: "var(--color-line)", background: "var(--color-surface)" }}
-      >
-        <div className="border-b px-4 py-3" style={{ borderColor: "var(--color-line)" }}>
-          <h2 className="text-sm font-semibold">{title}</h2>
-        </div>
-        <ol>
-          {clips.map((c, i) => (
-            <li key={c.itemId}>
-              <button
-                onClick={() => goTo(i)}
-                className="flex w-full gap-3 border-b px-4 py-2.5 text-left"
-                style={{
-                  borderColor: "var(--color-line)",
-                  background: i === index ? "var(--color-surface-2)" : "transparent",
-                }}
-              >
-                <span
-                  className="tabular text-[11px]"
-                  style={{ color: "var(--color-ink-faint)" }}
+        <aside
+          className="w-full shrink-0 border-t lg:w-80 lg:border-l lg:border-t-0"
+          style={{ borderColor: "var(--color-line)", background: "var(--color-surface)" }}
+        >
+          <h2 className="label border-b px-4 py-3" style={{ borderColor: "var(--color-line)" }}>
+            Running order
+          </h2>
+          <ol>
+            {clips.map((c, i) => (
+              <li key={c.itemId}>
+                <button
+                  onClick={() => goTo(i)}
+                  aria-current={i === index ? "true" : undefined}
+                  className="flex w-full items-center gap-3 border-b px-4 py-2.5 text-left"
+                  style={{
+                    borderColor: "var(--color-line)",
+                    background: i === index ? "var(--color-surface-2)" : "transparent",
+                  }}
                 >
-                  {i + 1}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px]">
-                    {c.title || "Untitled clip"}
+                  <span className="jersey shrink-0">{i + 1}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px]">
+                      {c.title || "Untitled clip"}
+                    </span>
+                    <span className="block tabular text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+                      {((c.endMs - c.startMs) / 1000).toFixed(0)} s
+                    </span>
                   </span>
-                  <span className="tabular text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
-                    {((c.endMs - c.startMs) / 1000).toFixed(0)}s
-                  </span>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ol>
-      </aside>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </aside>
+      </div>
     </div>
   );
 }

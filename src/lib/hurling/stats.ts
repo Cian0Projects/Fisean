@@ -20,6 +20,7 @@ import {
   GOAL_VALUE,
   formatScore,
   scoreMargin,
+  scoreTotal,
   tallyScore,
   toGameTime,
   type Markers,
@@ -797,7 +798,7 @@ export type Efficiency = {
   /** "9/14" */
   fraction: string;
   percent: number;
-  /** "9/14 · 64%" — the form a coach reads first. */
+  /** "9 of 14, 64%" — the form a coach reads first. */
   label: string;
   score: Score;
   /** "2-7 from 14 shots" — the same thing in GAA notation. */
@@ -825,7 +826,7 @@ export function shootingEfficiency(counts: ShotCounts): Efficiency {
     total,
     fraction: `${scored}/${total}`,
     percent,
-    label: `${scored}/${total} · ${percent}%`,
+    label: `${scored} of ${total}, ${percent}%`,
     score,
     notation: `${formatScore(score)} from ${total} shot${total === 1 ? "" : "s"}`,
   };
@@ -850,6 +851,72 @@ export function matchResult(rows: readonly StatEntry[]): MatchResult | null {
   const us = shootingEfficiency(ours).score;
   const them = theirAttempts > 0 ? shootingEfficiency(theirs).score : null;
   return { us, them, margin: them ? scoreMargin(us, them) : null };
+}
+
+/**
+ * The scorers, the way a match report prints them under the result.
+ *
+ * Every club reads a line like "R Hayes 0-4 (0-2f), A Considine 1-1" before
+ * it reads any percentage, so the sheet leads with it. A score off a free or
+ * a 65 is the free-taker's, and is shown in brackets with an "f" because that
+ * is the notation a programme uses — it is how a selector tells a good day
+ * from play apart from a good day over the dead ball. A score logged without
+ * a number still counts, under `playerNumber: null`.
+ */
+export type ScorerLine = { playerNumber: number | null; score: Score; fromFrees: Score };
+
+export function scorers(rows: readonly StatEntry[], side: Side = "us"): ScorerLine[] {
+  const byNumber = new Map<number | null, ScorerLine>();
+  for (const r of rows) {
+    if (r.statType !== "shot" || shotSide(r) !== side) continue;
+    if (r.shotResult !== "goal" && r.shotResult !== "point") continue;
+    const key = r.playerNumber ?? null;
+    const line = byNumber.get(key) ?? {
+      playerNumber: key,
+      score: { cul: 0, cuilin: 0 },
+      fromFrees: { cul: 0, cuilin: 0 },
+    };
+    const part = r.shotResult === "goal" ? "cul" : "cuilin";
+    line.score[part] += 1;
+    if (r.shotKind === "free") line.fromFrees[part] += 1;
+    byNumber.set(key, line);
+  }
+  // Top scorer first, as a report lists them; the unnamed scores go last.
+  return [...byNumber.values()].sort((a, b) => {
+    if (a.playerNumber === null) return 1;
+    if (b.playerNumber === null) return -1;
+    return (
+      scoreTotal(b.score) - scoreTotal(a.score) ||
+      b.score.cul - a.score.cul ||
+      a.playerNumber - b.playerNumber
+    );
+  });
+}
+
+/** "0-4 (0-2f)", "1-1", or "0-3f" when every score was off the dead ball. */
+export function formatScorerTally(line: ScorerLine): string {
+  const all = formatScore(line.score);
+  const frees = line.fromFrees.cul + line.fromFrees.cuilin;
+  if (frees === 0) return all;
+  if (frees === line.score.cul + line.score.cuilin) return `${all}f`;
+  return `${all} (${formatScore(line.fromFrees)}f)`;
+}
+
+/**
+ * The score at half time, read from the shots logged in the first half.
+ * Only given when every scoring shot has a half — a guess at a half-time
+ * score is worse than none — and theirs only when their shots were logged.
+ */
+export function halfTimeScore(rows: readonly StatEntry[]): { us: Score; them: Score | null } | null {
+  const scoring = rows.filter(
+    (r) => r.statType === "shot" && (r.shotResult === "goal" || r.shotResult === "point"),
+  );
+  if (scoring.length === 0 || scoring.some((r) => r.half == null)) return null;
+  const firstHalf = rows.filter((r) => r.half === 1);
+  const theirsLogged = rows.some((r) => r.statType === "shot" && shotSide(r) === "opposition");
+  const ours = shootingEfficiency(countShots(firstHalf, "us")).score;
+  const theirs = theirsLogged ? shootingEfficiency(countShots(firstHalf, "opposition")).score : null;
+  return { us: ours, them: theirs };
 }
 
 export type SourceLine = { attempts: number; scored: number };

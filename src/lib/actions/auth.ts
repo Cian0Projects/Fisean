@@ -1,9 +1,11 @@
 "use server";
 
+import { createHash, timingSafeEqual } from "node:crypto";
 import { redirect } from "next/navigation";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { teams, users } from "@/lib/db/schema";
+import { ClubSetupError, createClub } from "@/lib/db/clubs";
 import { hashPassword, normaliseJoinCode, verifyPassword } from "@/lib/auth/password";
 import { createSession, destroySession } from "@/lib/auth/session";
 
@@ -62,12 +64,14 @@ export async function joinTeam(_prev: AuthState, form: FormData): Promise<AuthSt
   const [team] = await db.select().from(teams).where(eq(teams.joinCode, code)).limit(1);
   if (!team) return { error: "That join code was not recognised." };
 
+  // Usernames are unique across every club on the instance, since signing in
+  // asks for nothing else.
   const [taken] = await db
     .select({ id: users.id })
     .from(users)
-    .where(and(eq(users.teamId, team.id), eq(users.username, username)))
+    .where(eq(users.username, username))
     .limit(1);
-  if (taken) return { error: "Somebody on the panel already has that username." };
+  if (taken) return { error: "That username is taken. Try another." };
 
   const [created] = await db
     .insert(users)
@@ -82,6 +86,43 @@ export async function joinTeam(_prev: AuthState, form: FormData): Promise<AuthSt
 
   await createSession(created.id);
   redirect(destination(form));
+}
+
+/** Compare without leaking, through timing, how much of a guess was right. */
+function sameText(given: string, expected: string): boolean {
+  const a = createHash("sha256").update(given).digest();
+  const b = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(a, b);
+}
+
+/**
+ * Set up a new club from the web. Whoever fills this in becomes its admin and
+ * lands on the squad page, with the join code to hand out and a place to drop
+ * the first match file. No email, no approval — the same bar as joining.
+ */
+export async function startClub(_prev: AuthState, form: FormData): Promise<AuthState> {
+  // With SIGNUP_CODE set, only clubs the host has given the code to can set
+  // up — every club is a promise of up to TEAM_STORAGE_GB of the host's disk.
+  const required = process.env.SIGNUP_CODE;
+  if (required && !sameText(String(form.get("signupCode") ?? "").trim(), required)) {
+    return { error: "That sign-up code is not right. Ask whoever sent you the link." };
+  }
+
+  let club;
+  try {
+    club = await createClub({
+      teamName: String(form.get("teamName") ?? ""),
+      displayName: String(form.get("displayName") ?? ""),
+      username: String(form.get("username") ?? ""),
+      password: String(form.get("password") ?? ""),
+    });
+  } catch (err) {
+    if (err instanceof ClubSetupError) return { error: err.message };
+    throw err;
+  }
+
+  await createSession(club.userId);
+  redirect("/admin");
 }
 
 /** Signing out from the phone layout keeps the next sign-in on the phone layout. */

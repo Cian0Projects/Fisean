@@ -240,7 +240,7 @@ export function ClipTrimmer({ engine, videoDurationMs, clip, onCommit }: Props) 
           <NudgeButton label="−" title="Trim in point back 0.5s" onClick={() => nudgeStart(-NUDGE_MS)} />
           <span
             className="tabular w-16 text-center text-[11px]"
-            style={{ color: "var(--color-mark)" }}
+            style={{ color: "var(--color-ash)" }}
           >
             {formatClockPrecise(draft.startMs)}
           </span>
@@ -250,7 +250,7 @@ export function ClipTrimmer({ engine, videoDurationMs, clip, onCommit }: Props) 
         {/* The zoomed strip. */}
         <div
           ref={stripRef}
-          className="relative h-9 flex-1 touch-none rounded-md"
+          className="relative h-9 flex-1 touch-none rounded-[2px]"
           style={{ background: "var(--color-surface-2)" }}
         >
           {/* The kept region — also the drag target for shifting the clip. */}
@@ -264,8 +264,8 @@ export function ClipTrimmer({ engine, videoDurationMs, clip, onCommit }: Props) 
             style={{
               left: `${pct(draft.startMs)}%`,
               width: `${Math.max(0.5, pct(draft.endMs) - pct(draft.startMs))}%`,
-              background: "color-mix(in oklab, var(--color-brand) 35%, transparent)",
-              border: "1px solid var(--color-brand)",
+              background: "color-mix(in oklab, var(--color-ash) 30%, transparent)",
+              border: "1px solid var(--color-ash)",
             }}
           />
 
@@ -281,7 +281,7 @@ export function ClipTrimmer({ engine, videoDurationMs, clip, onCommit }: Props) 
           >
             <div
               className="mx-auto h-full w-1.5 rounded-full"
-              style={{ background: "var(--color-mark)" }}
+              style={{ background: "var(--color-ash)" }}
             />
           </div>
 
@@ -297,7 +297,7 @@ export function ClipTrimmer({ engine, videoDurationMs, clip, onCommit }: Props) 
           >
             <div
               className="mx-auto h-full w-1.5 rounded-full"
-              style={{ background: "var(--color-mark)" }}
+              style={{ background: "var(--color-ash)" }}
             />
           </div>
         </div>
@@ -306,7 +306,7 @@ export function ClipTrimmer({ engine, videoDurationMs, clip, onCommit }: Props) 
           <NudgeButton label="−" title="Trim out point back 0.5s" onClick={() => nudgeEnd(-NUDGE_MS)} />
           <span
             className="tabular w-16 text-center text-[11px]"
-            style={{ color: "var(--color-mark)" }}
+            style={{ color: "var(--color-ash)" }}
           >
             {formatClockPrecise(draft.endMs)}
           </span>
@@ -333,7 +333,7 @@ function NudgeButton({
       onClick={onClick}
       title={title}
       disabled={disabled}
-      className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-xs transition-colors disabled:opacity-35"
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[2px] text-xs transition-colors disabled:opacity-35"
       style={{ background: "var(--color-surface-3)", color: "var(--color-ink-dim)" }}
     >
       {label}

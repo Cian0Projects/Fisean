@@ -16,6 +16,77 @@ is used, how it is deployed).
 
 -->
 
+## One script puts Ardawn live at ardawnsport.ie
+*2026-10-13*
+
+Deploying used to mean working through `docs/DEPLOYMENT.md` by hand. Now
+`deploy/setup.sh` does it on a fresh Ubuntu server: it installs Node and
+Caddy, builds the app, migrates the database, gets HTTPS for `ardawnsport.ie`
+(redirecting `www`), runs the app as a service bound to localhost, turns on
+the firewall and schedules a nightly backup. `deploy/update.sh` releases
+whatever is on `main`, taking a backup before it migrates. R2 buckets created
+under the EU jurisdiction, which the guide recommends because the footage
+includes minors, have their own hostname; the new `R2_JURISDICTION=eu` setting
+makes the app use it. Before this, an EU bucket would have refused every
+upload.
+
+## The matches page leads with the newest footage
+*2026-10-10*
+
+The cover of the matches page used to be the last match played, with the
+opponent's name set in the heaviest type on the page — so heavy it read as
+if the opponent were the club that owned the account, while the video sat
+small in a side column. Now the match whose footage arrived last leads, even
+if it was played earlier, and its video is the largest thing on the page. The
+fixture is a line at heading size, "our club v them", with a note of when the
+video was added. Beside the picture are the result and a shooting panel: the
+stat sheet's own efficiency figure (now one shared component), the
+opponent's rate for comparison, and the map of our shots, linking to the
+sheet's shooting section. The fixture list below is headed "Other matches"
+and stays in date order.
+
+## Footage in Cloudflare R2, with a local stand-in for testing
+*2026-10-09*
+
+Footage can now live in a Cloudflare R2 bucket (`STORAGE_DRIVER=r2`), chosen
+because R2 charges nothing for egress and egress is this app's whole cost.
+Uploads became S3 multipart uploads: the browser sends 8 MB parts, three at a
+time, straight to the bucket on signed links, so the app server never carries
+the gigabytes, and playback streams from signed links too. The earlier
+chunk-append upload is gone. The local driver was rebuilt as a stand-in for
+R2 that hands out the same kind of signed links and assembles parts the same
+way, so testing on a laptop runs exactly the upload the hosted app runs. R2 is
+reached with presigned URLs signed by sixty lines over `node:crypto`, checked
+against AWS's published example, so there is still no new dependency. Playback
+links are signed against a six-hour window so a re-render does not reload the
+video. Migration `0010_multipart_uploads` adds `videos.upload_id` so a dropped
+upload can resume. `/start` now asks for `SIGNUP_CODE` when the host sets one,
+so only invited clubs can sign up. Dropping a file no longer asks which
+listed match it belongs to — the match does not exist until its footage
+does — but for the match's title and date, and the match is created in the
+same request that starts the upload, so a refused upload leaves no empty
+match behind.
+
+## Hosted for many clubs, with uploads in the browser
+*2026-10-09*
+
+Getting a club started used to take a terminal twice: `npm run create-admin`
+to make the club, and `npm run ingest` on the server for every match file.
+That ruled out any club without someone technical. Now one hosted instance
+serves every club. A club sets itself up at `/start` and its admin lands on
+the squad page, where a match file is dragged onto the page or picked with
+Upload video. Files go up in 8 MB chunks appended at a stated offset, so a
+dropped connection is retried and a dead upload resumes when the same file is
+dropped again; the probe then reads the stored file's two ends, with no
+ffmpeg. Hosting many clubs on one instance needed three fixes: usernames and
+join codes are now unique across the instance rather than per club (sign-in
+asks only for a username, so two clubs' "cian" could open the wrong account),
+the media route serves a file only to the club that owns it, and each club has
+a storage allowance, `TEAM_STORAGE_GB`. Migration `0009_hosted_clubs` swaps
+the per-team username index for a global one and adds a unique join code
+index; it fails if two clubs already share a username or code. `ingest` stays,
+for the host, and now files footage under whichever club owns `--match`.
+
 ## A public home page before sign-in
 *2026-10-07*
 
@@ -34,9 +105,31 @@ the outcome colours the rest of the app reserves. The video is served from
 
 The product's public name is now Ardawn, and it describes itself as GAA video
 review rather than hurling video review. The rename covers the page title,
-the web app manifest, the Android app name, and the wordmark in the nav, the
-sign-in gate, the phone home screen and the review workspace. The mark keeps
-its two posts and crossbar, but the sliotar over the bar is replaced by a
-block of pitch green under it, matching the new identity artwork. Package
-ids (`ie.fisean.app`), the repository and the code's own comments keep the
+the web app manifest, the Android and iOS app names and the apps' offline
+screen, and the wordmark in the nav, the sign-in gate, the phone home screen
+and the review workspace. Físeán, with two fadas, was hard for anyone without
+Irish to say or pass on; Ardawn spells ardán, the stand you watch the match
+from, the way English reads it. The mark keeps its two posts and crossbar, but
+the sliotar over the bar is replaced by a block of pitch green under it,
+matching the new identity artwork. Package ids (`ie.fisean.app`), the session
+cookie, the database file, the repository and the code's own comments keep the
 old name for now, so installed apps and existing data are untouched.
+
+## Outcome-coloured tags, and a stat sheet that reads like a match report
+*2026-10-05*
+
+A design review found the app looked generated wherever it fell back on stock
+defaults, so those places were brought into line with the club-programme look.
+Clip tags no longer use a different stock colour each: they are coloured only
+by outcome (green good for us, red against, amber unclear) with the pitch
+maps' filled, ring and dashed marks, skills and phases stay in plain ink, and
+cards are drawn as small yellow and red cards. The dark video screens print
+their main button in reverse (chalk on graphite) and lose their rounded,
+shadowed one-offs and 10px text. The stat sheet opens with the same result
+box as the matches page, a half-time score and a scorers line in GAA notation
+("R Hayes 0-4 (0-2f)"), says each section in a sentence instead of big-number
+tiles, and writes won-of-total as "1 of 2" so nothing reads as a score. The
+matches cover draws our shot map when there is no clip to preview, the phone
+home leads with the playlists set for that player, and the playlist player now
+says who set it and why. Migration 0008 renames the poc amach tags ("Poc amach
+won" rather than "Poc amach — won") in existing databases.

@@ -25,6 +25,11 @@ export type EventTypeSeed = {
   /** Only set where the Irish term is the common one. */
   labelGa?: string;
   category: EventCategory;
+  /**
+   * Stored with the row, but no longer what a tag is drawn in: the screen
+   * colours a tag by its outcome (see `tagTone`), so the stock hues below
+   * only survive in the database column.
+   */
   colour: string;
   /** cúl = 3 points, cúilín = 1. Everything else contributes nothing. */
   scoreValue?: number;
@@ -87,7 +92,7 @@ export const HURLING_EVENTS: EventTypeSeed[] = [
   {
     slug: "poc_amach_won",
     labelEn: "Puckout won",
-    labelGa: "Poc amach — won",
+    labelGa: "Poc amach won",
     category: "restart",
     colour: "#0ea5e9",
     hotkey: "4",
@@ -95,7 +100,7 @@ export const HURLING_EVENTS: EventTypeSeed[] = [
   {
     slug: "poc_amach_lost",
     labelEn: "Puckout lost",
-    labelGa: "Poc amach — lost",
+    labelGa: "Poc amach lost",
     category: "restart",
     colour: "#e11d48",
     hotkey: "5",
@@ -103,14 +108,14 @@ export const HURLING_EVENTS: EventTypeSeed[] = [
   {
     slug: "poc_amach_short",
     labelEn: "Puckout short",
-    labelGa: "Poc amach — short",
+    labelGa: "Short poc amach",
     category: "restart",
     colour: "#22d3ee",
   },
   {
     slug: "poc_amach_break",
     labelEn: "Puckout breaking ball",
-    labelGa: "Poc amach — breaking ball",
+    labelGa: "Poc amach broken",
     category: "restart",
     colour: "#67e8f9",
   },
@@ -165,6 +170,64 @@ export const HOTKEY_EVENTS = HURLING_EVENTS.filter((e) => e.hotkey).sort((a, b) 
     numeric: true,
   }),
 );
+
+/**
+ * What a tag says about the game, which is the only thing its colour is
+ * allowed to say.
+ *
+ * Colour in Físeán means an outcome — good for us, against us, unclear — and
+ * the tags are drawn with the same three marks as the stat sheet's pitch maps
+ * (filled, ring, dashed ring), so a clip list reads the way a shot map does.
+ * A tag that only names a skill or a phase ("Hook", "Solo run", "Throw-in")
+ * is not an outcome and stays in ink; giving each its own hue was decoration,
+ * and with forty tags the hues ran out of meaning long before they ran out.
+ *
+ * Cards are the one literal colour, because a referee's card is yellow or red
+ * whatever it means for the game, and they are drawn card-shaped so neither
+ * is mistaken for an outcome. A team's own tags are unknown here and stay in
+ * ink until someone says what they mean.
+ */
+export type TagTone = "good" | "against" | "unclear" | "yellow_card" | "red_card" | "plain";
+
+const TONES: Record<string, TagTone> = {
+  cul: "good",
+  cuilin: "good",
+  // Our own shot that did not score is a chance gone, which is against us.
+  wide: "against",
+  short: "against",
+  saved: "against",
+  // Off the post can fall either way.
+  off_post: "unclear",
+  poc_amach_won: "good",
+  poc_amach_lost: "against",
+  poc_amach_break: "unclear",
+  turnover_won: "good",
+  turnover_conceded: "against",
+  dispossession: "good",
+  interception: "good",
+  breaking_ball_win: "good",
+  free_won: "good",
+  free_conceded: "against",
+  cynical_foul: "against",
+  yellow_card: "yellow_card",
+  red_card: "red_card",
+};
+
+export function tagTone(slug: string): TagTone {
+  return TONES[slug] ?? "plain";
+}
+
+/**
+ * A clip's tone is its first tag that says something, so a clip tagged
+ * "Hook" and then "Turnover won" still reads as won.
+ */
+export function clipTagTone(slugs: string[]): TagTone {
+  for (const slug of slugs) {
+    const tone = tagTone(slug);
+    if (tone !== "plain") return tone;
+  }
+  return "plain";
+}
 
 /** The label to show a user: the Irish term where we have one. */
 export function eventLabel(e: { labelEn: string; labelGa?: string | null }): string {

@@ -12,6 +12,8 @@ import { useEffect, useState, useTransition } from "react";
 import type { PlayerEngine } from "@/components/player/engine";
 import { formatClock } from "@/lib/hurling/notation";
 import { positionLabel } from "@/lib/hurling/positions";
+import { CATEGORY_LABELS, tagTone, type EventCategory } from "@/lib/hurling/events";
+import { TagMark } from "@/components/ui/TagMark";
 import { setClipPlayers, setClipTags, updateClip } from "@/lib/actions/clips";
 import { addComment } from "@/lib/actions/review";
 import { listComments, listEditablePlaylists } from "@/lib/actions/reads";
@@ -152,9 +154,9 @@ export function ClipInspector({
               />
             </div>
 
-            <div className="tabular text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
-              {formatClock(clip.startMs)} → {formatClock(clip.endMs)} ·{" "}
-              {((clip.endMs - clip.startMs) / 1000).toFixed(1)}s · {clip.authorName}
+            <div className="tabular text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+              {formatClock(clip.startMs)} to {formatClock(clip.endMs)}, {((clip.endMs - clip.startMs) / 1000).toFixed(1)}{" "}
+              seconds, clipped by {clip.authorName}
             </div>
 
             <div>
@@ -163,7 +165,7 @@ export function ClipInspector({
                 {Object.entries(byCategory).map(([category, list]) => (
                   <div key={category}>
                     <div className="mb-1 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-                      {category.replace(/_/g, " ")}
+                      {CATEGORY_LABELS[category as EventCategory] ?? category.replace(/_/g, " ")}
                     </div>
                     <div className="flex flex-wrap gap-1">
                       {list.map((e) => {
@@ -172,15 +174,16 @@ export function ClipInspector({
                           <button
                             key={e.id}
                             onClick={() => toggleTag(e.id)}
-                            className="rounded border px-1.5 py-0.5 text-[11px]"
+                            aria-pressed={on}
+                            className="inline-flex items-center gap-1.5 border px-1.5 py-0.5 text-[12px]"
                             style={{
-                              borderColor: on ? e.colour : "var(--color-line-strong)",
-                              background: on
-                                ? `color-mix(in oklab, ${e.colour} 26%, transparent)`
-                                : "transparent",
+                              borderRadius: 2,
+                              borderColor: on ? "var(--color-ink)" : "var(--color-line-strong)",
+                              background: on ? "var(--color-surface-3)" : "transparent",
                               color: on ? "var(--color-ink)" : "var(--color-ink-dim)",
                             }}
                           >
+                            <TagMark tone={tagTone(e.slug)} />
                             {eventLabelOf(e)}
                           </button>
                         );
@@ -202,12 +205,10 @@ export function ClipInspector({
                       key={m.id}
                       onClick={() => togglePlayer(m.id)}
                       title={positionLabel(m.position)}
-                      className="rounded border px-1.5 py-0.5 text-[11px]"
+                      className="rounded-[2px] border px-1.5 py-0.5 text-[12px]"
                       style={{
-                        borderColor: on ? "var(--color-brand)" : "var(--color-line-strong)",
-                        background: on
-                          ? "color-mix(in oklab, var(--color-brand) 24%, transparent)"
-                          : "transparent",
+                        borderColor: on ? "var(--color-ink)" : "var(--color-line-strong)",
+                        background: on ? "var(--color-surface-3)" : "transparent",
                         color: on ? "var(--color-ink)" : "var(--color-ink-dim)",
                       }}
                     >
@@ -225,7 +226,7 @@ export function ClipInspector({
                   <button
                     key={p.id}
                     onClick={() => startTransition(() => void addClipToPlaylist(p.id, clip.id))}
-                    className="btn-outline px-2 py-1 text-[11px]"
+                    className="btn-outline px-2 py-1 text-[12px]"
                   >
                     {p.title}
                   </button>
@@ -243,7 +244,7 @@ export function ClipInspector({
                       setPlaylists((prev) => [...prev, { id, title: name.trim() }]);
                     });
                   }}
-                  className="btn-ghost px-2 py-1 text-[11px]"
+                  className="btn-ghost px-2 py-1 text-[12px]"
                 >
                   + New
                 </button>
@@ -251,7 +252,7 @@ export function ClipInspector({
             </div>
 
             {pending && (
-              <div className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
+              <div className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
                 Saving…
               </div>
             )}
@@ -275,8 +276,8 @@ export function ClipInspector({
                       {c.atMs != null && (
                         <button
                           onClick={() => engine.seek(clip.startMs + c.atMs!, { exact: true })}
-                          className="tabular text-[11px]"
-                          style={{ color: "var(--color-brand)" }}
+                          className="tabular text-[12px]"
+                          style={{ color: "var(--color-ash)" }}
                         >
                           {formatClock(c.atMs)}
                         </button>
@@ -302,14 +303,14 @@ export function ClipInspector({
               />
               <div className="flex items-center justify-between">
                 <label
-                  className="flex items-center gap-1.5 text-[11px]"
+                  className="flex items-center gap-1.5 text-[12px]"
                   style={{ color: "var(--color-ink-faint)" }}
                 >
                   <input
                     type="checkbox"
                     checked={pinTime}
                     onChange={(e) => setPinTime(e.target.checked)}
-                    className="accent-[var(--color-brand)]"
+                    className="accent-[var(--color-ink)]"
                   />
                   Pin to this moment
                 </label>

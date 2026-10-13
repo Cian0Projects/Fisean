@@ -1,5 +1,7 @@
 /** Shapes shared between the review workspace and the pages that feed it. */
 import type { Shape } from "@/lib/db/schema";
+import { clipTagTone, type TagTone } from "@/lib/hurling/events";
+import { toneColour } from "@/components/ui/TagMark";
 
 export type EventTypeRow = {
   id: string;
@@ -79,10 +81,19 @@ export type Viewer = {
   role: "admin" | "coach" | "player";
 };
 
-/** Colour a clip by its first tag, so the timeline reads at a glance. */
+/** What a clip's tags say happened: its first tag that is an outcome. */
+export function clipTone(clip: ClipRow, eventTypes: EventTypeRow[]): TagTone {
+  return clipTagTone(
+    clip.eventTypeIds.map((id) => eventTypes.find((e) => e.id === id)?.slug ?? ""),
+  );
+}
+
+/**
+ * Colour a clip's tick on a timeline by its outcome, so the strip reads as
+ * the run of the game — and stays ink where nothing was won or lost.
+ */
 export function clipColour(clip: ClipRow, eventTypes: EventTypeRow[]): string {
-  const first = clip.eventTypeIds[0];
-  return eventTypes.find((e) => e.id === first)?.colour ?? "var(--color-line-strong)";
+  return toneColour(clipTone(clip, eventTypes));
 }
 
 export function eventLabelOf(e: EventTypeRow): string {

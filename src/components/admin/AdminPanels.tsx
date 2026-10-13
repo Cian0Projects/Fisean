@@ -14,6 +14,7 @@ import { formatClock } from "@/lib/hurling/notation";
 import { LINE_LABELS, POSITIONS, type Line } from "@/lib/hurling/positions";
 import { codecWarning } from "@/lib/media/probe";
 import { matchDate, fileSize } from "@/lib/format";
+import { UploadArea, UploadButton, UploadProvider, useUploads } from "./FootageUpload";
 import type { Role } from "@/lib/db/schema";
 
 type Member = {
@@ -70,37 +71,39 @@ export function AdminPanels({
   const isAdmin = viewer.role === "admin";
 
   return (
-    <main className="sheet pt-10 pb-20 lg:pt-14">
-      <header className="flex flex-wrap items-end justify-between gap-x-12 gap-y-8">
-        <div>
-          <h1 className="display text-[clamp(2.75rem,6vw,4.5rem)]">{teamName}</h1>
-          <p className="mt-4 text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
-            {count(members.length, "person", "people")} on the panel,{" "}
-            {count(matches.length, "match", "matches")},{" "}
-            {count(videos.length, "file", "files")} of footage.
-          </p>
-        </div>
-        {isAdmin && <TeamCode initial={joinCode} />}
-      </header>
+    <UploadProvider>
+      <main className="sheet pt-10 pb-20 lg:pt-14">
+        <header className="flex flex-wrap items-end justify-between gap-x-12 gap-y-8">
+          <div>
+            <h1 className="display text-[clamp(2.75rem,6vw,4.5rem)]">{teamName}</h1>
+            <p className="mt-4 text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
+              {count(members.length, "person", "people")} on the panel,{" "}
+              {count(matches.length, "match", "matches")},{" "}
+              {count(videos.length, "file", "files")} of footage.
+            </p>
+          </div>
+          {isAdmin && <TeamCode initial={joinCode} />}
+        </header>
 
-      <div className="mt-12 grid gap-x-16 gap-y-14 lg:grid-cols-[minmax(0,1fr)_25rem]">
-        <div className="space-y-14">
-          {isAdmin ? (
-            <>
-              <TeamSheet members={members} />
-              <PanelEditor members={members} viewerId={viewer.id} />
-            </>
-          ) : (
-            <Matches matches={matches} />
-          )}
-        </div>
+        <div className="mt-12 grid gap-x-16 gap-y-14 lg:grid-cols-[minmax(0,1fr)_25rem]">
+          <div className="space-y-14">
+            {isAdmin ? (
+              <>
+                <TeamSheet members={members} />
+                <PanelEditor members={members} viewerId={viewer.id} />
+              </>
+            ) : (
+              <Matches matches={matches} videos={videos} />
+            )}
+          </div>
 
-        <aside className="space-y-14">
-          {isAdmin && <Matches matches={matches} />}
-          <Footage videos={videos} canDelete={isAdmin} />
-        </aside>
-      </div>
-    </main>
+          <aside className="space-y-14">
+            {isAdmin && <Matches matches={matches} videos={videos} />}
+            <Footage videos={videos} canDelete={isAdmin} />
+          </aside>
+        </div>
+      </main>
+    </UploadProvider>
   );
 }
 
@@ -349,7 +352,7 @@ function PanelEditor({ members, viewerId }: { members: Member[]; viewerId: strin
     <section>
       <SectionHead
         title="The panel"
-        note="Removing someone ends their access immediately — sessions are rows, not tokens."
+        note="Removing someone signs them out straight away."
       />
       <div
         className="caption hidden items-center gap-3 border-b pb-2 sm:flex"
@@ -437,7 +440,6 @@ function MemberRow({
               startTransition(() => void removeMember(member.id));
             }}
             className="btn-ghost text-xs"
-            style={{ color: "var(--color-danger-ink)" }}
           >
             Remove
           </button>
@@ -449,7 +451,7 @@ function MemberRow({
 
 /* ------------------------------------------------------- matches, footage */
 
-function Matches({ matches }: { matches: Match[] }) {
+function Matches({ matches, videos }: { matches: Match[]; videos: Video[] }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -471,7 +473,11 @@ function Matches({ matches }: { matches: Match[] }) {
       ) : (
         <ul>
           {matches.map((m) => (
-            <MatchRow key={m.id} match={m} />
+            <MatchRow
+              key={m.id}
+              match={m}
+              footage={videos.filter((v) => v.matchId === m.id)}
+            />
           ))}
         </ul>
       )}
@@ -480,26 +486,17 @@ function Matches({ matches }: { matches: Match[] }) {
 }
 
 /**
- * A match row with a one-click copy of the exact `ingest` command.
+ * A match row: watch it, log its stats, or add a video to it. Uploading files
+ * the video straight against this match without asking which one it is.
  *
- * The match id is a UUID, so showing eight truncated characters was useless
- * for actually running the command — this copies the whole thing, ready to
- * paste, with the file path left as a placeholder.
+ * Watch sits on the row itself because the row is where someone who has just
+ * uploaded looks for the match; the footage list in the rail is about files,
+ * not games.
  */
-function MatchRow({ match }: { match: Match }) {
-  const [copied, setCopied] = useState(false);
-
-  const copyCommand = async () => {
-    const command = `npm run ingest -- "path\\to\\match.mp4" --match ${match.id}`;
-    try {
-      await navigator.clipboard.writeText(command);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    } catch {
-      // Clipboard access can be blocked (no HTTPS, no permission); the id is
-      // still visible in the title attribute as a fallback.
-    }
-  };
+function MatchRow({ match, footage }: { match: Match; footage: Video[] }) {
+  const ready = footage.find((v) => v.status === "ready");
+  const arriving = !ready && footage.some((v) => v.status === "uploading");
+  const where = [match.competition, match.venue].filter(Boolean).join(" at ") || "Friendly";
 
   return (
     <li className="fixture flex flex-wrap items-center gap-x-4 gap-y-1 py-3">
@@ -512,16 +509,21 @@ function MatchRow({ match }: { match: Match }) {
       <div className="min-w-0 flex-1">
         <div className="truncate text-[15px] font-semibold">{match.opponent}</div>
         <div className="caption truncate">
-          {[match.competition, match.venue].filter(Boolean).join(" at ") || "Friendly"}
+          {arriving ? `${where}, video uploading` : where}
         </div>
       </div>
       <div className="flex w-full justify-end gap-1 @lg:w-auto">
+        {ready && (
+          <Link href={`/review/${ready.id}`} className="btn-ghost text-xs">
+            Watch
+          </Link>
+        )}
         <Link href={`/matches/${match.id}/stats/log`} className="btn-ghost text-xs">
           Log stats
         </Link>
-        <button onClick={() => void copyCommand()} title={match.id} className="btn-ghost text-xs">
-          {copied ? "Command copied" : "Copy ingest command"}
-        </button>
+        <UploadButton matchId={match.id} className="btn-ghost text-xs">
+          Upload video
+        </UploadButton>
       </div>
     </li>
   );
@@ -572,8 +574,8 @@ function AddMatch({ onDone }: { onDone: () => void }) {
       <div>
         <label className="label mb-1.5 block">Half length</label>
         <select name="halfLengthMin" defaultValue={30} className="field">
-          <option value={30}>30 minutes — club and underage</option>
-          <option value={35}>35 minutes — senior inter-county</option>
+          <option value={30}>30 minutes, club and underage</option>
+          <option value={35}>35 minutes, senior inter-county</option>
         </select>
       </div>
       <div className="flex items-end">
@@ -587,31 +589,26 @@ function AddMatch({ onDone }: { onDone: () => void }) {
 
 function Footage({ videos, canDelete }: { videos: Video[]; canDelete: boolean }) {
   const [, startTransition] = useTransition();
+  const { uploads } = useUploads();
+  // A file on its way up is shown in the upload queue, with its progress;
+  // listing its half-written row here as well would show it twice.
+  const inFlight = new Set(uploads.map((u) => u.videoId));
+  const listed = videos.filter((v) => !inFlight.has(v.id));
 
   return (
     <section>
       <SectionHead
         title="Footage"
-        note="Registered from the command line, not uploaded through the browser — several gigabytes do not belong in a form post."
+        note="Everyone on the panel can watch what goes up here. A full match can take a while on club WiFi; if it stops, drop the same file again and it carries on from where it was."
       />
 
-      <pre
-        className="mb-4 overflow-x-auto px-3 py-2.5 text-[12px]"
-        style={{
-          background: "var(--color-surface)",
-          border: "1px solid var(--color-line)",
-          borderRadius: 2,
-          color: "var(--color-ink-dim)",
-        }}
-      >
-        npm run ingest -- &quot;C:\footage\match.mp4&quot; --match &lt;id&gt;
-      </pre>
+      <UploadArea />
 
-      {videos.length === 0 ? (
-        <Empty>Nothing registered yet.</Empty>
+      {listed.length === 0 ? (
+        <Empty>No footage yet.</Empty>
       ) : (
         <ul>
-          {videos.map((v) => {
+          {listed.map((v) => {
             const warning = codecWarning(v.codec);
             return (
               <li key={v.id} className="fixture py-3">
@@ -619,14 +616,16 @@ function Footage({ videos, canDelete }: { videos: Video[]; canDelete: boolean })
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-[15px] font-semibold">{v.originalFilename}</div>
                     <div className="caption tabular mt-0.5">
-                      {formatClock(v.durationMs)}, {fileSize(v.sizeBytes)}
-                      {v.codec && `, ${v.codec}`}
-                      {v.status !== "ready" && `, ${v.status}`}
+                      {v.status === "uploading"
+                        ? `${fileSize(v.sizeBytes)}, stopped part-way. Drop the same file again to finish it.`
+                        : `${formatClock(v.durationMs)}, ${fileSize(v.sizeBytes)}${v.status !== "ready" ? `, ${v.status}` : ""}`}
                     </div>
                   </div>
-                  <Link href={`/review/${v.id}`} className="btn-ghost text-xs">
-                    Open
-                  </Link>
+                  {v.status === "ready" && (
+                    <Link href={`/review/${v.id}`} className="btn-ghost text-xs">
+                      Open
+                    </Link>
+                  )}
                   {canDelete && (
                     <button
                       onClick={() => {
@@ -634,7 +633,6 @@ function Footage({ videos, canDelete }: { videos: Video[]; canDelete: boolean })
                         startTransition(() => void deleteVideo(v.id));
                       }}
                       className="btn-ghost text-xs"
-                      style={{ color: "var(--color-danger-ink)" }}
                     >
                       Delete
                     </button>

@@ -246,10 +246,10 @@ export function StatLogger({
         style={{ borderColor: "var(--color-line-strong)" }}
       >
         <div>
-          <p className="text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
-            Logging the stat sheet — {matchDateLong(match.playedOn)}
+          <h1 className="display text-[clamp(2rem,5vw,3rem)]">{match.opponent}</h1>
+          <p className="mt-2 text-[14px]" style={{ color: "var(--color-ink-dim)" }}>
+            Logging the stat sheet for {matchDateLong(match.playedOn)}
           </p>
-          <h1 className="display mt-1.5 text-[clamp(2rem,5vw,3rem)]">{match.opponent}</h1>
         </div>
         <div className="flex items-center gap-2">
           <Link href={`/matches/${match.id}/numbers`} className="btn-outline text-xs">
@@ -439,7 +439,7 @@ export function StatLogger({
                       <div className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
                         {playerLabel(r.playerNumber, sheet)}
                         {r.half && `, ${r.half === 1 ? "1st" : "2nd"} half`}
-                        {r.originX != null && ", placed"}
+                        {r.originX != null && ", on the map"}
                         {r.atMs != null && `, ${formatClock(r.atMs)}`}
                       </div>
                     </div>

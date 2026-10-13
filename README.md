@@ -6,8 +6,10 @@ Hurling match video review for GAA teams. Clip, tag, annotate and share
 footage — built so a selector can open a 70-minute match on a Sunday evening
 and have it tagged and pushed to the panel's phones before Tuesday training.
 
-Self-hosted, no per-seat licence, and it runs on your own machine for free
-while you decide whether it earns a server.
+One hosted instance serves every club. A club secretary sets the club up at
+`/start`, drops a match file onto the squad page, and sends the panel a
+six-character code — nobody at the club opens a terminal. It still runs on
+your own machine for free, if a club would rather keep it there.
 
 ---
 
@@ -17,9 +19,11 @@ while you decide whether it earns a server.
 npm install
 cp .env.example .env.local        # then set SESSION_SECRET
 npm run db:migrate
-npm run create-admin              # creates your squad, prints the join code
-npm run dev
+npm run dev                       # then open /start to create a club
 ```
+
+That is the host's setup, done once. Clubs never see it: each one creates
+itself at `/start`, and `npm run create-admin` does the same from a terminal.
 
 Generate a session secret with:
 
@@ -47,31 +51,50 @@ works the same way, since it shares MP4's underlying box structure — but only
 if the video inside is H.264; a ProRes export, for instance, won't play in a
 browser at all. Avoid HEVC (H.265) too: it's what iPhones record by default,
 Safari plays it, but Chrome on Windows needs hardware decoding support and can
-show a black screen for part of the panel. Físeán detects HEVC at ingest and
+show a black screen for part of the panel. Ardawn detects HEVC on upload and
 warns; if you see that warning, re-export as H.264.
 
-**Naming.** You don't name or place the file yourself — `ingest` does that:
+**Uploading.** On `/admin`, drag the file from the desktop anywhere onto the
+page, or press **Or choose a file**. The match does not exist until its
+footage does, so a short form asks for the match's title (who you played) and
+the day it was played — filled in from the file's own date — and the match is
+made with the upload. A match already listed has its own **Upload video**
+button, for a second camera angle, which asks nothing.
+
+The file goes up as an S3 multipart upload: 8 MB parts, three at a time, each
+sent straight from the browser to the store on its own signed link. A dropped
+connection is retried rather than restarted, and a dead upload — a closed
+laptop, a lost WiFi signal — resumes when the same file is dropped again,
+sending only the parts the store does not already hold. When the last part is
+in, the probe reads the file's two ends for duration, frame rate and codec,
+and it is ready to watch. Nothing is transcoded. The rules are in
+[`src/lib/media/upload.ts`](src/lib/media/upload.ts).
+
+**Where it is stored.** Hosted, footage lives in a Cloudflare R2 bucket
+(`STORAGE_DRIVER=r2`), which charges nothing when forty players watch it. On
+your own machine (`STORAGE_DRIVER=local`, the default) the app runs its own
+stand-in for R2: same signed links, same parts, same screens, but the bytes
+land in `data/media/`. So trying an upload locally is trying the real thing.
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) has the bucket setup.
+
+The file is stored as `<team id>/<a generated id>.mp4`; the original name is
+kept only for display. A match and its footage are separate rows on purpose —
+the match can exist before the file does, and one match can hold more than one
+video (two camera angles, or a recording that split part-way through).
+
+Each club has a storage allowance, `TEAM_STORAGE_GB` (100 GB unless the host
+sets otherwise), so one club's season of footage cannot fill the disk for the
+rest.
+
+**When the file is already on the server**, the host can skip the browser:
 
 ```bash
-npm run ingest -- "C:\footage\ballygunner.mp4" --match <match id>
+npm run ingest -- "/srv/footage/ballygunner.mp4" --match <match id>
 ```
 
-It copies the file into `data/media/<team id>/<a generated id>.mp4` and stores
-that path as the video's `storageKey`. The original filename is kept only for
-display (you'll see "ballygunner.mp4" in the admin panel), never as the path
-on disk. If you'd rather place the file yourself first — say, copying it
-directly into `data/media/` over the network to a server — point `ingest` at
-wherever it landed; it notices the file is already inside `MEDIA_DIR` and
-registers it in place instead of copying it again.
-
-**Linking to a match.** A match (`opponent`, `competition`, `playedOn`, …) and
-its footage are separate rows on purpose — the match can exist before you have
-the file, and one match can hold more than one video (two camera angles, or
-two files if the recording split partway through). Add the match first at
-`/admin`, then click **Copy ingest command** on it, which copies the whole
-command with that match's id already filled in. Leave off `--match` entirely
-and `ingest` attaches the footage to whichever match was played most
-recently — the common case when you're ingesting right after adding it.
+It sends the file to the bucket (on local storage, copies it into the club's
+folder, or registers it in place if it is already inside `MEDIA_DIR`) and
+attaches it to that match's club.
 
 ---
 
@@ -431,7 +454,7 @@ degrades to re-downloading and the whole tool gets slow.
 
 - **A codec warning you should take seriously.** iPhones record HEVC (H.265)
   by default. Safari plays it; Chrome on Windows needs hardware support and
-  may show a black screen for part of the panel. Físeán detects this at ingest
+  may show a black screen for part of the panel. Ardawn detects this on upload
   and warns. Ask whoever films to export H.264 MP4.
 - **No clip export yet.** Clips play in the app; there is no "download to send
   on WhatsApp". That needs an ffmpeg render queue, deliberately deferred.

@@ -206,8 +206,8 @@ export function RateBadge({ engine }: { engine: PlayerEngine }) {
   return (
     <span
       ref={ref}
-      className="tabular rounded px-1.5 py-0.5 text-[11px] font-semibold transition-opacity"
-      style={{ background: "var(--color-surface-3)", color: "var(--color-mark)", opacity: 0 }}
+      className="tabular rounded-[2px] px-1.5 py-0.5 text-[11px] font-semibold transition-opacity"
+      style={{ background: "var(--color-surface-3)", color: "var(--color-ink)", opacity: 0 }}
     />
   );
 }

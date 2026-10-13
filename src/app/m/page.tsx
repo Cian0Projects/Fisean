@@ -1,21 +1,33 @@
 import Link from "next/link";
-import { desc, eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { clipPlayers, clips, matches, videos } from "@/lib/db/schema";
+import {
+  clipPlayers,
+  clips,
+  matchStats,
+  matches,
+  playlistItems,
+  playlistViewers,
+  playlists,
+  videos,
+} from "@/lib/db/schema";
 import { requireUserFor } from "@/lib/auth/guard";
 import { signOut } from "@/lib/actions/auth";
 import { Mark } from "@/components/ui/Mark";
-import { formatClock } from "@/lib/hurling/notation";
+import { formatClock, formatScore } from "@/lib/hurling/notation";
+import { matchResult, type StatEntry } from "@/lib/hurling/stats";
+import { verdict, verdictColour } from "@/components/matches/ResultBox";
 import { matchDate, matchDateLong } from "@/lib/format";
 import { ChevronIcon } from "@/components/ui/Icon";
 
 /**
  * The phone's front page.
  *
- * Two things only, because on a phone there is room for two: the matches,
- * newest first, and the clips you are in. Every row is the whole width and
- * at least 56 px tall, so it is one thumb tap with a glove half on. The stat
- * sheet is left to the desktop — it is a coach's tool, read at a table.
+ * What a player opens it for, in that order: what they have been set to
+ * watch, then the last match and how it went, then the clips they are in.
+ * Every row is the whole width and at least 56 px tall, so it is one thumb
+ * tap with a glove half on. The stat sheet is left to the desktop — it is a
+ * coach's tool, read at a table.
  */
 export default async function PhoneHome() {
   const user = await requireUserFor("/m");
@@ -60,8 +72,37 @@ export default async function PhoneHome() {
     .orderBy(desc(clips.createdAt))
     .limit(10);
 
+  // Set for you: the reason most of the panel opens the app between work and
+  // training, so it leads, with the ones still to watch marked.
+  const assigned = await db
+    .select({
+      id: playlists.id,
+      title: playlists.title,
+      description: playlists.description,
+      viewedAt: playlistViewers.viewedAt,
+      clipCount: sql<number>`(select count(*) from ${playlistItems} where ${playlistItems.playlistId} = ${playlists.id})`,
+    })
+    .from(playlistViewers)
+    .innerJoin(playlists, eq(playlists.id, playlistViewers.playlistId))
+    .where(eq(playlistViewers.userId, user.id))
+    .orderBy(desc(playlistViewers.assignedAt))
+    .limit(6);
+
   const [latest, ...earlier] = matchRows;
   const latestVideo = latest ? watchable.get(latest.id) : undefined;
+  const latestResult = latest
+    ? matchResult(
+        (await db
+          .select({
+            statType: matchStats.statType,
+            outcome: matchStats.outcome,
+            shotResult: matchStats.shotResult,
+            side: matchStats.side,
+          })
+          .from(matchStats)
+          .where(eq(matchStats.matchId, latest.id))) as StatEntry[],
+      )
+    : null;
 
   return (
     <div
@@ -79,15 +120,60 @@ export default async function PhoneHome() {
         </span>
       </header>
 
+      {assigned.length > 0 && (
+        <section className="mt-4">
+          <h2 className="section-head title mx-4 text-lg">Set for you to watch</h2>
+          <ul className="mt-1">
+            {assigned.map((p) => (
+              <li key={p.id}>
+                <Link href={`/playlists/${p.id}`} className="fixture flex min-h-14 items-center gap-3 px-4 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[16px] font-semibold">{p.title}</div>
+                    <div className="truncate text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
+                      {Number(p.clipCount)} clip{Number(p.clipCount) === 1 ? "" : "s"}
+                      {p.description && `. ${p.description}`}
+                    </div>
+                  </div>
+                  {!p.viewedAt && (
+                    <span className="shrink-0 text-[13px] font-semibold" style={{ color: "var(--color-ash)" }}>
+                      Not watched
+                    </span>
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {latest ? (
-        <section className="px-4 pt-4">
-          <div className="text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
+        <section className={`px-4 ${assigned.length > 0 ? "mt-10" : "pt-4"}`}>
+          <h1 className="display text-[44px]">{latest.opponent}</h1>
+          <div className="mt-1 text-[14px]" style={{ color: "var(--color-ink-dim)" }}>
+            {[latest.competition, latest.venue].filter(Boolean).join(" at ") || "Friendly"},{" "}
             {matchDateLong(latest.playedOn)}
           </div>
-          <h1 className="display mt-1 text-[44px]">{latest.opponent}</h1>
-          <div className="mt-1 text-[14px]" style={{ color: "var(--color-ink-dim)" }}>
-            {[latest.competition, latest.venue].filter(Boolean).join(" at ") || "Friendly"}
-          </div>
+          {/* The result as the back page prints it: the score, then the word. */}
+          {latestResult && (
+            <div className="mt-4 flex items-baseline gap-3">
+              <span className="figure text-[28px]">
+                {formatScore(latestResult.us)}
+                {latestResult.them && (
+                  <>
+                    <span className="mx-2 text-[17px] font-normal" style={{ color: "var(--color-ink-faint)" }}>
+                      to
+                    </span>
+                    {formatScore(latestResult.them)}
+                  </>
+                )}
+              </span>
+              {latestResult.margin != null && (
+                <span className="text-[14px] font-bold" style={{ color: verdictColour(latestResult.margin) }}>
+                  {verdict(latestResult.margin)}
+                </span>
+              )}
+            </div>
+          )}
           {latestVideo ? (
             <Link href={`/m/watch/${latestVideo}`} className="btn-primary mt-5 min-h-12 w-full text-[16px]">
               Watch the match
@@ -109,9 +195,7 @@ export default async function PhoneHome() {
 
       {myClips.length > 0 && (
         <section className="mt-10">
-          <h2 className="title border-b px-4 pb-2 text-lg" style={{ borderColor: "var(--color-line-strong)" }}>
-            Clips you are in
-          </h2>
+          <h2 className="section-head title mx-4 text-lg">Clips you are in</h2>
           <ul>
             {myClips.map((c) => (
               <li key={c.id}>
@@ -127,7 +211,7 @@ export default async function PhoneHome() {
                     </div>
                   </div>
                   <span className="tabular text-[13px]" style={{ color: "var(--color-ash-dim)" }}>
-                    {Math.round((c.endMs - c.startMs) / 1000)}s
+                    {Math.round((c.endMs - c.startMs) / 1000)} s
                   </span>
                 </Link>
               </li>
@@ -138,9 +222,7 @@ export default async function PhoneHome() {
 
       {earlier.length > 0 && (
         <section className="mt-10">
-          <h2 className="title border-b px-4 pb-2 text-lg" style={{ borderColor: "var(--color-line-strong)" }}>
-            Earlier matches
-          </h2>
+          <h2 className="section-head title mx-4 text-lg">Earlier matches</h2>
           <ul>
             {earlier.map((m) => {
               const videoId = watchable.get(m.id);

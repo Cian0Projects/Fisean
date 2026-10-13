@@ -21,7 +21,7 @@ const url = (process.env.FISEAN_URL ?? "http://10.0.2.2:3000").replace(/\/$/, ""
 
 const config: CapacitorConfig = {
   appId: "ie.fisean.app",
-  appName: "Físeán",
+  appName: "Ardawn",
   webDir: "www",
   backgroundColor: "#0a0f0d",
   server: {

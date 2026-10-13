@@ -1,11 +1,17 @@
 /**
  * Media storage.
  *
- * This is the one adapter worth keeping. Local disk and object storage really
- * do differ — one streams from the filesystem, the other hands out presigned
- * URLs — so the interface is deliberately small and both sides implement it
- * honestly. Local disk is what the prototype uses; S3/R2 slots in later
- * without touching any caller.
+ * Two drivers behind one interface, and the interface is S3's, because S3 is
+ * where footage lives in production (Cloudflare R2, `STORAGE_DRIVER=r2`). The
+ * local driver is a small stand-in for R2 run by the app itself: it hands out
+ * signed URLs, accepts upload parts at them, and assembles the file when
+ * told — so a laptop with no bucket goes through exactly the same upload, in
+ * the same order, with the same screens, as the hosted app does. Swapping
+ * one for the other is configuration; nothing that calls this changes.
+ *
+ * Uploads are S3 multipart: start one, PUT numbered parts straight from the
+ * browser to presigned URLs, then complete it. The app server never carries
+ * the bytes on R2, which matters when a match is four gigabytes.
  */
 
 export type MediaStat = {
@@ -20,31 +26,57 @@ export type ByteRange = {
   end: number;
 };
 
+/** A part the store holds for an unfinished multipart upload. */
+export type StoredPart = {
+  partNumber: number;
+  sizeBytes: number;
+  /** Opaque; handed back unchanged when the upload is completed. */
+  etag: string;
+};
+
 export interface MediaStore {
-  /** Absolute or app-relative URL a <video> element can load. */
+  /**
+   * A URL a <video> element can load with range requests. Signed, and stable
+   * for hours at a time, so a page re-rendering does not reload the video.
+   */
   readUrl(key: string): string;
   stat(key: string): Promise<MediaStat | null>;
-  /** Append bytes to a key, creating it if absent. Used by chunked upload. */
-  append(key: string, chunk: Uint8Array): Promise<void>;
-  /** Read a byte range, for HTTP 206 responses. */
+  /** Read a byte range — for HTTP 206 responses and for probing. */
   readRange(key: string, range: ByteRange): Promise<ReadableStream<Uint8Array>>;
-  write(key: string, data: Uint8Array): Promise<void>;
   remove(key: string): Promise<void>;
+
+  /** Begin a multipart upload; returns its upload id. */
+  createMultipart(key: string, contentType: string): Promise<string>;
+  /** A URL the browser can PUT one part's bytes to, without a session. */
+  presignPart(key: string, uploadId: string, partNumber: number): string;
+  /** Parts received so far. Throws if the upload no longer exists. */
+  listParts(key: string, uploadId: string): Promise<StoredPart[]>;
+  /** Stitch the parts, in order, into the object at `key`. */
+  completeMultipart(key: string, uploadId: string, parts: StoredPart[]): Promise<void>;
+  abortMultipart(key: string, uploadId: string): Promise<void>;
+}
+
+export type StorageDriver = "local" | "r2";
+
+export function storageDriver(): StorageDriver {
+  const driver = process.env.STORAGE_DRIVER ?? "local";
+  if (driver !== "local" && driver !== "r2") {
+    throw new Error(`STORAGE_DRIVER must be "local" or "r2", not "${driver}".`);
+  }
+  return driver;
 }
 
 let cached: MediaStore | null = null;
 
 export async function store(): Promise<MediaStore> {
   if (cached) return cached;
-  const driver = process.env.STORAGE_DRIVER ?? "local";
-  if (driver !== "local") {
-    throw new Error(
-      `STORAGE_DRIVER="${driver}" is not implemented yet. The prototype runs on "local"; ` +
-        `see docs/DEPLOYMENT.md for the S3/R2 path.`,
-    );
+  if (storageDriver() === "r2") {
+    const { R2Store } = await import("./r2");
+    cached = R2Store.fromEnv();
+  } else {
+    const { LocalDiskStore } = await import("./local");
+    cached = new LocalDiskStore();
   }
-  const { LocalDiskStore } = await import("./local");
-  cached = new LocalDiskStore();
   return cached;
 }
 

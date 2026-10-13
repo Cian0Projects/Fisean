@@ -30,6 +30,7 @@ import { MIN_CLIP_MS } from "@/lib/hurling/clip-rules";
 import { matchDate } from "@/lib/format";
 import {
   clipColour,
+  clipTone,
   eventLabelOf,
   type ClipRow,
   type EventTypeRow,
@@ -41,6 +42,7 @@ import {
 import { PhoneScrubber } from "./PhoneScrubber";
 import { ClipSheet, type ClipDraft } from "./ClipSheet";
 import { ChevronIcon, PauseIcon, PlayIcon } from "@/components/ui/Icon";
+import { TagMark } from "@/components/ui/TagMark";
 
 /** The same pre- and post-roll as the desktop's quick-clip key. */
 const PRE_ROLL_MS = 8000;
@@ -444,7 +446,11 @@ export function PhoneWatch({
                     onClick={() => playClip(c)}
                     disabled={c.pending}
                   >
-                    <span aria-hidden className="h-9 w-1 shrink-0 rounded-full" style={{ background: clipColour(c, eventTypes) }} />
+                    {/* The clip's outcome in the shot map's mark, in a fixed
+                        column — not a coloured stripe down the row. */}
+                    <span className="flex w-3 shrink-0 justify-center">
+                      <TagMark tone={clipTone(c, eventTypes)} size={10} />
+                    </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[15px]">{labelOf(c)}</span>
                       <span className="block truncate text-[12px]" style={{ color: "var(--color-ink-faint)" }}>

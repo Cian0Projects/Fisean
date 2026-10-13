@@ -40,15 +40,23 @@ const id = () =>
 
 /* ------------------------------------------------------------------ teams */
 
-export const teams = sqliteTable("teams", {
-  id: id(),
-  name: text("name").notNull(),
-  /** Short code players type once to join. Rotatable by an admin. */
-  joinCode: text("join_code").notNull(),
-  /** 35 for senior inter-county, 30 for most club and minor grades. */
-  halfLengthMin: integer("half_length_min").notNull().default(30),
-  createdAt: integer("created_at").notNull().default(now),
-});
+export const teams = sqliteTable(
+  "teams",
+  {
+    id: id(),
+    name: text("name").notNull(),
+    /**
+     * Short code players type once to join. Rotatable by an admin. Unique
+     * because one hosted instance serves many clubs, and a shared code would
+     * put a player on the wrong club's panel.
+     */
+    joinCode: text("join_code").notNull(),
+    /** 35 for senior inter-county, 30 for most club and minor grades. */
+    halfLengthMin: integer("half_length_min").notNull().default(30),
+    createdAt: integer("created_at").notNull().default(now),
+  },
+  (t) => [uniqueIndex("teams_join_code").on(t.joinCode)],
+);
 
 /* ------------------------------------------------------------------ users */
 
@@ -75,7 +83,9 @@ export const users = sqliteTable(
     createdAt: integer("created_at").notNull().default(now),
     lastSeenAt: integer("last_seen_at"),
   },
-  (t) => [uniqueIndex("users_team_username").on(t.teamId, t.username)],
+  // Unique across every club, not per club: signing in asks only for a
+  // username, so two clubs' "cian" would leave it guessing whose account to open.
+  (t) => [uniqueIndex("users_username").on(t.username)],
 );
 
 /** Kept as a table rather than a stateless JWT so an admin can revoke a session. */
@@ -162,6 +172,11 @@ export const videos = sqliteTable(
     status: text("status", { enum: VIDEO_STATUS }).notNull().default("uploading"),
     /** Storage key of the source file, resolved by the storage adapter. */
     storageKey: text("storage_key").notNull(),
+    /**
+     * The store's multipart upload id while the file is on its way up, so a
+     * dropped upload can be resumed. Cleared once the file is complete.
+     */
+    uploadId: text("upload_id"),
     /** Populated only when ffmpeg is available. */
     hlsKey: text("hls_key"),
     proxyKey: text("proxy_key"),

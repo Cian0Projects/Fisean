@@ -2,7 +2,8 @@
 
 # Físeán — working notes
 
-Self-hosted hurling match video review for one GAA club. Next.js 16 (App
+Hurling match video review for GAA clubs — one hosted instance serves many
+clubs, each scoped by `teamId`. Next.js 16 (App
 Router), TypeScript, SQLite + Drizzle, Tailwind 4. Seven runtime dependencies
 and no ffmpeg — keep it that way unless asked.
 
@@ -27,6 +28,8 @@ some of these are not worth opening whole — `Grep` for the symbol instead.
 | Colour, type, spacing | `src/app/globals.css` — the whole design system |
 | The video workspace | `src/components/review/ReviewWorkspace.tsx` (819) — **grep it, don't read it** |
 | Player transport | `src/components/player/engine.ts` |
+| Footage upload, club sign-up | `src/lib/media/upload.ts` (part plan); `src/app/api/upload/`; `src/components/admin/FootageUpload.tsx`; `src/lib/db/clubs.ts` (create a club, shared by `/start` and `create-admin`) |
+| Storage (R2, local stand-in) | `src/lib/storage/index.ts` (interface, S3-shaped); `r2.ts`; `local.ts` (signed links served by `/api/media`); `sigv4.ts` (presigning, no SDK) |
 | Training drills (coaches) | `src/lib/hurling/drill.ts` (model, playback, video timing); `src/components/drills/DrillEditor.tsx` (board); `recordDrill.ts` beside it (video export via MediaRecorder, no ffmpeg) |
 | Phone screens (watch, clip) | `src/components/mobile/PhoneWatch.tsx`; routes under `src/app/m/` |
 | Android / iOS apps | `mobile/` — thin Capacitor shells onto `/m`; its own `package.json`, excluded from `npm run check`. Build and test steps in `mobile/README.md` |
@@ -46,7 +49,10 @@ needs justifying in the same voice, not to find out how something works.
 - **Positions are normalised 0–1**, never pixels or metres — a GAA pitch is
   130–145 m long, so metres would be a lie. Convert at the edges.
 - **Irish terms stay Irish** for the things people say in Irish: cúl, cúilín,
-  poc amach, Físeán. Everything else is English.
+  poc amach. Everything else is English.
+- **The product is shown to users as "Ardawn".** Físeán is only the repo
+  and code name (cookie, database file, app IDs `ie.fisean.app`); never put it
+  in UI text.
 - **Colour means an outcome**: green good for us, red against us, amber
   unclear — reserved, never decorative. Chalk is the ink, ash is for figures.
   Marks also carry shape (filled / ring / dashed) so the maps survive

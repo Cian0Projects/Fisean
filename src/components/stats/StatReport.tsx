@@ -21,11 +21,15 @@ import {
   deliveryTally,
   effectiveOutcome,
   emptyStatLine,
+  formatScorerTally,
+  halfTimeScore,
   lineShooting,
+  matchResult,
   oppositionRuns,
   playerStatLines,
   possessionTally,
   puckoutBreakdown,
+  scorers,
   summariseShooting,
   summariseStats,
   type PlayerTally,
@@ -34,9 +38,11 @@ import {
   type SideShooting,
   type StatOutcome,
 } from "@/lib/hurling/stats";
-import { formatClock, formatScore, scoreMargin } from "@/lib/hurling/notation";
+import { formatClock, formatScore } from "@/lib/hurling/notation";
 import { positionByNumber } from "@/lib/hurling/positions";
 import { matchDateLong } from "@/lib/format";
+import { ResultBox } from "@/components/matches/ResultBox";
+import { Meter, ShootingFigure } from "./ShootingFigure";
 
 /**
  * The per-match stat sheet, as a coach would hand it round.
@@ -79,6 +85,7 @@ export function StatReport({
   const ourShots = shots.filter((r) => r.side !== "opposition");
   const theirShots = shots.filter((r) => r.side === "opposition");
   const theirsLogged = theirShots.length > 0;
+  const result = matchResult(rows);
 
   return (
     <main className="sheet pt-10 pb-16 print:pt-0">
@@ -124,25 +131,27 @@ export function StatReport({
         </section>
       ) : (
         <>
-          {/* Summary: the scoreline both ways, set large. */}
-          <section className="slab mt-8 flex flex-wrap items-end gap-x-14 gap-y-6 px-6 py-7">
-            <Scoreline name={teamName} score={formatScore(ours.overall.score)} />
-            <Scoreline
-              name={match.opponent}
-              score={theirsLogged ? formatScore(theirs.overall.score) : null}
-            />
-            <p className="pb-2 text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
-              {theirsLogged
-                ? marginSentence(scoreMargin(ours.overall.score, theirs.overall.score))
-                : "Their shots are not logged, so there is no margin to give."}
-              <span className="block text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-                Counted from the shots on this sheet.
-              </span>
-            </p>
+          {/* The result as a match report opens: the scores panel from the
+              cover, the half-time score, and who got them. */}
+          <section className="mt-8 grid gap-8 lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start">
+            {result ? (
+              <ResultBox
+                result={result}
+                halfTime={halfTimeScore(rows)}
+                teamName={teamName}
+                opponent={match.opponent}
+              />
+            ) : (
+              <p className="text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
+                No shots logged yet, so there is no score to give.
+              </p>
+            )}
+            <ScorersLine rows={rows} players={players} teamName={teamName} />
           </section>
 
           {/* ---------------------------------------------- score opportunities */}
           <Section
+            id="shooting"
             title="Score opportunities"
             note="Every attempt at the posts, both ways. Their shots are coloured from our side of them: a red ring is one they scored."
             legend={<Legend />}
@@ -199,16 +208,15 @@ export function StatReport({
             note="From inside our 65 to beyond theirs. Each arrow runs from where it was struck to where it landed; a lost one is dashed."
             legend={<Legend />}
           >
-            <Figures>
-              <Split
-                label="Deliveries"
-                won={summary.deliveries.won}
-                lost={summary.deliveries.lost}
-                unclear={summary.deliveries.unclear}
-                wonWord="received"
-                lostWord="lost"
-              />
-            </Figures>
+            <Lead
+              parts={[
+                { n: summary.deliveries.won, outcome: "positive" },
+                { n: summary.deliveries.unclear, outcome: "unclear" },
+                { n: summary.deliveries.lost, outcome: "negative" },
+              ]}
+            >
+              {deliverySentence(summary.deliveries)}
+            </Lead>
             <HalfMaps rows={of("delivery")} players={players} />
             <PivotTable
               tally={deliveryTally(rows)}
@@ -223,26 +231,14 @@ export function StatReport({
             note="Possessions won and lost, and the tackles that won them."
             legend={<Legend tackle />}
           >
-            <Figures>
-              <Split
-                label="Possessions"
-                won={summary.turnovers.won}
-                lost={summary.turnovers.conceded}
-                wonWord="won"
-                lostWord="lost"
-              />
-              <Tally
-                value={summary.turnovers.ledToScore}
-                label="Won and scored from"
-                note={`${summary.turnovers.ledToScorePercent}% of the ones we won`}
-                tone="positive"
-              />
-              <Tally
-                value={summary.tackles}
-                label="Tackles"
-                note={`${summary.frontEightTackles} by the front eight`}
-              />
-            </Figures>
+            <Lead
+              parts={[
+                { n: summary.turnovers.won, outcome: "positive" },
+                { n: summary.turnovers.conceded, outcome: "negative" },
+              ]}
+            >
+              {possessionSentence(summary)}
+            </Lead>
             <HalfMaps rows={of("tackle", "turnover")} players={players} />
             <PivotTable tally={possessionTally(rows)} players={players} />
           </Section>
@@ -253,28 +249,14 @@ export function StatReport({
             note="Where frees were given, both ways. Ringed in red against us, filled green for us."
             legend={<Legend />}
           >
-            <Figures>
-              <Tally
-                value={summary.freesConceded - summary.scorableFreesConceded}
-                label="Frees conceded"
-                note="out of their range"
-                tone="negative"
-              />
-              <Tally
-                value={summary.scorableFreesConceded}
-                label="Scorable frees conceded"
-                note="within their free-taker's range"
-                tone="negative"
-              />
-              <Tally value={summary.freesWon} label="Frees won" tone="positive" />
-            </Figures>
+            <Lead>{disciplineSentence(summary)}</Lead>
             <HalfMaps rows={of("free_conceded", "free_won")} players={players} />
           </Section>
 
           {/* -------------------------------------------------- player by player */}
           <Section
             title="Player by player"
-            note="A poc amach is credited to whoever won it; entries logged without a name still count in the totals above."
+            note="A poc amach is credited to whoever won it. Entries logged without a name still count in the totals above, and subs with nothing logged are left off."
           >
             <PlayerTable rows={rows} players={players} />
           </Section>
@@ -286,23 +268,80 @@ export function StatReport({
 
 /* ------------------------------------------------------------- the sections */
 
-function marginSentence(margin: number): string {
-  if (margin === 0) return "Level.";
-  const n = Math.abs(margin);
-  return `${margin > 0 ? "Won" : "Lost"} by ${n} point${n === 1 ? "" : "s"}.`;
-}
-
-function Scoreline({ name, score }: { name: string; score: string | null }) {
+/**
+ * "Scorers: R Hayes 0-5 (0-2f), A Considine 1-1." The line a selector reads
+ * out in the dressing room, set as prose because that is how it is printed.
+ */
+function ScorersLine({
+  rows,
+  players,
+  teamName,
+}: {
+  rows: StatRow[];
+  players: NumberSheet;
+  teamName: string;
+}) {
+  const lines = scorers(rows);
+  if (lines.length === 0) return null;
+  const named = lines.map((l) => {
+    const who =
+      l.playerNumber === null
+        ? "not named"
+        : (initialled(players.get(l.playerNumber)?.displayName) ?? `No. ${l.playerNumber}`);
+    // Non-breaking inside an entry, so a name never splits from its score.
+    return `${who} ${formatScorerTally(l)}`.replace(/ /g, " ");
+  });
   return (
     <div>
-      <p className="text-[13px]" style={{ color: "var(--color-ink-dim)" }}>
-        {name}
-      </p>
-      <p className="figure mt-2 text-[clamp(3rem,8vw,4.6rem)]" style={{ color: "var(--color-ash)" }}>
-        {score ?? <span style={{ color: "var(--color-ink-faint)" }}>&ndash;</span>}
+      <h2 className="section-head title text-[16px]">Scorers for {teamName}</h2>
+      <p className="measure mt-2 text-[17px] leading-relaxed">{named.join(", ")}.</p>
+      <p className="caption mt-2">
+        Counted from the shots on this sheet. An f marks scores from frees and 65s.
       </p>
     </div>
   );
+}
+
+/** "Rory Hayes" to "R Hayes", the way a programme prints a scorer. */
+function initialled(name: string | undefined): string | null {
+  if (!name) return null;
+  const parts = name.trim().split(/\s+/);
+  if (parts.length < 2) return name;
+  return `${parts[0][0]} ${parts.slice(1).join(" ")}`;
+}
+
+function plural(n: number, one: string, many = `${one}s`): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+function deliverySentence(d: { won: number; lost: number; unclear: number }): string {
+  const total = d.won + d.lost + d.unclear;
+  if (total === 0) return "No deliveries logged.";
+  const rest = [d.lost > 0 && `${d.lost} lost`, d.unclear > 0 && `${d.unclear} unclear`].filter(Boolean);
+  return `${d.won} of ${plural(total, "delivery", "deliveries")} received${rest.length ? `, ${rest.join(" and ")}` : ""}.`;
+}
+
+function possessionSentence(s: ReturnType<typeof summariseStats>): string {
+  const t = s.turnovers;
+  const won = `We won ${plural(t.won, "possession")} and lost ${t.conceded}.`;
+  const scored =
+    t.won > 0 && t.ledToScore > 0
+      ? ` ${t.ledToScore} of the ones we won ended in a score, ${t.ledToScorePercent}%.`
+      : "";
+  const tackles =
+    s.tackles > 0 ? ` ${plural(s.tackles, "tackle")}, ${s.frontEightTackles} by the front eight.` : "";
+  return won + scored + tackles;
+}
+
+function disciplineSentence(s: ReturnType<typeof summariseStats>): string {
+  if (s.freesConceded + s.freesWon === 0) return "No frees logged either way.";
+  const given =
+    s.freesConceded === 0
+      ? "We gave away no frees"
+      : `We gave away ${plural(s.freesConceded, "free")}${
+          s.scorableFreesConceded > 0 ? `, ${s.scorableFreesConceded} within their free-taker's range` : ""
+        }`;
+  return `${given}, and won ${s.freesWon}.`;
 }
 
 /** Rows in the order the analyst's sheet lists them; the rarer ones only when they happened. */
@@ -373,22 +412,7 @@ function ShootingColumn({
 
       {/* Overall scoring efficiency — the number that settles the argument. */}
       <div className="mt-3">
-        <p className="flex flex-wrap items-baseline gap-x-3">
-          <span className="figure text-[2.6rem]">{s.overall.percent}%</span>
-          <span className="text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
-            {s.overall.fraction} scored, {formatScore(s.overall.score)}
-          </span>
-        </p>
-        <p className="text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
-          {s.fromPlay.percent}% from play ({s.fromPlay.fraction})
-          {s.placed.total > 0 && `, ${s.placed.percent}% from frees and 65s (${s.placed.fraction})`}
-        </p>
-        <Meter
-          parts={[
-            { n: s.overall.scored, outcome: ours ? "positive" : "negative" },
-            { n: s.overall.total - s.overall.scored, outcome: ours ? "negative" : "positive" },
-          ]}
-        />
+        <ShootingFigure s={s} ours={ours} />
       </div>
 
       <div className="mt-6 grid gap-5 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
@@ -421,13 +445,18 @@ function OppositionRuns({ rows, theirsLogged }: { rows: StatRow[]; theirsLogged:
     );
   }
 
+  // A column nobody filled in is a column of dashes; leave it off.
+  const timed = runs.some((run) => run.some((r) => r.gameMs != null));
+  const halved = runs.some((run) => run.some((r) => r.half != null));
+  const span = 2 + Number(timed) + Number(halved);
+
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[34rem] border-collapse text-[14px]">
+      <table className="w-full min-w-[24rem] border-collapse text-[14px]">
         <thead>
           <tr style={{ color: "var(--color-ink-dim)", borderBottom: "1px solid var(--color-line-strong)" }}>
-            <th className="px-2 py-2 text-left font-medium">Time</th>
-            <th className="px-2 py-2 text-left font-medium">Half</th>
+            {timed && <th className="px-2 py-2 text-left font-medium">Time</th>}
+            {halved && <th className="px-2 py-2 text-left font-medium">Half</th>}
             <th className="px-2 py-2 text-left font-medium">Attempt</th>
             <th className="px-2 py-2 text-left font-medium">Outcome</th>
           </tr>
@@ -438,7 +467,7 @@ function OppositionRuns({ rows, theirsLogged }: { rows: StatRow[]; theirsLogged:
           return (
             <tbody key={run[0].id}>
               <tr>
-                <td colSpan={4} className="px-2 pt-4 pb-1 text-[13px]" style={{ color: "var(--color-ink-dim)" }}>
+                <td colSpan={span} className="px-2 pt-4 pb-1 text-[13px]" style={{ color: "var(--color-ink-dim)" }}>
                   Spell {i + 1}: {run.length} attempts, {formatScore({ cul: goals, cuilin: scored.length - goals })} from them
                 </td>
               </tr>
@@ -446,8 +475,10 @@ function OppositionRuns({ rows, theirsLogged }: { rows: StatRow[]; theirsLogged:
                 const outcome = effectiveOutcome(r);
                 return (
                   <tr key={r.id} style={{ borderBottom: "1px solid var(--color-line)" }}>
-                    <td className="tabular px-2 py-1.5">{r.gameMs != null ? formatClock(r.gameMs) : <Dash />}</td>
-                    <td className="tabular px-2 py-1.5">{r.half ?? <Dash />}</td>
+                    {timed && (
+                      <td className="tabular px-2 py-1.5">{r.gameMs != null ? formatClock(r.gameMs) : <Dash />}</td>
+                    )}
+                    {halved && <td className="tabular px-2 py-1.5">{r.half ?? <Dash />}</td>}
                     <td className="px-2 py-1.5">{SHOT_KIND_LABELS[r.shotKind ?? "play"]}</td>
                     <td
                       className="px-2 py-1.5"
@@ -524,11 +555,8 @@ function PuckoutColumn({
       <div className="mt-3">
         {ours ? (
           <>
-            <p className="flex flex-wrap items-baseline gap-x-3">
-              <span className="figure text-[2.6rem]">{b.retainedPercent}%</span>
-              <span className="text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
-                retained, {b.retained} of {b.taken}
-              </span>
+            <p className="text-[17px]">
+              We kept {b.retained} of our {b.taken}, {b.retainedPercent}%.
             </p>
             <Meter
               parts={[
@@ -540,11 +568,8 @@ function PuckoutColumn({
           </>
         ) : (
           <>
-            <p className="flex flex-wrap items-baseline gap-x-3">
-              <span className="figure text-[2.6rem]">{weWon ?? 0}</span>
-              <span className="text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
-                of {b.taken} won by us
-              </span>
+            <p className="text-[17px]">
+              We won {weWon ?? 0} of their {b.taken}.
             </p>
             <Meter
               parts={[
@@ -575,7 +600,11 @@ function PuckoutColumn({
  */
 function PlayerTable({ rows, players }: { rows: StatRow[]; players: NumberSheet }) {
   const lines = playerStatLines(rows);
-  const numbers = [...new Set([...players.keys(), ...lines.keys()])].sort((a, b) => a - b);
+  // The fifteen always, and a sub only if they did something: a programme
+  // lists the subs who came on, not the whole bench.
+  const numbers = [...new Set([...players.keys(), ...lines.keys()])]
+    .filter((n) => n <= 15 || (lines.get(n)?.entries ?? 0) > 0)
+    .sort((a, b) => a - b);
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[52rem] border-collapse text-[14px]">
@@ -583,8 +612,9 @@ function PlayerTable({ rows, players }: { rows: StatRow[]; players: NumberSheet 
           <tr style={{ color: "var(--color-ink-dim)", borderBottom: "1px solid var(--color-line-strong)" }}>
             <th className="px-2 py-2 text-left font-medium">Player</th>
             <Th>Tackles</Th>
-            <Th>Deliveries</Th>
-            <Th>Turnovers</Th>
+            <Th>Received</Th>
+            <Th>Possession won</Th>
+            <Th>Possession lost</Th>
             <Th>Scored from</Th>
             <Th>Shots</Th>
             <Th>Scored</Th>
@@ -608,8 +638,9 @@ function PlayerTable({ rows, players }: { rows: StatRow[]; players: NumberSheet 
                   <PlayerCell number={n} players={players} />
                 </td>
                 <Num value={line.tackles} />
-                <Pair a={line.deliveriesWon} b={line.deliveriesLost} />
-                <Pair a={line.turnoversWon} b={line.turnoversConceded} />
+                <OfCell won={line.deliveriesWon} total={line.deliveriesWon + line.deliveriesLost} />
+                <Num value={line.turnoversWon} />
+                <Num value={line.turnoversConceded} tone="negative" />
                 <Num value={line.turnoversLedToScore} />
                 <Num value={shots.total} />
                 <Cell>{shots.scored > 0 ? formatScore(shots.score) : <Dash />}</Cell>
@@ -643,22 +674,22 @@ function toneInk(tone: Tone): string | undefined {
  * analyst's slides do, so a section can be handed round on its own.
  */
 function Section({
+  id,
   title,
   note,
   legend,
   children,
 }: {
+  /** An anchor other pages can link to — the matches cover links to #shooting. */
+  id?: string;
   title: string;
   note?: string;
   legend?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <section className="mt-14 print:mt-0 print:break-before-page">
-      <div
-        className="mb-6 flex flex-wrap items-end justify-between gap-3 border-b pb-2"
-        style={{ borderColor: "var(--color-line-strong)" }}
-      >
+    <section id={id} className="mt-14 scroll-mt-6 print:mt-0 print:break-before-page">
+      <div className="section-head mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="title text-xl">{title}</h2>
           {note && (
@@ -674,8 +705,24 @@ function Section({
   );
 }
 
-function Figures({ children }: { children: React.ReactNode }) {
-  return <div className="grid gap-x-8 gap-y-7 sm:grid-cols-2 lg:grid-cols-4">{children}</div>;
+/**
+ * A section's lead: what happened, in a sentence, the way a match report
+ * opens a paragraph — rather than a strip of big figures that each need a
+ * label to mean anything. The meter under it is the same count at a glance.
+ */
+function Lead({
+  children,
+  parts,
+}: {
+  children: React.ReactNode;
+  parts?: { n: number; outcome: StatOutcome }[];
+}) {
+  return (
+    <div className="measure">
+      <p className="text-[17px] leading-snug">{children}</p>
+      {parts && <Meter parts={parts} />}
+    </div>
+  );
 }
 
 /**
@@ -819,11 +866,7 @@ function PivotTable({
             <tr style={{ color: "var(--color-ink-dim)", borderBottom: "1px solid var(--color-line-strong)" }}>
               <th className="px-2 py-2 text-left font-medium">Player</th>
               {columns.map((c) => (
-                <th
-                  key={c.key}
-                  className="px-2 py-2 text-right font-medium whitespace-nowrap"
-                  style={{ color: toneInk(c.tone) }}
-                >
+                <th key={c.key} className="px-2 py-2 text-right font-medium whitespace-nowrap">
                   {c.label}
                 </th>
               ))}
@@ -886,102 +929,6 @@ function PlayerCell({ number, players }: { number: number; players: NumberSheet 
   );
 }
 
-function Meter({ parts }: { parts: { n: number; outcome: StatOutcome }[] }) {
-  const total = parts.reduce((a, p) => a + p.n, 0);
-  if (total === 0) return null;
-  return (
-    <div className="meter mt-3" aria-hidden>
-      {parts
-        .filter((p) => p.n > 0)
-        .map((p, i) => (
-          <span key={i} style={{ width: `${(p.n / total) * 100}%`, background: OUTCOME_COLOURS[p.outcome] }} />
-        ))}
-    </div>
-  );
-}
-
-/** A count that stands on its own: a tally with nothing to compare it to. */
-function Tally({
-  value,
-  label,
-  note,
-  tone,
-}: {
-  value: number;
-  label: string;
-  note?: string;
-  tone?: "positive" | "negative";
-}) {
-  const colour =
-    tone === "positive"
-      ? OUTCOME_COLOURS.positive
-      : tone === "negative"
-        ? OUTCOME_COLOURS.negative
-        : "var(--color-ink)";
-
-  return (
-    <div>
-      <div className="flex h-[2.4rem] items-end">
-        <span className="figure text-[2.3rem]" style={{ color: colour }}>
-          {value}
-        </span>
-      </div>
-      <div className="mt-1.5 text-[14px]">{label}</div>
-      {note && (
-        <div className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-          {note}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * A count that only means something against its opposite — won and lost. The
- * bar is the proportion; the words underneath say which way round it is, so
- * the colours are never doing the work alone.
- */
-function Split({
-  label,
-  won,
-  lost,
-  unclear = 0,
-  wonWord,
-  lostWord,
-}: {
-  label: string;
-  won: number;
-  lost: number;
-  unclear?: number;
-  wonWord: string;
-  lostWord: string;
-}) {
-  const total = won + lost + unclear;
-
-  return (
-    <div>
-      <div className="flex h-[2.4rem] items-end gap-1.5">
-        <span className="figure text-[2.3rem]">{won}</span>
-        <span className="text-[1.1rem] leading-none" style={{ color: "var(--color-ink-faint)" }}>
-          of {total}
-        </span>
-      </div>
-      <div className="mt-1.5 text-[14px]">{label}</div>
-      <div className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-        {won} {wonWord}, {lost} {lostWord}
-        {unclear > 0 && `, ${unclear} unclear`}
-      </div>
-      <Meter
-        parts={[
-          { n: won, outcome: "positive" },
-          { n: unclear, outcome: "unclear" },
-          { n: lost, outcome: "negative" },
-        ]}
-      />
-    </div>
-  );
-}
-
 function Legend({ tackle = false }: { tackle?: boolean }) {
   const items: { colour: string; label: string; shape: "filled" | "ring" | "dashed" }[] = [
     { colour: OUTCOME_COLOURS.positive, label: "Our way", shape: "filled" },
@@ -1034,9 +981,12 @@ function Num({ value, tone }: { value: number; tone?: "negative" }) {
   );
 }
 
-/** Won and lost in one cell, the way a coach reads a line: 5–2. */
-function Pair({ a, b }: { a: number; b: number }) {
-  if (a === 0 && b === 0) {
+/**
+ * Won out of aimed at, in words: "1 of 2". Never "1–1", which on a hurling
+ * sheet reads as a goal and a point.
+ */
+function OfCell({ won, total }: { won: number; total: number }) {
+  if (total === 0) {
     return (
       <Cell>
         <Dash />
@@ -1045,9 +995,7 @@ function Pair({ a, b }: { a: number; b: number }) {
   }
   return (
     <Cell>
-      <span style={{ color: a > 0 ? "var(--color-brand)" : "var(--color-ink-faint)" }}>{a}</span>
-      <span style={{ color: "var(--color-ink-faint)" }}>&ndash;</span>
-      <span style={{ color: b > 0 ? "var(--color-danger-ink)" : "var(--color-ink-faint)" }}>{b}</span>
+      {won} <span style={{ color: "var(--color-ink-faint)" }}>of</span> {total}
     </Cell>
   );
 }

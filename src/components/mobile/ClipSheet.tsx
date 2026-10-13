@@ -20,6 +20,8 @@ import { formatClockPrecise, toGameTime, type Markers } from "@/lib/hurling/nota
 import { nudgeEdge } from "@/lib/hurling/clip-rules";
 import { PlayIcon } from "@/components/ui/Icon";
 import { eventLabelOf, type EventTypeRow, type SquadMember } from "@/components/review/types";
+import { TagMark } from "@/components/ui/TagMark";
+import { tagTone } from "@/lib/hurling/events";
 
 export type ClipDraft = {
   startMs: number;
@@ -159,7 +161,7 @@ export function ClipSheet({
                     on={draft.eventTypeIds.includes(e.id)}
                     onClick={() => toggle("eventTypeIds", e.id)}
                   >
-                    <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: e.colour }} />
+                    <TagMark tone={tagTone(e.slug)} />
                     {eventLabelOf(e)}
                   </Chip>
                 ))}

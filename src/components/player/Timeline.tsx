@@ -132,7 +132,7 @@ export function Timeline({
     <div className="pt-1 pr-3 pb-3" style={{ paddingLeft: 12 + labelGutterPx }}>
       <div
         ref={trackRef}
-        className={`group relative ${compact ? "h-7" : "h-14"} cursor-pointer touch-none select-none rounded-lg`}
+        className={`group relative ${compact ? "h-7" : "h-14"} cursor-pointer touch-none select-none rounded-[2px]`}
         style={{ background: "var(--color-surface-2)" }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -143,7 +143,7 @@ export function Timeline({
         {/* How much is already downloaded — a seek into this range is free. */}
         <div
           ref={bufferedRef}
-          className="absolute inset-y-0 left-0 rounded-lg"
+          className="absolute inset-y-0 left-0 rounded-[2px]"
           style={{ background: "var(--color-surface-3)", width: "0%" }}
         />
 
@@ -158,7 +158,7 @@ export function Timeline({
               style={{ left: `${pct(at)}%`, background: "var(--color-line-strong)" }}
             >
               <span
-                className="absolute -top-0.5 left-1 text-[10px] font-semibold whitespace-nowrap"
+                className="absolute -top-0.5 left-1 text-[11px] font-semibold whitespace-nowrap"
                 style={{ color: "var(--color-ink-faint)" }}
               >
                 {label}
@@ -203,8 +203,8 @@ export function Timeline({
             style={{
               left: `${pct(inMs)}%`,
               width: `${Math.max(0.2, pct(outMs ?? inMs) - pct(inMs))}%`,
-              borderColor: "var(--color-mark)",
-              background: "color-mix(in oklab, var(--color-mark) 18%, transparent)",
+              borderColor: "var(--color-ash)",
+              background: "color-mix(in oklab, var(--color-ash) 18%, transparent)",
             }}
           />
         )}
@@ -224,7 +224,7 @@ export function Timeline({
         {/* Game clock under the cursor. */}
         <div
           ref={hoverRef}
-          className="tabular pointer-events-none absolute -top-6 z-30 -translate-x-1/2 rounded px-1.5 py-0.5 text-[11px] opacity-0 transition-opacity"
+          className="tabular pointer-events-none absolute -top-6 z-30 -translate-x-1/2 rounded-[2px] px-1.5 py-0.5 text-[11px] opacity-0 transition-opacity"
           style={{ background: "var(--color-surface-3)", color: "var(--color-ink)" }}
         />
       </div>

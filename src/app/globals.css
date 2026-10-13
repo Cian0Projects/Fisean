@@ -107,6 +107,14 @@
   --color-side-b: #a8506f;
   --color-ball: #ffffff;
 
+  /*
+   * A referee's cards, the only literal colours in the app. They are drawn
+   * card-shaped with an ink edge, so a yellow card still shows on white and
+   * neither is ever read as an outcome.
+   */
+  --color-card-yellow: #f2c200;
+  --color-card-red: #c8102e;
+
   --font-sans: var(--font-chivo), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
@@ -134,7 +142,7 @@
 
   --color-ink: #eceef2;
   --color-ink-dim: #a6acb8;
-  --color-ink-faint: #737a88;
+  --color-ink-faint: #848b98;
 
   --color-ash: #b3bcf6;
   --color-ash-dim: #7a84c2;
@@ -163,6 +171,9 @@
   --color-side-a: #b3bcf6;
   --color-side-b: #cf8fa8;
   --color-ball: #f4f1e8;
+
+  --color-card-yellow: #f2c94c;
+  --color-card-red: #e0413a;
 
   color: var(--color-ink);
 }
@@ -422,6 +433,22 @@
     border-color: color-mix(in oklab, var(--color-ash) 82%, var(--color-ink));
   }
 
+  /*
+   * In a screening room the one action is printed in reverse — chalk on
+   * graphite, the way a programme's back page runs white out of black —
+   * rather than in a pale tint of the spot ink, which reads as somebody
+   * else's dark mode.
+   */
+  .dark-room .btn-primary {
+    background: var(--color-ink);
+    border-color: var(--color-ink);
+    color: var(--color-stage);
+  }
+  .dark-room .btn-primary:hover {
+    background: color-mix(in oklab, var(--color-ink) 84%, var(--color-stage));
+    border-color: color-mix(in oklab, var(--color-ink) 84%, var(--color-stage));
+  }
+
   .btn-ghost {
     border: 1px solid transparent;
     color: var(--color-ink-dim);
@@ -557,6 +584,8 @@
     --color-side-a: #1f2f96;
     --color-side-b: #a8506f;
     --color-ball: #ffffff;
+    --color-card-yellow: #f2c200;
+    --color-card-red: #c8102e;
   }
 
   html,

@@ -27,6 +27,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PlayerEngine } from "@/components/player/engine";
 import { Mark } from "@/components/ui/Mark";
+import { TagMark } from "@/components/ui/TagMark";
+import { tagTone } from "@/lib/hurling/events";
 import { PlayToggle, RateBadge, Timecode, VideoStage } from "@/components/player/VideoStage";
 import { Timeline, type TimelineClip } from "@/components/player/Timeline";
 import { ClipTrimmer } from "@/components/player/ClipTrimmer";
@@ -235,7 +237,7 @@ export function ReviewWorkspace({
           "")
         : "";
       await saveClip(start, end, eventTypeIds, label);
-      flash(label ? `${label} — clip saved` : "Clip saved");
+      flash(label ? `Clip saved, tagged ${label}` : "Clip saved");
     },
     [engine, preRoll, video.durationMs, eventTypes, saveClip, flash],
   );
@@ -570,11 +572,9 @@ export function ReviewWorkspace({
           </div>
           <div className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
             {clips.length} clip{clips.length === 1 ? "" : "s"} tagged
-            {scoreline.cul + scoreline.cuilin > 0 && (
-              <>
-                , scores {formatScore(scoreline)}
-              </>
-            )}
+            {/* Only the scores somebody has clipped, which is not the final
+                score until every one of them has been — so it says so. */}
+            {scoreline.cul + scoreline.cuilin > 0 && <>, {formatScore(scoreline)} of the scores clipped</>}
           </div>
         </div>
 
@@ -589,7 +589,6 @@ export function ReviewWorkspace({
             onClick={returnToLive}
             title="Deselect this clip and return to where you were in the match"
             className="btn-outline text-xs"
-            style={{ borderColor: "var(--color-mark)", color: "var(--color-mark)" }}
           >
             <span className="kbd">Esc</span> Back to live match
           </button>
@@ -833,8 +832,15 @@ export function ReviewWorkspace({
 
       {toast && (
         <div
-          className="pointer-events-none fixed bottom-6 left-1/2 z-40 -translate-x-1/2 rounded-lg px-4 py-2 text-sm shadow-lg"
-          style={{ background: "var(--color-surface-3)", color: "var(--color-ink)" }}
+          role="status"
+          className="pointer-events-none fixed bottom-6 left-1/2 z-40 -translate-x-1/2 border border-t-[3px] px-4 py-2 text-[13px] font-medium"
+          style={{
+            background: "var(--color-surface-2)",
+            borderColor: "var(--color-line-strong)",
+            borderTopColor: "var(--color-rule)",
+            borderRadius: 2,
+            color: "var(--color-ink)",
+          }}
         >
           {toast}
         </div>
@@ -877,13 +883,13 @@ function TagBar({
     >
       <div className="mb-2 flex items-center gap-3">
         <button onClick={onQuickClip} className="btn-primary text-xs">
-          <span className="kbd" style={{ background: "rgba(0,0,0,0.25)" }}>
+          <span className="kbd" style={{ background: "transparent", borderColor: "currentColor", color: "inherit" }}>
             C
           </span>
           Quick clip
         </button>
 
-        <label className="flex items-center gap-2 text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
+        <label className="flex items-center gap-2 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
           Pre-roll
           <input
             type="range"
@@ -892,7 +898,7 @@ function TagBar({
             step={1}
             value={preRoll / 1000}
             onChange={(e) => onPreRollChange(Number(e.target.value) * 1000)}
-            className="w-24 accent-[var(--color-brand)]"
+            className="w-24 accent-[var(--color-ink)]"
           />
           <span className="tabular w-6">{preRoll / 1000}s</span>
         </label>
@@ -900,10 +906,10 @@ function TagBar({
         <div className="flex-1" />
 
         {inMs != null && (
-          <div className="tabular flex items-center gap-2 text-[11px]">
+          <div className="tabular flex items-center gap-2 text-[12px]">
             <span style={{ color: "var(--color-mark)" }}>
               In {formatClock(inMs)}
-              {outMs != null && ` → ${formatClock(outMs)}`}
+              {outMs != null && ` to ${formatClock(outMs)}`}
             </span>
             <button onClick={onCommit} className="btn-outline px-2 py-1 text-[11px]">
               Save <span className="kbd ml-1">Enter</span>
@@ -912,9 +918,13 @@ function TagBar({
         )}
       </div>
 
+      {/* The ten hotkeys, gathered the way they fall in a game: scores and
+          shots, restarts, turnovers and fouls. A gap between kinds, so ten
+          buttons read as four short runs rather than one long one. */}
       <div className="flex flex-wrap gap-1.5">
-        {events.map((e) => {
+        {events.map((e, i) => {
           const active = selectedTagIds.includes(e.id);
+          const newKind = i > 0 && kindOf(events[i - 1]) !== kindOf(e);
           return (
             <button
               key={e.id}
@@ -924,17 +934,17 @@ function TagBar({
                   ? `${active ? "Remove" : "Add"} ${e.labelGa ?? e.labelEn}`
                   : `Quick clip tagged ${e.labelGa ?? e.labelEn}`
               }
-              className="flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors"
+              aria-pressed={hasSelection ? active : undefined}
+              className={`flex items-center gap-1.5 border px-2 py-1 text-[12px] transition-colors ${newKind ? "ml-3" : ""}`}
               style={{
-                borderColor: active ? e.colour : "var(--color-line-strong)",
-                background: active
-                  ? `color-mix(in oklab, ${e.colour} 26%, transparent)`
-                  : "transparent",
+                borderRadius: 2,
+                borderColor: active ? "var(--color-ink)" : "var(--color-line-strong)",
+                background: active ? "var(--color-surface-3)" : "transparent",
                 color: active ? "var(--color-ink)" : "var(--color-ink-dim)",
               }}
             >
               <span className="kbd">{e.hotkey}</span>
-              <span className="h-2 w-2 rounded-full" style={{ background: e.colour }} />
+              <TagMark tone={tagTone(e.slug)} />
               {e.labelGa ?? e.labelEn}
             </button>
           );
@@ -942,4 +952,10 @@ function TagBar({
       </div>
     </div>
   );
+}
+
+/** Scores and shots run together on a hurling tagger's keys; so do fouls and cards. */
+function kindOf(e: EventTypeRow): string {
+  if (e.category === "score" || e.category === "shot") return "attack";
+  return e.category;
 }

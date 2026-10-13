@@ -151,6 +151,8 @@ reserved outcome colours that never decorate.
 
 **The Outcome Rule.** Green, red and amber mean something happened on the field. Watching a playlist, deleting a file or being selected are not outcomes and do not borrow them.
 
+**The Tag Rule.** A clip tag is coloured by what it says about the game (`tagTone` in `src/lib/hurling/events.ts`): filled green, a red ring or a dashed amber ring, the same marks as the pitch maps, drawn by `TagMark`. A tag that only names a skill or a phase stays in ink with no mark. The referee's cards are the one literal colour (card-yellow, card-red), drawn card-shaped. The hues stored with each event type are not used on screen.
+
 ## Typography
 
 **Display Font:** Chivo (with ui-sans-serif, system-ui)
@@ -190,7 +192,7 @@ Square print corners (2px) on buttons, fields, number boxes and the join code; 3
 
 ### Buttons
 - **Shape:** square print corner (2px).
-- **Primary:** solid reflex blue with white text, semibold 13–14px. One per region.
+- **Primary:** solid reflex blue with white text, semibold 13–14px. One per region. In the screening room it prints in reverse: chalk fill, graphite text.
 - **Outline:** a 1px black rule, black text; a pressed-grey fill on hover.
 - **Ghost:** dim text with no edge; pressed-grey on hover. Used for row actions.
 - **Focus:** 2px reflex-blue outline, offset 2px.
@@ -206,10 +208,10 @@ Square print corners (2px) on buttons, fields, number boxes and the join code; 3
 - Outlined in the spot ink (1.5px), square, tabular figures. It marks jersey numbers, formation positions and running-order steps. It is dashed when the slot is empty.
 
 ### Result box
-- Ruled in black at 1.5px. One row per side: the name, then the score in figure weight with the total in brackets. The verdict ("Won by 6 points") sits under a heavy rule and is the only outcome colour on the cover. Before the stat sheet has shots, a dashed "No result yet" box holds its place.
+- Ruled in black at 1.5px. One row per side: the name, then the score in figure weight with the total in brackets. The verdict ("Won by 6 points") sits under a heavy rule and is the only outcome colour on the cover. Before the stat sheet has shots, a dashed "No result yet" box holds its place. One component (`src/components/matches/ResultBox.tsx`) on the cover and the stat sheet; on the stat sheet it adds the half-time line, and the scorers follow it in programme notation ("R Hayes 0-4 (0-2f)").
 
 ### Match preview
-- A match's thumbnail, taken from its own footage: one of its first three team clips, preferring a named one. It is 16:9 with a 2px corner on a black ground. It rests on the clip's first frame and loops up to 8s of the clip while its fixture row is hovered or focused, and never under reduced motion. The lead match captions it on a translucent black strip; a fixture row gets a small play badge. With no clips, no footage or an undecodable file, it shows the dashed empty slot.
+- A match's thumbnail, taken from its own footage: one of its first three team clips, preferring a named one. It is 16:9 with a 2px corner on a black ground. It rests on the clip's first frame and loops up to 8s of the clip while its fixture row is hovered or focused, and never under reduced motion. The lead match captions it on a translucent black strip; a fixture row gets a small play badge. With no picture to show, the lead match draws our shot map from the stat sheet instead; with no shots either, it is a single caption line. A fixture row keeps its dashed slot so the list stays aligned.
 
 ### Team sheet
 - The fifteen in six lines, goalkeeper at the top. Each line is on a six-column grid, so three slots fill the row, the midfield pair sits in the middle and the goalkeeper is centred. The shape holds on phones, with the number stacked over the name.
@@ -219,7 +221,8 @@ Square print corners (2px) on buttons, fields, number boxes and the join code; 3
 ### Do:
 - **Do** open every section with the 3px black rule and divide its rows with hairlines.
 - **Do** box numbers that are positions, jerseys or steps in a sequence, in reflex blue.
-- **Do** say counts in a line of prose ("1 camera angle, 14 clips and 75 stats logged.") rather than as a strip of big figures.
+- **Do** say counts in a line of prose ("1 camera angle, 14 clips and 75 stats logged.") rather than as a strip of big figures. On the stat sheet each section opens on a sentence ("We won 5 possessions and lost 8.").
+- **Do** write won-of-total as "1 of 2". A hyphenated pair is a scoreline and nothing else.
 - **Do** wrap any route that plays footage in the dark-room scope.
 - **Do** keep sentence case, and pair every outcome colour with words or a shape.
 
@@ -228,4 +231,5 @@ Square print corners (2px) on buttons, fields, number boxes and the join code; 3
 - **Don't** put a kicker or eyebrow above a heading; the date and context go under the name.
 - **Don't** use Unicode glyphs as icons; use the drawn icons in `src/components/ui/Icon.tsx`.
 - **Don't** mark a row with a coloured side stripe; use a dot or the chip's own mark.
+- **Don't** join a label with a spaced dash or a middle dot ("Poc amach — won", "6 · Centre back"); write it as it is said ("Poc amach won", "6, centre back"), and use "v" between teams.
 - **Don't** set a list page in a narrow centred column.

@@ -8,12 +8,14 @@ import {
   eventTypes,
   playlistItems,
   playlists,
+  users,
   videos,
 } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/guard";
 import { store } from "@/lib/storage";
 import { PlaylistPlayer, type PlaylistClip } from "@/components/playlists/PlaylistPlayer";
 import { eventLabelOf } from "@/components/review/types";
+import { tagTone } from "@/lib/hurling/events";
 
 export default async function PlaylistPage({
   params,
@@ -53,6 +55,15 @@ export default async function PlaylistPage({
       ])
     : [[], [], []];
 
+  // Who set it, said in the header the way a coach would hand it over.
+  const [setBy] = playlist.createdBy
+    ? await db
+        .select({ displayName: users.displayName })
+        .from(users)
+        .where(eq(users.id, playlist.createdBy))
+        .limit(1)
+    : [];
+
   const eventById = new Map(events.map((e) => [e.id, e]));
   const media = await store();
 
@@ -69,7 +80,7 @@ export default async function PlaylistPage({
       .filter((t) => t.clipId === i.clipId)
       .map((t) => eventById.get(t.eventTypeId))
       .filter((e): e is NonNullable<typeof e> => !!e)
-      .map((e) => ({ label: eventLabelOf(e), colour: e.colour })),
+      .map((e) => ({ label: eventLabelOf(e), tone: tagTone(e.slug) })),
     annotations: annotationRows
       .filter((a) => a.clipId === i.clipId)
       .map((a) => ({ atMs: a.atMs, durationMs: a.durationMs, shapes: a.shapes })),
@@ -79,6 +90,8 @@ export default async function PlaylistPage({
     <PlaylistPlayer
       playlistId={playlist.id}
       title={playlist.title}
+      note={playlist.description}
+      setBy={setBy?.displayName ?? null}
       clips={playlistClips}
       viewerName={user.displayName}
     />

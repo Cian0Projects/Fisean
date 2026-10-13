@@ -227,26 +227,39 @@ export async function probeFile(path: string, chunkBytes = 2 * 1024 * 1024): Pro
   const { size } = await stat(path);
   const handle = await open(path, "r");
   try {
-    if (size <= chunkBytes * 2) {
-      const whole = new Uint8Array(size);
-      await handle.read(whole, 0, size, 0);
-      return probeMp4(whole);
-    }
-
-    const head = new Uint8Array(chunkBytes);
-    await handle.read(head, 0, chunkBytes, 0);
-    const headProbe = probeMp4(head);
-    if (headProbe.durationMs > 0) return headProbe;
-
-    // moov is at the end. Read the tail and parse it on its own — box offsets
-    // are relative, so a tail-only buffer still parses.
-    const tail = new Uint8Array(chunkBytes);
-    await handle.read(tail, 0, chunkBytes, size - chunkBytes);
-    const tailProbe = probeTail(tail);
-    return { ...tailProbe, moovAtStart: false };
+    return await probeRanges(
+      size,
+      async (start, length) => {
+        const buf = new Uint8Array(length);
+        await handle.read(buf, 0, length, start);
+        return buf;
+      },
+      chunkBytes,
+    );
   } finally {
     await handle.close();
   }
+}
+
+/**
+ * The same head-then-tail probe, reading through any function that returns
+ * `length` bytes from `start`. A browser upload lands in the media store
+ * rather than at a path on disk, and this is how it gets read back.
+ */
+export async function probeRanges(
+  size: number,
+  read: (start: number, length: number) => Promise<Uint8Array>,
+  chunkBytes = 2 * 1024 * 1024,
+): Promise<Probe> {
+  if (size <= chunkBytes * 2) return probeMp4(await read(0, size));
+
+  const headProbe = probeMp4(await read(0, chunkBytes));
+  if (headProbe.durationMs > 0) return headProbe;
+
+  // moov is at the end. Read the tail and parse it on its own — box offsets
+  // are relative, so a tail-only buffer still parses.
+  const tailProbe = probeTail(await read(size - chunkBytes, chunkBytes));
+  return { ...tailProbe, moovAtStart: false };
 }
 
 /** Scan a tail buffer for the `moov` signature and parse from there. */

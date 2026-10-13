@@ -106,6 +106,30 @@ export function previewClip<T extends { title: string; startMs: number; endMs: n
   return longEnough.find((c) => c.title.trim()) ?? longEnough[0] ?? early[0] ?? null;
 }
 
+/**
+ * A picture for a match nobody has clipped yet: a frame from the footage
+ * itself, and the few seconds after it to loop on hover.
+ *
+ * Random, but the same random for the same file — the point is seeded from
+ * the video's id. A thumbnail that changed on every visit would look broken,
+ * and it would change the playback link too, which is kept stable so a page
+ * re-rendering does not reload its videos. It stays clear of the first and
+ * last 15% of the recording, which is usually the warm-up, an empty pitch
+ * before the throw-in, or the camera being put away.
+ */
+export function footageFrame(videoId: string, durationMs: number): { startMs: number; endMs: number } {
+  if (!(durationMs > 0)) return { startMs: 0, endMs: 0 };
+  // FNV-1a: a cheap, well-spread hash of the id, turned into 0 ≤ unit < 1.
+  let hash = 2166136261;
+  for (let i = 0; i < videoId.length; i++) {
+    hash ^= videoId.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const unit = (hash >>> 0) / 2 ** 32;
+  const startMs = Math.round(durationMs * (0.15 + 0.7 * unit));
+  return previewWindow({ startMs, endMs: Math.min(durationMs, startMs + PREVIEW_MAX_MS) });
+}
+
 /** The stretch of a clip the preview loops over. */
 export function previewWindow(clip: { startMs: number; endMs: number }): {
   startMs: number;

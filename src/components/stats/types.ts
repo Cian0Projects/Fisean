@@ -108,7 +108,7 @@ export function statMark(
     // the footage's halves are marked, because a guessed minute is worse
     // than none.
     note: row.gameMs != null ? `${gameMinute(row.gameMs)}′` : null,
-    title: [describeStat(row), who].filter(Boolean).join(" — "),
+    title: [describeStat(row), who].filter(Boolean).join(", "),
     muted: options.muted,
     selected: options.selected,
   };

@@ -5,6 +5,9 @@ import {
   STAT_LEAD_IN_MS,
   chronological,
   countShots,
+  formatScorerTally,
+  halfTimeScore,
+  scorers,
   deliveryTally,
   describeStat,
   effectiveOutcome,
@@ -49,7 +52,7 @@ test("shooting efficiency is scored over shots taken, both ways round", () => {
   assert.equal(e.total, 14);
   assert.equal(e.fraction, "9/14");
   assert.equal(e.percent, 64);
-  assert.equal(e.label, "9/14 · 64%");
+  assert.equal(e.label, "9 of 14, 64%");
   // The scoreline is in GAA notation, and a cúl is still worth three.
   assert.deepEqual(e.score, { cul: 2, cuilin: 7 });
   assert.equal(e.notation, "2-7 from 14 shots");
@@ -58,7 +61,7 @@ test("shooting efficiency is scored over shots taken, both ways round", () => {
 test("no shots is 0%, not a division by zero", () => {
   const e = shootingEfficiency({ goals: 0, points: 0, missed: 0 });
   assert.equal(e.percent, 0);
-  assert.equal(e.label, "0/0 · 0%");
+  assert.equal(e.label, "0 of 0, 0%");
   assert.equal(e.notation, "0-0 from 0 shots");
   assert.ok(Number.isFinite(e.percent));
 });
@@ -173,7 +176,7 @@ test("the summary counts every stat type from the same rows", () => {
   assert.equal(s.deliveries.won, 2);
   assert.equal(s.deliveries.lost, 1);
   assert.equal(s.deliveries.percent, 67);
-  assert.equal(s.shooting.label, "1/2 · 50%");
+  assert.equal(s.shooting.label, "1 of 2, 50%");
 });
 
 test("player lines credit only what is attributed, and a lost poc amach names nobody", () => {
@@ -592,4 +595,48 @@ test("a stat is credited to a jersey number, and only one somebody could wear", 
   assert.equal(row.playerNumber, 6);
   assert.equal(row.targetNumber, 14);
   assert.throws(() => normaliseEntry({ statType: "tackle", playerNumber: 0 }), /1 to 99/);
+});
+
+test("scorers read as a match report: top scorer first, frees marked f", () => {
+  const shot = (playerNumber, shotResult, shotKind = "play", side = "us") => ({
+    statType: "shot",
+    outcome: null,
+    playerNumber,
+    shotResult,
+    shotKind,
+    side,
+  });
+  const lines = scorers([
+    shot(11, "goal"),
+    shot(11, "point"),
+    shot(14, "point", "free"),
+    shot(14, "point", "free"),
+    shot(14, "point"),
+    shot(14, "point"),
+    shot(14, "point"),
+    shot(14, "wide"),
+    shot(null, "point"),
+    shot(9, "goal", "play", "opposition"),
+  ]);
+  assert.deepEqual(
+    lines.map((l) => [l.playerNumber, formatScorerTally(l)]),
+    [
+      [14, "0-5 (0-2f)"],
+      [11, "1-1"],
+      [null, "0-1"],
+    ],
+  );
+  const allFrees = scorers([shot(3, "point", "free"), shot(3, "point", "free")]);
+  assert.equal(formatScorerTally(allFrees[0]), "0-2f");
+});
+
+test("a half-time score is only given when every score has a half", () => {
+  const shot = (half, shotResult, side = "us") => ({ statType: "shot", outcome: null, half, shotResult, side });
+  assert.deepEqual(
+    halfTimeScore([shot(1, "goal"), shot(1, "point"), shot(2, "point"), shot(1, "point", "opposition")]),
+    { us: { cul: 1, cuilin: 1 }, them: { cul: 0, cuilin: 1 } },
+  );
+  assert.deepEqual(halfTimeScore([shot(1, "point"), shot(2, "wide")]).them, null);
+  assert.equal(halfTimeScore([shot(1, "point"), shot(null, "point")]), null);
+  assert.equal(halfTimeScore([]), null);
 });

@@ -77,7 +77,7 @@ export const BINDINGS: Record<string, Binding> = {
     command: "quick_clip",
     // The whole point: you press this *after* seeing the incident, and the
     // pre-roll covers what you just watched. No pausing, no scrubbing back.
-    label: "Quick clip — captures the seconds before you pressed",
+    label: "Quick clip, covering the seconds before you pressed",
     group: "Clipping",
   },
   i: { keys: "I", command: "set_in", label: "Set in point", group: "Clipping" },
@@ -88,7 +88,7 @@ export const BINDINGS: Record<string, Binding> = {
   escape: {
     keys: "Esc",
     command: "cancel",
-    label: "Back to the match — or clear in / out points",
+    label: "Back to the match, or clear the in and out points",
     group: "Clipping",
   },
   z: { keys: "Z", command: "undo", label: "Undo last clip", group: "Clipping" },
