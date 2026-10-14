@@ -43,6 +43,25 @@ export function PauseIcon(props: IconProps) {
   );
 }
 
+/** Four corners pointing out to go full screen, or in to leave it. */
+export function FullScreenIcon({ exit = false, ...props }: IconProps & { exit?: boolean }) {
+  return (
+    <Svg {...props}>
+      <path
+        d={
+          exit
+            ? "M6 2.5V6H2.5M10 2.5V6h3.5M6 13.5V10H2.5M10 13.5V10h3.5"
+            : "M2.5 6V2.5H6M13.5 6V2.5H10M2.5 10v3.5H6M13.5 10v3.5H10"
+        }
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="square"
+      />
+    </Svg>
+  );
+}
+
 export function ChevronIcon({ direction, ...props }: IconProps & { direction: "left" | "right" }) {
   return (
     <Svg {...props}>

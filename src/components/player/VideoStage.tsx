@@ -18,7 +18,7 @@ import { useEffect, useRef, useState } from "react";
 import type { PlayerEngine, Transport } from "./engine";
 import { AnnotationLayer, type Tool } from "./AnnotationLayer";
 import type { Shape } from "@/lib/db/schema";
-import { PauseIcon, PlayIcon } from "@/components/ui/Icon";
+import { FullScreenIcon, PauseIcon, PlayIcon } from "@/components/ui/Icon";
 import { formatClock, formatClockPrecise, toGameTime, type Markers } from "@/lib/hurling/notation";
 
 type Props = {
@@ -47,8 +47,10 @@ export function VideoStage({
   colour,
   preloadMs = null,
 }: Props) {
+  const stageRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const preloadRef = useRef<HTMLVideoElement>(null);
+  const [full, setFull] = useState(false);
 
   useEffect(() => {
     const v = videoRef.current;
@@ -56,6 +58,14 @@ export function VideoStage({
     engine.attach(v, fps);
     return () => engine.detach();
   }, [engine, src, fps]);
+
+  // Esc, the browser's own control or the F key can all leave full screen,
+  // so the button reads the document rather than keeping its own count.
+  useEffect(() => {
+    const sync = () => setFull(document.fullscreenElement === stageRef.current);
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
 
   // Keep the shadow element parked on whatever is coming next.
   useEffect(() => {
@@ -72,7 +82,7 @@ export function VideoStage({
   }, [preloadMs, src]);
 
   return (
-    <div className="relative flex-1 overflow-hidden bg-black">
+    <div ref={stageRef} data-video-stage className="group relative flex-1 overflow-hidden bg-black">
       <video
         ref={videoRef}
         src={src}
@@ -107,8 +117,46 @@ export function VideoStage({
         colour={colour}
         editable={drawing}
       />
+
+      {/*
+        Out of the way in the corner, and faint until the pointer is over the
+        picture, so it never sits on a play being reviewed. Above the drawing
+        layer, so it still works while a coach is annotating.
+      */}
+      <button
+        type="button"
+        onClick={() => toggleStageFullscreen(stageRef.current)}
+        title={full ? "Exit full screen (F)" : "Full screen (F)"}
+        aria-label={full ? "Exit full screen" : "Full screen"}
+        className="absolute right-3 bottom-3 z-10 flex h-9 w-9 items-center justify-center rounded-[2px] text-white opacity-60 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+        style={{ background: "rgb(0 0 0 / 0.55)" }}
+      >
+        <FullScreenIcon exit={full} size={16} />
+      </button>
     </div>
   );
+}
+
+/**
+ * Put the video stage full screen, or bring it back. The stage rather than
+ * the bare <video> goes full screen, so drawings stay over the picture and
+ * the app's own keys (space, J K L, the tags) keep working. An iPhone cannot
+ * put an element full screen, only hand the <video> to its own player.
+ */
+export function toggleStageFullscreen(stage: HTMLElement | null): void {
+  if (!stage) return;
+  if (document.fullscreenElement) {
+    void document.exitFullscreen().catch(() => {});
+    return;
+  }
+  if (document.fullscreenEnabled) {
+    void stage.requestFullscreen().catch(() => {});
+    return;
+  }
+  const video = stage.querySelector("video") as
+    | (HTMLVideoElement & { webkitEnterFullscreen?: () => void })
+    | null;
+  video?.webkitEnterFullscreen?.();
 }
 
 /**

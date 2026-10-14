@@ -29,7 +29,13 @@ import { PlayerEngine } from "@/components/player/engine";
 import { Mark } from "@/components/ui/Mark";
 import { TagMark } from "@/components/ui/TagMark";
 import { tagTone } from "@/lib/hurling/events";
-import { PlayToggle, RateBadge, Timecode, VideoStage } from "@/components/player/VideoStage";
+import {
+  PlayToggle,
+  RateBadge,
+  Timecode,
+  VideoStage,
+  toggleStageFullscreen,
+} from "@/components/player/VideoStage";
 import { Timeline, type TimelineClip } from "@/components/player/Timeline";
 import { ClipTrimmer } from "@/components/player/ClipTrimmer";
 import { CheatSheet } from "@/components/player/CheatSheet";
@@ -465,7 +471,8 @@ export function ReviewWorkspace({
           engine.setRate(Math.min(8, (engine.snapshot.rate || 1) * 2));
           break;
         case "fullscreen":
-          void document.documentElement.requestFullscreen?.().catch(() => {});
+          // The picture alone, not the whole workspace with its side panels.
+          toggleStageFullscreen(document.querySelector<HTMLElement>("[data-video-stage]"));
           break;
         case "help":
           setHelpOpen((v) => !v);
