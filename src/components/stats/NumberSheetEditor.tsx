@@ -116,7 +116,7 @@ export function NumberSheetEditor({
 
       <p className="measure mt-5 text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
         Stats are logged by the number on the jersey. Put a name to each number and every entry
-        against it follows — before the game, after it, or halfway through the notebook.
+        against it follows, whether you do it before the game, after it, or halfway through the notebook.
       </p>
 
       {error && (

@@ -33,7 +33,7 @@ export default async function LogMatchStatsPage({
         <main className="mx-auto max-w-2xl px-4 py-20">
           <h1 className="display text-3xl">The stat sheet is filled in by the coaches</h1>
           <p className="measure mt-3 text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
-            Reading it is open to the whole panel, though — every number, every
+            Reading it is open to the whole panel, though: every number, every
             map, and your own line in the table.
           </p>
           <Link href={`/matches/${matchId}/stats`} className="btn-primary mt-6">

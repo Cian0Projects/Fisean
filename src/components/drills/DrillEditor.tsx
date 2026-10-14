@@ -617,7 +617,7 @@ export function DrillEditor({
             <p className="mt-4 min-h-[3.25rem] text-[15px]" aria-live="polite">
               <span className="title">Step {playingStep + 1}</span>
               {data.steps[playingStep].note && (
-                <span style={{ color: "var(--color-ink-dim)" }}> — {data.steps[playingStep].note}</span>
+                <span style={{ color: "var(--color-ink-dim)" }}>: {data.steps[playingStep].note}</span>
               )}
               {!playing && (
                 <span className="caption block mt-1">Paused between steps. Pick a step to move pieces.</span>

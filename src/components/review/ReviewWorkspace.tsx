@@ -244,7 +244,7 @@ export function ReviewWorkspace({
 
   const commitInOut = useCallback(async () => {
     if (inMs == null) {
-      flash("Set an in point first — press I.");
+      flash("Set an in point first. Press I.");
       return;
     }
     const end = outMs ?? engine.snapshot.positionMs;

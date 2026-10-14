@@ -165,7 +165,7 @@ export const STAT_TYPE_META: Record<StatType, StatTypeMeta> = {
     points: 1,
     outcomes: ["positive", "negative"],
     hotkey: "3",
-    hint: "Possession won or lost, and how — a turnover, a 60/40 ball, an unforced loss. Flag the ones we scored from.",
+    hint: "Possession won or lost, and how: a turnover, a 60/40 ball, an unforced loss. Flag the ones we scored from.",
   },
   shot: {
     label: "Shot",
@@ -181,7 +181,7 @@ export const STAT_TYPE_META: Record<StatType, StatTypeMeta> = {
     points: 1,
     outcomes: [],
     hotkey: "5",
-    hint: "Always against us — where it was given is what matters.",
+    hint: "Always against us. Where it was given is what matters.",
   },
   puckout: {
     label: "Poc amach",
@@ -581,7 +581,7 @@ export function normaliseEntry(draft: StatDraft): NormalisedStat {
 
     case "shot":
       shotResult = oneOf(SHOT_RESULTS, draft.shotResult);
-      if (!shotResult) throw new Error("What came of it — a cúl, a cúilín or a wide, or something else?");
+      if (!shotResult) throw new Error("What came of it: a cúl, a cúilín or a wide, or something else?");
       side = draft.side == null ? "us" : oneOf(SIDES, draft.side);
       if (!side) throw new Error("Whose shot was it?");
       shotKind = draft.shotKind == null ? "play" : oneOf(SHOT_KINDS, draft.shotKind);

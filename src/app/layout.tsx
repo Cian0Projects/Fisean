@@ -21,7 +21,7 @@ const chivo = Chivo({
 });
 
 export const metadata: Metadata = {
-  title: "Ardawn — GAA video review",
+  title: "Ardawn: GAA video review",
   description:
     "Clip, tag and share GAA match footage. Built for teams.",
   applicationName: "Ardawn",

@@ -397,7 +397,7 @@ export function StatPad({
 
         {newest.length === 0 ? (
           <p className="py-4 text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
-            Nothing yet. Watch, then press <span className="kbd">1</span>–<span className="kbd">7</span>.
+            Nothing yet. Watch, then press <span className="kbd">1</span> to <span className="kbd">7</span>.
           </p>
         ) : (
           <ul className="min-h-0 flex-1 overflow-y-auto">

@@ -21,7 +21,7 @@ export default function JoinPage({
   return (
     <Gate
       title="Join your panel"
-      intro="Your manager has a six-character code. That is the whole sign-up — no email to verify, nothing to approve."
+      intro="Your manager has a six-character code. That is the whole sign-up: no email to verify, nothing to approve."
       footer={
         <>
           Already set up? <GateLink href={next ? `/login?next=${encodeURIComponent(next)}` : "/login"}>Sign in</GateLink>

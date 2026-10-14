@@ -404,7 +404,7 @@ export function StatLogger({
 
           {newest.length === 0 ? (
             <p className="py-8 text-[14px]" style={{ color: "var(--color-ink-faint)" }}>
-              Nothing yet. Press <span className="kbd">1</span>–<span className="kbd">7</span> to
+              Nothing yet. Press <span className="kbd">1</span> to <span className="kbd">7</span> to
               pick what happened, then log it.
             </p>
           ) : (

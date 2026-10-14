@@ -134,7 +134,7 @@ export function StatLanes({
                         r.playerNumber != null ? playerLabel(r.playerNumber, sheet) : null,
                       ]
                         .filter(Boolean)
-                        .join(" — ")}
+                        .join(", ")}
                       onClick={() => onSelectStat(r)}
                       // A 3px mark keeps a full match readable; the button
                       // around it is wide enough to actually hit.

@@ -59,9 +59,9 @@ export type Binding = {
  */
 export const BINDINGS: Record<string, Binding> = {
   " ": { keys: "Space", command: "toggle_play", label: "Play / pause", group: "Transport" },
-  j: { keys: "J", command: "shuttle_back", label: "Shuttle back — 1×, 2×, 4×, 8×", group: "Transport" },
+  j: { keys: "J", command: "shuttle_back", label: "Shuttle back: 1×, 2×, 4×, 8×", group: "Transport" },
   k: { keys: "K", command: "shuttle_pause", label: "Pause", group: "Transport" },
-  l: { keys: "L", command: "shuttle_forward", label: "Shuttle forward — 1×, 2×, 4×, 8×", group: "Transport" },
+  l: { keys: "L", command: "shuttle_forward", label: "Shuttle forward: 1×, 2×, 4×, 8×", group: "Transport" },
 
   arrowleft: { keys: "←", command: "nudge_back_1s", label: "Back 1 second", group: "Precision", allowRepeat: true },
   arrowright: { keys: "→", command: "nudge_fwd_1s", label: "Forward 1 second", group: "Precision", allowRepeat: true },

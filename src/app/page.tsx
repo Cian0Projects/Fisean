@@ -899,7 +899,7 @@ function Count({ n }: { n: number }) {
       className="tabular hidden py-3.5 pr-3 text-right text-[14px] md:table-cell"
       style={{ color: n ? "var(--color-ink)" : "var(--color-ink-faint)" }}
     >
-      {n || "—"}
+      {n}
     </td>
   );
 }

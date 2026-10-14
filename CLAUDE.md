@@ -60,6 +60,10 @@ needs justifying in the same voice, not to find out how something works.
 - **Comments explain why**, in prose, at the top of a file or above a decision.
   Match the existing density — it is higher than most codebases.
 - Sentence case everywhere. No ALL-CAPS labels, no ` · `-joined meta strings.
+- **No dashes in anything a user reads** (UI copy, titles, tooltips, emails):
+  no em dash, no en dash, no ` - ` as punctuation. Use a colon, a comma or a
+  new sentence; "1 to 7" for a range. GAA scores keep their hyphen (`1-12`),
+  because that is the notation. Code comments are exempt.
 - **Log big changes in [`version-history/CHANGES.md`](version-history/CHANGES.md)**
   as part of the same commit: a new feature, a schema change, a redesign, a
   change to how it is deployed or used. Newest first; a `## Title`, the date

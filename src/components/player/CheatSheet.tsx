@@ -76,7 +76,7 @@ export function CheatSheet({
           style={{ borderColor: "var(--color-line)", color: "var(--color-ink-faint)" }}
         >
           The one to learn is <span className="kbd">C</span>. Watch at normal speed,
-          and when something happens, press it — the clip covers the seconds{" "}
+          and when something happens, press it. The clip covers the seconds{" "}
           <em>before</em> you pressed, so you never have to scrub back. Follow it
           with a number key to tag what it was.
         </p>
