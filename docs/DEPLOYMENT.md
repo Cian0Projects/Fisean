@@ -22,7 +22,7 @@ numbers work.
 
 | | Monthly | Notes |
 |---|---|---|
-| **Hetzner CX22 (app)** | **~€4.50** | 2 vCPU, 4 GB RAM. Holds the database for any number of clubs. EU-hosted, which matters when any of a panel are minors. |
+| **4 GB VPS (app)**, e.g. OVHcloud VPS-1 | **~€4** | 2 vCPU, 4 GB RAM. Holds the database for any number of clubs. EU-hosted, which matters when any of a panel are minors. |
 | **Cloudflare R2 (footage)** | **$0.015 per GB stored** | Egress free. The first 10 GB are free. Ten clubs with thirty 3 GB matches each is 900 GB, about $13.50. |
 | Hetzner CX32, footage on its own disk | ~€6.80 | No R2 at all: 80 GB is about 20 matches across every club. Fine for one or two clubs while you find out whether anyone wants this. |
 
@@ -111,8 +111,14 @@ is signed and expires.
 
 ### 2. The box
 
-Create a Hetzner CX22 running **Ubuntu 24.04**, in Nuremberg or Helsinki. Add
-your SSH key during creation. Note the IP.
+Any VPS with 2 vCPU, 4 GB RAM and **Ubuntu 24.04** in an EU data centre will
+do. Add your SSH key during creation and note the IP.
+
+Through 2026 a memory shortage has left cheap EU servers scarce: Hetzner has
+refused most new cloud servers since June, and OVHcloud's VPS-1 (about €3.81)
+sold out in every EU data centre by October. The fallbacks are **Contabo
+Cloud VPS 10** in Germany (8 GB, about €4.40 a month) and IONOS's VPS line. Where an image signs you in as an ordinary user rather than `root` (OVH's
+`ubuntu`, for one), run the setup script with `sudo`.
 
 ### 3. DNS and server setup
 

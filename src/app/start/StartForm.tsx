@@ -30,8 +30,14 @@ export function StartForm({ needsCode }: { needsCode: boolean }) {
               Sign-up code
             </label>
             <input id="signupCode" name="signupCode" autoFocus autoComplete="off" className="field" />
+            {/* A club that found the site on its own has no code yet; without
+                this line the form is a dead end rather than an introduction. */}
             <p className="mt-1.5 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-              It came with the link to this page.
+              It came with the link to this page. Don&apos;t have one? Email{" "}
+              <a href="mailto:hello@ardawnsport.ie?subject=Setting%20up%20our%20club%20on%20Ardawn" className="underline">
+                hello@ardawnsport.ie
+              </a>{" "}
+              and we&apos;ll set you up.
             </p>
           </div>
         )}

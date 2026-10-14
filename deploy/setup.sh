@@ -23,7 +23,7 @@ ENV_FILE="$APP_DIR/.env.local"
 say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 
 if [ "$(id -u)" -ne 0 ]; then
-  echo "Run this as root (ssh root@<server ip>, then bash setup.sh)." >&2
+  echo "Run this as root: sudo bash setup.sh" >&2
   exit 1
 fi
 
