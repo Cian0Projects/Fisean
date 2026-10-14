@@ -35,6 +35,8 @@ export type SessionUser = {
   role: Role;
   position: number | null;
   teamName: string;
+  /** When the club badge last changed, or null for a club without one. */
+  badgeVersion: number | null;
 };
 
 export async function createSession(userId: string): Promise<void> {
@@ -104,6 +106,7 @@ export async function currentUser(): Promise<SessionUser | null> {
       role: users.role,
       position: users.position,
       teamName: teams.name,
+      badgeVersion: teams.badgeUpdatedAt,
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))

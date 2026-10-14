@@ -78,6 +78,13 @@
       "when": 1791579624476,
       "tag": "0010_multipart_uploads",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1792005157310,
+      "tag": "0011_club_badge",
+      "breakpoints": true
     }
   ]
 }

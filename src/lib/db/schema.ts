@@ -8,6 +8,7 @@
 import { sql, relations } from "drizzle-orm";
 import {
   sqliteTable,
+  blob,
   text,
   integer,
   real,
@@ -53,6 +54,15 @@ export const teams = sqliteTable(
     joinCode: text("join_code").notNull(),
     /** 35 for senior inter-county, 30 for most club and minor grades. */
     halfLengthMin: integer("half_length_min").notNull().default(30),
+    /**
+     * The club badge, a PNG of at most 256 pixels a side, scaled down in the
+     * admin's browser (src/lib/media/badge.ts). Kept here rather than in R2:
+     * it is a few tens of kilobytes, every page shows it, and in the database
+     * it goes into the nightly backup with everything else about the club.
+     */
+    badge: blob("badge", { mode: "buffer" }),
+    /** When the badge last changed. It versions the badge's URL, so browsers can cache it for good. */
+    badgeUpdatedAt: integer("badge_updated_at"),
     createdAt: integer("created_at").notNull().default(now),
   },
   (t) => [uniqueIndex("teams_join_code").on(t.joinCode)],

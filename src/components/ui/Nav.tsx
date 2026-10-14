@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { signOut } from "@/lib/actions/auth";
 import type { SessionUser } from "@/lib/auth/session";
 import { Mark } from "@/components/ui/Mark";
+import { ClubBadge } from "@/components/ui/ClubBadge";
 
 /**
  * The masthead.
@@ -43,8 +44,11 @@ export function Nav({ user }: { user: SessionUser }) {
             className="hidden h-4 w-px md:block"
             style={{ background: "var(--color-line-strong)" }}
           />
-          <span className="hidden text-[13px] font-medium md:inline" style={{ color: "var(--color-ink-dim)" }}>
-            {user.teamName}
+          <span className="hidden items-center gap-2 md:flex">
+            <ClubBadge version={user.badgeVersion} className="h-6 w-6" />
+            <span className="text-[13px] font-medium" style={{ color: "var(--color-ink-dim)" }}>
+              {user.teamName}
+            </span>
           </span>
         </Link>
 

@@ -32,7 +32,6 @@ export default async function AdminPage() {
       displayName: users.displayName,
       username: users.username,
       role: users.role,
-      position: users.position,
       lastSeenAt: users.lastSeenAt,
     })
     .from(users)
@@ -58,6 +57,7 @@ export default async function AdminPage() {
         viewer={{ id: user.id, role: user.role }}
         joinCode={team?.joinCode ?? ""}
         teamName={team?.name ?? ""}
+        badgeVersion={team?.badgeUpdatedAt ?? null}
         members={members}
         matches={matchRows.map((m) => ({
           id: m.id,

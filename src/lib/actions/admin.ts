@@ -11,8 +11,10 @@ import {
   videos,
   type Role,
   MARKER_KINDS,
+  ROLES,
 } from "@/lib/db/schema";
 import { freshJoinCode } from "@/lib/db/clubs";
+import { badgeProblem } from "@/lib/media/badge";
 import {
   assertSameTeam,
   requireAdmin,
@@ -116,10 +118,19 @@ export async function deleteVideo(videoId: string): Promise<void> {
 
 /* ---------------------------------------------------------------- members */
 
-export async function setMemberRole(userId: string, role: Role): Promise<void> {
+/**
+ * Only an admin decides who is a player, a coach or an admin. The refusal
+ * comes back as a message rather than a thrown error, because a production
+ * build hides a thrown error's text and the admin needs to read this one.
+ */
+export async function setMemberRole(
+  userId: string,
+  role: Role,
+): Promise<{ role: Role } | { error: string }> {
   const admin = await requireAdmin();
+  if (!ROLES.includes(role)) return { error: "That is not a role on the panel." };
   const [target] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-  if (!target) throw new Error("That person is not on the panel.");
+  if (!target) return { error: "That person is not on the panel." };
   assertSameTeam(admin, target);
 
   // Refuse to remove the last admin, which would lock everyone out of the
@@ -129,11 +140,12 @@ export async function setMemberRole(userId: string, role: Role): Promise<void> {
       .select({ id: users.id })
       .from(users)
       .where(and(eq(users.teamId, admin.teamId), eq(users.role, "admin")));
-    if (remaining.length <= 1) throw new Error("The squad needs at least one admin.");
+    if (remaining.length <= 1) return { error: "The squad needs at least one admin." };
   }
 
   await db.update(users).set({ role }).where(eq(users.id, userId));
-  revalidatePath("/admin/members");
+  revalidatePath("/admin");
+  return { role };
 }
 
 export async function updateMember(
@@ -175,6 +187,42 @@ export async function removeMember(userId: string): Promise<void> {
   // numbers stay, unnamed.
   await db.delete(users).where(eq(users.id, userId));
   revalidatePath("/admin/members");
+}
+
+/* ------------------------------------------------------------------ badge */
+
+/**
+ * Set the club badge. The admin's browser has already scaled the image to a
+ * small PNG; this checks that is what arrived before it is kept.
+ */
+export async function setClubBadge(
+  form: FormData,
+): Promise<{ version: number } | { error: string }> {
+  const admin = await requireAdmin();
+  const file = form.get("badge");
+  if (!(file instanceof File)) return { error: "Choose an image for the badge." };
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const problem = badgeProblem(bytes);
+  if (problem) return { error: problem };
+
+  const version = Date.now();
+  await db
+    .update(teams)
+    .set({ badge: Buffer.from(bytes), badgeUpdatedAt: version })
+    .where(eq(teams.id, admin.teamId));
+  // Every page's masthead carries the badge.
+  revalidatePath("/", "layout");
+  return { version };
+}
+
+export async function removeClubBadge(): Promise<void> {
+  const admin = await requireAdmin();
+  await db
+    .update(teams)
+    .set({ badge: null, badgeUpdatedAt: null })
+    .where(eq(teams.id, admin.teamId));
+  revalidatePath("/", "layout");
 }
 
 /** Rotate the join code — for when it has been shared beyond the panel. */

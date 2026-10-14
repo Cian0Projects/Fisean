@@ -16,6 +16,20 @@ is used, how it is deployed).
 
 -->
 
+## Club badges, and the squad as one list
+*2026-10-14*
+
+An admin can now give the club its badge on the squad page. Their browser
+scales whatever image they pick down to a 256 pixel PNG before it uploads,
+the server accepts nothing but a PNG (an SVG can carry script), and it is
+kept with the club in the database so the nightly backup includes it. It
+shows beside the club's name on the squad page and in every page's masthead.
+The squad page itself lost the team sheet and the position column: positions
+and numbers change game to game and each match keeps its own number sheet,
+so the panel is now just everyone at the club, each flagged player, coach
+or team admin, with only the admin able to change which. Schema: `teams`
+gains `badge` and `badge_updated_at` (migration 0011).
+
 ## One script puts Ardawn live at ardawnsport.ie
 *2026-10-13*
 
