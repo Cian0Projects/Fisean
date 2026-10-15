@@ -62,6 +62,26 @@ export function FullScreenIcon({ exit = false, ...props }: IconProps & { exit?: 
   );
 }
 
+/**
+ * iOS's Share symbol: an arrow rising out of an open box. Drawn to match the
+ * one printed on Safari's button, because "tap Share" only helps someone who
+ * can pick the right icon out of a toolbar.
+ */
+export function ShareIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path
+        d="M8 10V1.5M5 4.5l3-3 3 3M4.5 6.5H3.5v8h9v-8h-1"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export function ChevronIcon({ direction, ...props }: IconProps & { direction: "left" | "right" }) {
   return (
     <Svg {...props}>

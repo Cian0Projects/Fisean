@@ -6,6 +6,7 @@ import { signOut } from "@/lib/actions/auth";
 import type { SessionUser } from "@/lib/auth/session";
 import { Mark } from "@/components/ui/Mark";
 import { ClubBadge } from "@/components/ui/ClubBadge";
+import { InstallHint } from "@/components/ui/InstallHint";
 
 /**
  * The masthead.
@@ -96,6 +97,8 @@ export function Nav({ user }: { user: SessionUser }) {
           </form>
         </div>
       </div>
+      {/* An iPad gets the desktop layout, so the masthead is where it reaches them. */}
+      <InstallHint />
     </header>
   );
 }

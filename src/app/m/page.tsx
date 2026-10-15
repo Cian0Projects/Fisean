@@ -14,6 +14,7 @@ import {
 import { requireUserFor } from "@/lib/auth/guard";
 import { signOut } from "@/lib/actions/auth";
 import { Mark } from "@/components/ui/Mark";
+import { InstallHint } from "@/components/ui/InstallHint";
 import { formatClock, formatScore } from "@/lib/hurling/notation";
 import { matchResult, type StatEntry } from "@/lib/hurling/stats";
 import { verdict, verdictColour } from "@/components/matches/ResultBox";
@@ -272,6 +273,7 @@ export default async function PhoneHome() {
           </button>
         </form>
       </footer>
+      <InstallHint />
     </div>
   );
 }
