@@ -1,9 +1,13 @@
 "use client";
 
 import { use, useActionState } from "react";
-import { signIn } from "@/lib/actions/auth";
+import { requestSignIn } from "@/lib/actions/auth";
 import { Gate, GateLink } from "@/components/ui/Gate";
 
+/**
+ * Signing in is one box: your email. A code comes back, and that is the
+ * whole of it. No password to set, so none to forget by the next match.
+ */
 export default function LoginPage({
   searchParams,
 }: {
@@ -11,7 +15,7 @@ export default function LoginPage({
 }) {
   // Carried through the form so the app lands back where it was opened.
   const { next } = use(searchParams);
-  const [state, action, pending] = useActionState(signIn, undefined);
+  const [state, action, pending] = useActionState(requestSignIn, undefined);
 
   return (
     <Gate
@@ -28,23 +32,22 @@ export default function LoginPage({
       <form action={action} className="space-y-4">
         {next && <input type="hidden" name="next" value={next} />}
         <div>
-          <label htmlFor="username" className="label mb-1.5 block">
-            Username
-          </label>
-          <input id="username" name="username" autoComplete="username" autoFocus className="field" />
-        </div>
-
-        <div>
-          <label htmlFor="password" className="label mb-1.5 block">
-            Password
+          <label htmlFor="email" className="label mb-1.5 block">
+            Email
           </label>
           <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
+            id="email"
+            name="email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            autoFocus
             className="field"
           />
+          <p className="mt-1.5 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+            We will email you a code. No password needed.
+          </p>
         </div>
 
         {state?.error && (
@@ -54,7 +57,7 @@ export default function LoginPage({
         )}
 
         <button type="submit" disabled={pending} className="btn-primary w-full">
-          {pending ? "Signing in…" : "Sign in"}
+          {pending ? "Sending…" : "Email me a code"}
         </button>
       </form>
     </Gate>

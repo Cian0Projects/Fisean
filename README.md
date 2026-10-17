@@ -39,8 +39,9 @@ a tagged match, a full stat sheet, two playlists and fifteen players:
 npm run seed
 ```
 
-That prints sign-in details — `bainisteoir` as the manager, `tjreid` as a
-player, password `hurling2026`.
+That prints sign-in emails: `bainisteoir@demo.ardawn.test` as the manager,
+and a player's. Sign in with either and the code prints in the terminal
+running the app; `.test` addresses never reach a real mail server.
 
 ### Adding real footage
 
@@ -379,7 +380,8 @@ server path, costed.
 | Database | SQLite + Drizzle | SQLite is the *production* database too, not a local stand-in. For 40 users on one box there is no separate process to run and a backup is a copy of one file — and no second dialect to support. |
 | Video | Native `<video>` + a custom controller | The interaction model *is* the product. Player libraries abstract away exactly the things this needs — dual-element preloading, a shuttle state machine, frame-accurate in/out points. |
 | Annotations | Hand-rolled SVG | Shapes stay individually selectable, scale to any player size for free, and serialise straight to JSON. A canvas would give a bitmap that is wrong on a phone. |
-| Auth | scrypt + a signed cookie | No OAuth for a closed club. Join code, then username and password. Sessions are rows, so removing a player ends their access immediately. |
+| Auth | Emailed code + a signed cookie | No passwords to forget and no OAuth for a closed club. Join code, name and email, then a six-digit code (or a link) sent to that email. Sessions are rows, so removing a player ends their access immediately. |
+| Email | ZeptoMail over HTTPS, no SDK | Sign-in codes and share emails. Pay as you go, a send-only token, EU data centre. Shares are batched so an evening's tagging is one email. |
 | Styling | Tailwind 4 | Dark by default — a bright interface beside match footage is tiring and washes out the video. |
 
 **Seven runtime dependencies**, no player library, no state library, no AWS
@@ -454,7 +456,8 @@ npm run smoke      # end-to-end, against a running dev server
 
 The unit tests cover the logic that is easy to get subtly wrong: GAA scoring
 notation, game-clock conversion, pitch geometry, the stat sheet's arithmetic
-and entry rules, password hashing, and HTTP Range parsing. They run under
+and entry rules, sign-in codes and how share emails are batched and worded,
+and HTTP Range parsing. They run under
 `node --test`, with `tsx` registered as a loader so a test can import a
 TypeScript module that itself imports another. The smoke test mints a real session and asserts that ranged
 requests actually return 206 with the right bytes — if that regresses, seeking

@@ -1,41 +1,8 @@
 /**
- * Password hashing with scrypt from Node's standard library.
- *
- * scrypt is memory-hard and built in, so there is no native dependency to
- * compile and nothing to install. argon2id would be marginally stronger, but
- * for a closed squad of 40 this is the right trade: one fewer build step is
- * worth more here than a theoretical margin.
+ * Team join codes. (The file's name is left from when it also hashed
+ * passwords; sign-in is by emailed code now, in email-code.ts.)
  */
-import { randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
-import { promisify } from "node:util";
-
-const scrypt = promisify(scryptCb) as (
-  password: string | Buffer,
-  salt: string | Buffer,
-  keylen: number,
-) => Promise<Buffer>;
-
-const KEY_LEN = 64;
-const SALT_LEN = 16;
-
-/** Stored as `scrypt$<salt hex>$<hash hex>` so the format is self-describing. */
-export async function hashPassword(plain: string): Promise<string> {
-  const salt = randomBytes(SALT_LEN);
-  const hash = await scrypt(plain.normalize("NFKC"), salt, KEY_LEN);
-  return `scrypt$${salt.toString("hex")}$${hash.toString("hex")}`;
-}
-
-export async function verifyPassword(plain: string, stored: string): Promise<boolean> {
-  const parts = stored.split("$");
-  if (parts.length !== 3 || parts[0] !== "scrypt") return false;
-
-  const salt = Buffer.from(parts[1], "hex");
-  const expected = Buffer.from(parts[2], "hex");
-  if (expected.length !== KEY_LEN) return false;
-
-  const actual = await scrypt(plain.normalize("NFKC"), salt, KEY_LEN);
-  return timingSafeEqual(actual, expected);
-}
+import { randomBytes } from "node:crypto";
 
 /**
  * Join codes are read aloud in a dressing room and typed on phones, so the

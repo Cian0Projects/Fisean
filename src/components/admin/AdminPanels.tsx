@@ -7,6 +7,7 @@ import {
   deleteVideo,
   removeMember,
   rotateJoinCode,
+  setMemberEmail,
   setMemberRole,
 } from "@/lib/actions/admin";
 import { formatClock } from "@/lib/hurling/notation";
@@ -22,7 +23,7 @@ import type { ImportView } from "@/lib/queries/imports";
 type Member = {
   id: string;
   displayName: string;
-  username: string;
+  email: string | null;
   role: Role;
   lastSeenAt: number | null;
 };
@@ -289,7 +290,7 @@ function MemberRow({ member, isSelf }: { member: Member; isSelf: boolean }) {
             </span>
           )}
         </div>
-        <div className="caption">@{member.username}</div>
+        {member.email ? <div className="caption">{member.email}</div> : <AddEmail member={member} />}
         {error && (
           <p className="mt-1 text-[12px]" style={{ color: "var(--color-danger-ink)" }}>
             {error}
@@ -323,6 +324,62 @@ function MemberRow({ member, isSelf }: { member: Member; isSelf: boolean }) {
         )}
       </div>
     </li>
+  );
+}
+
+/**
+ * For someone who joined before sign-in moved to email. Without an email they
+ * cannot sign in again once their session ends, so the admin can fill the
+ * blank. Only a blank: an email already set is theirs to change, not ours.
+ */
+function AddEmail({ member }: { member: Member }) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  if (!open) {
+    return (
+      <div className="caption">
+        No email yet, so they cannot sign in.{" "}
+        <button onClick={() => setOpen(true)} className="underline underline-offset-2">
+          Add one
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      className="mt-1 flex flex-wrap items-center gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setError(null);
+        startTransition(async () => {
+          const result = await setMemberEmail(member.id, value);
+          if ("error" in result) setError(result.error);
+        });
+      }}
+    >
+      <input
+        type="email"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        autoFocus
+        autoCapitalize="none"
+        placeholder={`${member.displayName.split(" ")[0]}'s email`}
+        aria-label={`Email for ${member.displayName}`}
+        className="field w-56 text-[13px]"
+      />
+      <button type="submit" disabled={pending} className="btn-ghost text-xs">
+        Save
+      </button>
+      {error && (
+        <span className="text-[12px]" style={{ color: "var(--color-danger-ink)" }}>
+          {error}
+        </span>
+      )}
+    </form>
   );
 }
 

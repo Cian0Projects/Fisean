@@ -92,6 +92,20 @@
       "when": 1792247101982,
       "tag": "0012_shallow_green_goblin",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1792251388945,
+      "tag": "0013_email_sign_in",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1792251403796,
+      "tag": "0014_user_email",
+      "breakpoints": true
     }
   ]
 }

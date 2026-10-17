@@ -16,6 +16,32 @@ is used, how it is deployed).
 
 -->
 
+## Sign in by email, and share emails
+*2026-10-17*
+
+Passwords are gone. Signing in, joining a panel and setting up a club all
+ask for an email, and a six-digit code comes back with a link beside it: the
+code for the phone apps, where an emailed link opens the browser instead of
+the app, and the link for a laptop. Codes and link keys are stored only as
+HMACs keyed with SESSION_SECRET, die after fifteen minutes or five wrong
+guesses, and are rate limited by address and by network; the sign-in form
+looks the same whether or not an address has an account. Joining and club
+set-up now make nothing until the code comes back, so nobody can put someone
+else's email on a panel. Players also get emailed when a coach assigns them a
+playlist, a match's footage is ready, the coaches publish a playlist, or they
+are tagged in a clip. Shares wait in a `notifications` table until ten quiet
+minutes have passed (an hour at most), then go as one email, so an evening's
+tagging is one message rather than forty. Every share email carries a signed
+one-click unsubscribe; `/account` changes your email (verified first) and
+turns the emails on or off. Mail goes through Zoho ZeptoMail's EU API with a
+send-only token, and to a local outbox in development. Existing accounts keep
+their sessions but need an email to sign in again: an admin can fill a blank
+one on the squad page, and `npm run set-email` does it from the terminal.
+`npm run db:migrate` now switches foreign keys off around a run, because the
+migrator's transaction made drizzle-kit's own `PRAGMA foreign_keys=OFF` a
+no-op, and rebuilding `users` would otherwise have cascaded away every
+session, clip tag, playlist assignment and number sheet.
+
 ## A public home page that shows the real app
 *2026-10-17*
 

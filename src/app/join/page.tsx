@@ -6,8 +6,9 @@ import { Gate, GateLink } from "@/components/ui/Gate";
 
 /**
  * Joining has to work on a phone, standing in a dressing room, in under a
- * minute. One code, a name, a username and a password — no email to verify,
- * no invitation to chase, nothing for the manager to approve afterwards.
+ * minute. The team code, a name and an email, then the code that comes back
+ * to that email. No password, no invitation to chase, nothing for the
+ * manager to approve afterwards.
  */
 export default function JoinPage({
   searchParams,
@@ -21,7 +22,7 @@ export default function JoinPage({
   return (
     <Gate
       title="Join your panel"
-      intro="Your manager has a six-character code. That is the whole sign-up: no email to verify, nothing to approve."
+      intro="Your manager has a six-character code. Add your name and email, and we will send you a code to finish."
       footer={
         <>
           Already set up? <GateLink href={next ? `/login?next=${encodeURIComponent(next)}` : "/login"}>Sign in</GateLink>
@@ -53,25 +54,20 @@ export default function JoinPage({
         </div>
 
         <div>
-          <label htmlFor="username" className="label mb-1.5 block">
-            Username
-          </label>
-          <input id="username" name="username" autoComplete="username" className="field" />
-        </div>
-
-        <div>
-          <label htmlFor="password" className="label mb-1.5 block">
-            Password
+          <label htmlFor="email" className="label mb-1.5 block">
+            Email
           </label>
           <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="new-password"
+            id="email"
+            name="email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="none"
             className="field"
           />
           <p className="mt-1.5 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-            At least 8 characters.
+            You sign in with a code sent here, so there is no password to remember.
           </p>
         </div>
 
@@ -82,7 +78,7 @@ export default function JoinPage({
         )}
 
         <button type="submit" disabled={pending} className="btn-primary w-full">
-          {pending ? "Joining…" : "Join the panel"}
+          {pending ? "Sending…" : "Join the panel"}
         </button>
       </form>
     </Gate>

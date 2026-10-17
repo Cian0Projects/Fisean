@@ -29,10 +29,15 @@ import {
   videoMarkers,
   videos,
 } from "../src/lib/db/schema";
-import { generateJoinCode, hashPassword } from "../src/lib/auth/password";
+import { generateJoinCode } from "../src/lib/auth/password";
 import { HURLING_EVENTS } from "../src/lib/hurling/events";
 
-const DEMO_PASSWORD = "hurling2026";
+/**
+ * Demo addresses end in .test, a domain reserved never to exist, and
+ * src/lib/mail keeps them out of real email: their sign-in codes print in the
+ * terminal running the app.
+ */
+const demoEmail = (handle: string) => `${handle}@demo.ardawn.test`;
 
 /**
  * The actual panel: a starting fifteen with their usual positions, then the
@@ -124,15 +129,12 @@ async function main() {
     .values({ name: "Demo Hurling Club", joinCode, halfLengthMin: 30 })
     .returning();
 
-  const hash = await hashPassword(DEMO_PASSWORD);
-
   const [manager] = await db
     .insert(users)
     .values({
       teamId: team.id,
-      username: "bainisteoir",
+      email: demoEmail("bainisteoir"),
       displayName: "Team Manager",
-      passwordHash: hash,
       role: "admin",
     })
     .returning();
@@ -142,9 +144,8 @@ async function main() {
     .values(
       SQUAD.map(([displayName, position]) => ({
         teamId: team.id,
-        username: displayName.toLowerCase().replace(/[^a-z]/g, "").slice(0, 12),
+        email: demoEmail(displayName.toLowerCase().replace(/[^a-z]/g, "").slice(0, 12)),
         displayName,
-        passwordHash: hash,
         role: "player" as const,
         position,
       })),
@@ -532,8 +533,9 @@ async function main() {
     Team        ${team.name}
     Join code   ${joinCode}
 
-    Sign in as the manager:   bainisteoir  /  ${DEMO_PASSWORD}
-    Or as a player:           ${squad[0].username.padEnd(12)} /  ${DEMO_PASSWORD}
+    Sign in as the manager:   ${manager.email}
+    Or as a player:           ${squad[0].email}
+    (the code prints in the terminal running the app)
 
     ${created.length} clips, 2 playlists, ${squad.length} players,
     and a full stat sheet for the match.

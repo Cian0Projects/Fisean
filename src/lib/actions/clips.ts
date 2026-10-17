@@ -6,6 +6,7 @@ import { db } from "@/lib/db/client";
 import { clipPlayers, clipTags, clips, videos } from "@/lib/db/schema";
 import { assertCanEditOwned, assertSameTeam, requireUserOrThrow } from "@/lib/auth/guard";
 import { MIN_CLIP_MS, MAX_CLIP_MS } from "@/lib/hurling/clip-rules";
+import { notifyUsers } from "@/lib/notify/queue";
 
 export type ClipInput = {
   videoId: string;
@@ -80,6 +81,13 @@ export async function createClip(input: ClipInput): Promise<SavedClip> {
     await db
       .insert(clipPlayers)
       .values(input.playerIds.map((userId) => ({ clipId: clip.id, userId })));
+    // A private clip is someone's own review; nobody is told about it.
+    if (clip.visibility === "team") {
+      await notifyUsers(
+        { teamId: user.teamId, kind: "clip-tagged", subjectId: clip.id, actorId: user.id },
+        input.playerIds,
+      );
+    }
   }
 
   revalidatePath(`/review/${video.id}`);
@@ -168,6 +176,10 @@ export async function setClipPlayers(clipId: string, playerIds: string[]): Promi
   await db.delete(clipPlayers).where(eq(clipPlayers.clipId, clipId));
   if (playerIds.length) {
     await db.insert(clipPlayers).values(playerIds.map((userId) => ({ clipId, userId })));
+    // Anyone already told about this clip is skipped by the queue itself.
+    if (clip.visibility === "team") {
+      await notifyUsers({ teamId: clip.teamId, kind: "clip-tagged", subjectId: clipId, actorId: user.id }, playerIds);
+    }
   }
   revalidatePath(`/review/${clip.videoId}`);
 }

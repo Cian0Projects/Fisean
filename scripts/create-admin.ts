@@ -1,10 +1,11 @@
 /**
  * Create a club and its first admin from the terminal.
  *
- *   npm run create-admin -- --team "Ballygunner" --name "Cian" --username cian
+ *   npm run create-admin -- --team "Ballygunner" --name "Cian" --email cian@example.ie
  *
  * On a hosted instance clubs set themselves up at /start instead; this is for
- * the host, and for a fresh local copy. Both go through `createClub`.
+ * the host, and for a fresh local copy. Both go through `createClub`. No code
+ * is emailed first: whoever runs this already holds the server.
  */
 import "./_env";
 import { createInterface } from "node:readline/promises";
@@ -24,13 +25,12 @@ async function main() {
 
   const teamName = await ask("Team name: ", arg("team"));
   const displayName = await ask("Your name: ", arg("name"));
-  const username = await ask("Username: ", arg("username"));
-  const password = await ask("Password (min 8 chars): ", arg("password"));
+  const email = await ask("Your email: ", arg("email"));
   rl.close();
 
   let club;
   try {
-    club = await createClub({ teamName, displayName, username, password });
+    club = await createClub({ teamName, displayName, email });
   } catch (err) {
     if (err instanceof ClubSetupError) {
       console.error(`\n${err.message}`);
@@ -43,13 +43,13 @@ async function main() {
   Ardawn is ready.
 
     Team       ${teamName}
-    Admin      ${displayName} (@${username.toLowerCase()})
+    Admin      ${displayName} (${email.trim().toLowerCase()})
     Join code  ${club.joinCode}
 
   Start the app with:      npm run dev
   Share with the panel:    npm run lan      (then give out your LAN address)
 
-  Next: sign in and drop a match file onto the squad page.
+  Next: sign in with your email and drop a match file onto the squad page.
 `);
   process.exit(0);
 }

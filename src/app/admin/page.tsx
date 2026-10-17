@@ -31,7 +31,7 @@ export default async function AdminPage() {
     .select({
       id: users.id,
       displayName: users.displayName,
-      username: users.username,
+      email: users.email,
       role: users.role,
       lastSeenAt: users.lastSeenAt,
     })

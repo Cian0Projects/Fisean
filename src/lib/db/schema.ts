@@ -34,6 +34,7 @@ import {
 } from "../hurling/stats";
 import { GAME_CODES } from "../hurling/codes";
 import { SOURCE_KINDS } from "../media/import";
+import { NOTIFICATION_KINDS } from "../notify/digest";
 
 const now = sql`(unixepoch() * 1000)`;
 const id = () =>
@@ -87,9 +88,22 @@ export const users = sqliteTable(
     teamId: text("team_id")
       .notNull()
       .references(() => teams.id, { onDelete: "cascade" }),
-    username: text("username").notNull(),
+    /**
+     * How someone signs in: a code sent here, never a password. Lower-cased
+     * and trimmed before it is stored (src/lib/auth/email-code.ts). Null only
+     * for accounts made before sign-in moved to email, until an admin or the
+     * person themselves adds one.
+     */
+    email: text("email"),
+    /** Left over from password sign-in; nothing new sets it. */
+    username: text("username"),
     displayName: text("display_name").notNull(),
-    passwordHash: text("password_hash").notNull(),
+    /** Left over from password sign-in; nothing reads it any more. */
+    passwordHash: text("password_hash"),
+    /** Whether shares (new footage, playlists, clips you are in) are emailed. */
+    emailNotifications: integer("email_notifications", { mode: "boolean" })
+      .notNull()
+      .default(true),
     role: text("role", { enum: ROLES }).notNull().default("player"),
     /**
      * Position 1–15, where they usually line out; see src/lib/hurling/positions.ts.
@@ -100,9 +114,53 @@ export const users = sqliteTable(
     createdAt: integer("created_at").notNull().default(now),
     lastSeenAt: integer("last_seen_at"),
   },
-  // Unique across every club, not per club: signing in asks only for a
-  // username, so two clubs' "cian" would leave it guessing whose account to open.
-  (t) => [uniqueIndex("users_username").on(t.username)],
+  // Unique across every club, not per club: signing in asks only for an
+  // email, so one address on two panels would leave it guessing whose account
+  // to open. SQLite lets any number of rows hold NULL under a unique index.
+  (t) => [uniqueIndex("users_username").on(t.username), uniqueIndex("users_email").on(t.email)],
+);
+
+/**
+ * One emailed sign-in: a 6-digit code to type and a link to tap, both for the
+ * same request, both stored only as keyed hashes.
+ *
+ * The code exists because of the phone apps. A link in a mail app opens the
+ * phone's browser, not the Capacitor shell, so the session would land in the
+ * wrong place; a code typed into the app does not. The link exists because on
+ * a laptop one click beats six digits.
+ *
+ * Joining a panel and setting up a club go through here too, with what the
+ * form asked kept in `payload` until the address is proven. Nothing is
+ * created for an email nobody has shown they read.
+ */
+export const SIGN_IN_PURPOSES = ["sign-in", "join", "start", "change-email"] as const;
+export type SignInPurpose = (typeof SIGN_IN_PURPOSES)[number];
+
+export const signInRequests = sqliteTable(
+  "sign_in_requests",
+  {
+    /** Public: it rides in the code page's URL. The secrets are the code and link key. */
+    id: id(),
+    email: text("email").notNull(),
+    purpose: text("purpose", { enum: SIGN_IN_PURPOSES }).notNull(),
+    /** JSON of what the join, start or change-email form asked; see email-sign-in.ts. */
+    payload: text("payload"),
+    /** Where to land afterwards, already checked to be a local path. */
+    next: text("next"),
+    codeHash: text("code_hash").notNull(),
+    linkHash: text("link_hash").notNull(),
+    /** Wrong codes typed. Five and the request is dead, so six digits cannot be walked. */
+    attempts: integer("attempts").notNull().default(0),
+    /** For rate limiting by address as well as by email. */
+    ip: text("ip"),
+    expiresAt: integer("expires_at").notNull(),
+    usedAt: integer("used_at"),
+    createdAt: integer("created_at").notNull().default(now),
+  },
+  (t) => [
+    index("sign_in_requests_email").on(t.email, t.createdAt),
+    index("sign_in_requests_ip").on(t.ip, t.createdAt),
+  ],
 );
 
 /** Kept as a table rather than a stateless JWT so an admin can revoke a session. */
@@ -645,6 +703,41 @@ export const drills = sqliteTable(
     updatedAt: integer("updated_at").notNull().default(now),
   },
   (t) => [index("drills_team").on(t.teamId, t.updatedAt)],
+);
+
+/* ---------------------------------------------------------- notifications */
+
+/**
+ * Something shared with one person, waiting to be emailed.
+ *
+ * Written in the same request as the share and sent later, a few at a time,
+ * by src/lib/notify/sender.ts. That is what lets fifteen clips tagged after
+ * training arrive as one email rather than fifteen, and a failed send be
+ * retried rather than lost. The unique index makes re-sharing the same thing
+ * a no-op, so reassigning a playlist does not email twice.
+ */
+export const notifications = sqliteTable(
+  "notifications",
+  {
+    id: id(),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: NOTIFICATION_KINDS }).notNull(),
+    /** The video, playlist or clip it is about. Not a foreign key: it points at three tables. */
+    subjectId: text("subject_id").notNull(),
+    actorId: text("actor_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: integer("created_at").notNull().default(now),
+    /** Set once emailed, or once skipped because there is nowhere to send it. */
+    sentAt: integer("sent_at"),
+  },
+  (t) => [
+    uniqueIndex("notifications_once").on(t.userId, t.kind, t.subjectId),
+    index("notifications_pending").on(t.sentAt, t.userId),
+  ],
 );
 
 /* -------------------------------------------------------------- relations */

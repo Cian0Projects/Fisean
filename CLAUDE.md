@@ -25,6 +25,8 @@ some of these are not worth opening whole — `Grep` for the symbol instead.
 | Schema, any new table | `src/lib/db/schema.ts` (571) — conventions in its header |
 | A server action | `src/lib/actions/clips.ts` (197) is the reference pattern |
 | Permissions | `src/lib/auth/guard.ts` (78) — whole file, it is short |
+| Sign-in (email code, no passwords) | `src/lib/auth/email-sign-in.ts` (164: issue, redeem, rate limits); `email-code.ts` beside it (pure, tested); `src/lib/actions/auth.ts` (`finish()` does what each request was for); pages under `src/app/login/` |
+| Sending email, share notifications | `src/lib/mail/` (`index.ts` driver choice, `zeptomail.ts`, `local.ts` outbox, `templates.ts` all wording); `src/lib/notify/` (`digest.ts` batching rules, `queue.ts` called from actions, `sender.ts` timer started in `src/instrumentation.ts`). How it fits together: `docs/AGENT-RECIPES.md`, "Email" |
 | Scoring, game clock | `src/lib/hurling/notation.ts` (181) |
 | Pitch coordinates, zones | `src/lib/hurling/pitch.ts` (141) |
 | Post-match stats | `src/lib/hurling/stats.ts` (613) — all the rules and roll-ups |
@@ -91,7 +93,16 @@ npm run dev      # the user usually has this running on :3000 already
   import a `.ts` module that imports another. Keep that flag.
 - Schema changes: edit `schema.ts`, then `npx drizzle-kit generate`, then
   `npm run db:migrate`. Never hand-write a migration.
-- `npm run seed` refuses to run on a database that already has a team.
+- **Read every generated migration that rebuilds a table** (`__new_<table>`).
+  drizzle-kit copies columns you are adding in the same step from the old
+  table, where they do not exist yet, so the migration fails. Split it:
+  generate the column change first, then add the new columns and generate
+  again. `scripts/migrate.ts` turns foreign keys off around the run; never
+  run migrations any other way, or a rebuild of `users` cascades away every
+  session, clip tag and playlist assignment.
+- `npm run seed` refuses to run on a database that already has a team. Its
+  people have `@demo.ardawn.test` emails; sign in as one and the code prints
+  in the app's terminal (`.test` never reaches a real mail server).
 
 ## Landmines that cost real time
 

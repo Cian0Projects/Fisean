@@ -14,7 +14,8 @@ import { db } from "./client";
 import { eventTypes, teams, users } from "./schema";
 import { HURLING_EVENTS } from "../hurling/events";
 import type { GameCode } from "../hurling/codes";
-import { generateJoinCode, hashPassword } from "../auth/password";
+import { generateJoinCode } from "../auth/password";
+import { looksLikeEmail, normaliseEmail } from "../auth/email-code";
 
 /** A problem worth showing the person filling in the form, word for word. */
 export class ClubSetupError extends Error {}
@@ -68,34 +69,42 @@ export async function freshJoinCode(): Promise<string> {
   throw new Error("Could not find a free join code. Try again.");
 }
 
+/**
+ * The form's own checks, run before the code is emailed as well as when the
+ * club is made, so a missing name is caught before anyone opens their mail.
+ */
+export function checkClubFields(input: {
+  teamName: string;
+  displayName: string;
+  email: string;
+}): { teamName: string; displayName: string; email: string } | { error: string } {
+  const teamName = input.teamName.trim();
+  const displayName = input.displayName.trim();
+  const email = normaliseEmail(input.email);
+  if (!teamName) return { error: "Enter the club or team name." };
+  if (!displayName) return { error: "Enter your name." };
+  if (!looksLikeEmail(email)) return { error: "Enter your email address." };
+  return { teamName, displayName, email };
+}
+
 export async function createClub(input: {
   teamName: string;
   /** Which game the team plays. The terminal script leaves it out and gets hurling. */
   code?: GameCode;
   displayName: string;
-  username: string;
-  password: string;
+  /** On the web, already proven by the code emailed before this runs. */
+  email: string;
 }): Promise<{ teamId: string; userId: string; joinCode: string }> {
-  const teamName = input.teamName.trim();
-  const displayName = input.displayName.trim();
-  const username = input.username.trim().toLowerCase().replace(/\s+/g, "");
+  const fields = checkClubFields(input);
+  if ("error" in fields) throw new ClubSetupError(fields.error);
+  const { teamName, displayName, email } = fields;
 
-  if (!teamName) throw new ClubSetupError("Enter the club or team name.");
-  if (!displayName) throw new ClubSetupError("Enter your name.");
-  if (username.length < 3) throw new ClubSetupError("Pick a username of at least 3 characters.");
-  if (input.password.length < 8) throw new ClubSetupError("Use a password of at least 8 characters.");
-
-  // Checked before the team is written, so a taken name leaves no empty club.
-  const [taken] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.username, username))
-    .limit(1);
-  if (taken) throw new ClubSetupError("That username is taken. Try another.");
+  // Checked before the team is written, so a taken email leaves no empty club.
+  const [taken] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+  if (taken) throw new ClubSetupError("That email is already on a panel. Sign in with it, or use another.");
 
   await seedTaxonomy();
   const joinCode = await freshJoinCode();
-  const passwordHash = await hashPassword(input.password);
 
   // One transaction, so a failure part-way never leaves a club with no admin.
   return db.transaction((tx) => {
@@ -106,7 +115,7 @@ export async function createClub(input: {
       .get();
     const admin = tx
       .insert(users)
-      .values({ teamId: team.id, username, displayName, passwordHash, role: "admin" })
+      .values({ teamId: team.id, email, displayName, role: "admin" })
       .returning()
       .get();
     return { teamId: team.id, userId: admin.id, joinCode };

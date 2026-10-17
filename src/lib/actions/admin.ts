@@ -15,6 +15,7 @@ import {
 } from "@/lib/db/schema";
 import { freshJoinCode } from "@/lib/db/clubs";
 import { badgeProblem } from "@/lib/media/badge";
+import { looksLikeEmail, normaliseEmail } from "@/lib/auth/email-code";
 import {
   assertSameTeam,
   requireAdmin,
@@ -172,6 +173,34 @@ export async function updateMember(
     })
     .where(eq(users.id, userId));
   revalidatePath("/admin/members");
+}
+
+/**
+ * Give an email to someone on the panel who has none: an account from before
+ * sign-in moved to email, whose owner is signed out and so cannot add one
+ * themselves. Only ever to fill a blank. Once someone has an email, only they
+ * can change it, so an admin cannot point another person's account at an
+ * inbox the admin reads.
+ */
+export async function setMemberEmail(
+  userId: string,
+  rawEmail: string,
+): Promise<{ email: string } | { error: string }> {
+  const admin = await requireAdmin();
+  const email = normaliseEmail(rawEmail);
+  if (!looksLikeEmail(email)) return { error: "Enter an email address." };
+
+  const [target] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (!target) return { error: "That person is not on the panel." };
+  assertSameTeam(admin, target);
+  if (target.email) return { error: "They already have an email. Only they can change it." };
+
+  const [taken] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+  if (taken) return { error: "That email is already used on Ardawn." };
+
+  await db.update(users).set({ email }).where(eq(users.id, userId));
+  revalidatePath("/admin");
+  return { email };
 }
 
 export async function removeMember(userId: string): Promise<void> {

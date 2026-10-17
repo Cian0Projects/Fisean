@@ -12,25 +12,20 @@ import { SignJWT, jwtVerify } from "jose";
 import { and, eq, gt, lt } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { sessions, users, teams, type Role } from "@/lib/db/schema";
+import { appSecret } from "./secret";
 
 const COOKIE = "fisean_session";
 const TTL_DAYS = 60;
 
 function secret(): Uint8Array {
-  const raw = process.env.SESSION_SECRET;
-  if (!raw || raw.length < 32) {
-    throw new Error(
-      "SESSION_SECRET must be set to at least 32 characters. " +
-        'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"',
-    );
-  }
-  return new TextEncoder().encode(raw);
+  return new TextEncoder().encode(appSecret());
 }
 
 export type SessionUser = {
   id: string;
   teamId: string;
-  username: string;
+  /** Null only for an account from before sign-in moved to email. */
+  email: string | null;
   displayName: string;
   role: Role;
   position: number | null;
@@ -101,7 +96,7 @@ export async function currentUser(): Promise<SessionUser | null> {
     .select({
       id: users.id,
       teamId: users.teamId,
-      username: users.username,
+      email: users.email,
       displayName: users.displayName,
       role: users.role,
       position: users.position,

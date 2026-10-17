@@ -17,6 +17,7 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:studio": "drizzle-kit studio",
     "create-admin": "tsx scripts/create-admin.ts",
+    "set-email": "tsx scripts/set-email.ts",
     "ingest": "tsx scripts/ingest.ts",
     "seed": "tsx scripts/seed-demo.ts",
     "smoke": "tsx scripts/smoke.ts"

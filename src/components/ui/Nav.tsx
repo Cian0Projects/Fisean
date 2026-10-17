@@ -77,14 +77,15 @@ export function Nav({ user }: { user: SessionUser }) {
           <Link href="/m" className="whitespace-nowrap text-[13px] sm:hidden" style={{ color: "var(--color-ink-dim)" }}>
             Phone view
           </Link>
-          <div className="hidden leading-tight sm:block">
+          {/* The name opens your account: your email and what gets emailed to you. */}
+          <Link href="/account" className="hidden leading-tight sm:block" title="Your account">
             <div className="text-[13px] font-semibold">{user.displayName}</div>
             {user.role !== "player" && (
               <div className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
                 {user.role === "admin" ? "Team admin" : "Coach"}
               </div>
             )}
-          </div>
+          </Link>
           {/* The phone view has its own sign-out, and a narrow masthead needs the room. */}
           <form action={signOut} className="hidden sm:block">
             <button

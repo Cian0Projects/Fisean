@@ -24,6 +24,60 @@ DATABASE_PATH="$SCRATCH/verify.db" npx next start -p 3131   # run in background
 A real environment variable beats `.env.local` (see `scripts/_env.ts`), so this
 never touches `data/fisean.db`.
 
+## Email
+
+How sign-in and share emails work, for when a task touches either.
+
+**Sign-in has no passwords.** `/login`, `/join` and `/start` each take an
+email (plus a name and team code, or club details) and call `issueSignIn()`
+in `src/lib/auth/email-sign-in.ts`. That writes a `sign_in_requests` row
+holding HMACs (keyed with `SESSION_SECRET`, salted with the row id) of a
+6-digit code and a link key, then emails both. The person lands on
+`/login/code?r=<id>` to type the code, or taps the link, which opens
+`/login/link` (a button, never automatic, because mail scanners open links).
+`redeemCode`/`redeemLink` spend the row once; `finish()` in
+`src/lib/actions/auth.ts` then signs in, creates the player, creates the club,
+or changes the email, according to `purpose`. Join and start make nothing
+until the code comes back. Limits: 15 minutes, 5 wrong codes, 3 requests per
+email and 20 per IP per 15 minutes. `/login` makes a request for unknown
+emails too, but sends nothing, so it cannot reveal who has an account.
+
+**Share emails are queued, then batched.** An action that shares something
+calls `notifyUsers()` or `notifyPanel()` from `src/lib/notify/queue.ts` after
+its own write. That only inserts `notifications` rows (unique per user, kind
+and subject, so re-sharing is a no-op) and never throws into the action. A
+timer in `src/lib/notify/sender.ts`, started from `src/instrumentation.ts`,
+runs every minute. It sends a person's pending rows as one email once 10
+minutes pass with no new ones (60 at most; rules and tests in `digest.ts`),
+looks every subject up again first (deleted, private or untagged are left
+out), and marks rows sent only after the send succeeds. The four kinds today
+are `playlist-assigned`, `match-footage` (from `finishUpload`),
+`team-playlist` (official playlists only) and `clip-tagged` (team clips
+only).
+
+To add a kind: add it to `NOTIFICATION_KINDS` and a line to `digestLines()`
+in `digest.ts` (with a test), describe it in `describe()` in `sender.ts`,
+call the queue from the action, and generate a migration (the column is an
+enum).
+
+**Wording** lives only in `src/lib/mail/templates.ts`, as text and HTML. The
+tests fail if a dash gets into anything a reader sees.
+
+**Drivers.** `ZEPTOMAIL_TOKEN` set means real email through ZeptoMail's EU
+API (`zeptomail.ts`, one `fetch`, no SDK). Unset, or `MAIL_DRIVER=local`,
+means `local.ts`: the email is written to `data/outbox/*.html` and its text
+printed in the terminal, which is how to test sign-in on a laptop. Addresses
+ending `.test` or `.invalid` always go to the outbox. Links in emails come
+from `APP_URL` (`src/lib/url.ts`), which production requires: building them
+from the Host header would let a forged request send a player's sign-in link
+to someone else's server.
+
+**Unsubscribe** links are `/unsubscribe?u=<user>&s=<HMAC>`; only a POST to
+`/api/unsubscribe` changes anything, and that route also answers the
+mail providers' one-click POST. People change their email (verified by code
+first) and toggle share emails at `/account`. An admin can fill a blank
+email on the squad page; `npm run set-email` does it from the terminal.
+
 ## Hit an authenticated page from a script
 
 Sessions are rows plus a signed cookie, so a script can mint one. The pattern

@@ -8,8 +8,9 @@ import { GAME_CODES, GAME_LABELS } from "@/lib/hurling/codes";
 /**
  * Setting up a club. This replaces a terminal command, so it is aimed at the
  * club secretary or the manager rather than whoever is good with computers:
- * five fields — six when the host asks for a sign-up code — and the next
- * screen has the code to send the panel and a place to drop the first match.
+ * four fields (five when the host asks for a sign-up code), then the code
+ * emailed to them, and the next screen has the team code to send the panel
+ * and a place to drop the first match.
  */
 export function StartForm({ needsCode }: { needsCode: boolean }) {
   const [state, action, pending] = useActionState(startClub, undefined);
@@ -83,25 +84,20 @@ export function StartForm({ needsCode }: { needsCode: boolean }) {
         </div>
 
         <div>
-          <label htmlFor="username" className="label mb-1.5 block">
-            Username
-          </label>
-          <input id="username" name="username" autoComplete="username" className="field" />
-        </div>
-
-        <div>
-          <label htmlFor="password" className="label mb-1.5 block">
-            Password
+          <label htmlFor="email" className="label mb-1.5 block">
+            Email
           </label>
           <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="new-password"
+            id="email"
+            name="email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="none"
             className="field"
           />
           <p className="mt-1.5 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-            At least 8 characters. You will be the club&apos;s admin.
+            We will send a code here to finish. You will be the club&apos;s admin.
           </p>
         </div>
 
@@ -112,7 +108,7 @@ export function StartForm({ needsCode }: { needsCode: boolean }) {
         )}
 
         <button type="submit" disabled={pending} className="btn-primary w-full">
-          {pending ? "Setting up…" : "Set up the club"}
+          {pending ? "Sending…" : "Set up the club"}
         </button>
       </form>
     </Gate>

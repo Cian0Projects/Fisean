@@ -10,6 +10,7 @@ import {
   isCoach,
   requireUserOrThrow,
 } from "@/lib/auth/guard";
+import { notifyPanel, notifyUsers } from "@/lib/notify/queue";
 
 export async function createPlaylist(input: {
   title: string;
@@ -47,6 +48,12 @@ export async function createPlaylist(input: {
         sortOrder: i,
       })),
     );
+  }
+
+  // Only the coaches' published cut goes to the whole panel. A player's own
+  // playlist is visible to the team but nobody needs an email about it.
+  if (isOfficial) {
+    await notifyPanel({ teamId: user.teamId, kind: "team-playlist", subjectId: playlist.id, actorId: user.id });
   }
 
   revalidatePath("/playlists");
@@ -174,6 +181,10 @@ export async function assignPlaylist(playlistId: string, userIds: string[]): Pro
     await db
       .insert(playlistViewers)
       .values(userIds.map((userId) => ({ playlistId, userId })));
+    await notifyUsers(
+      { teamId: playlist.teamId, kind: "playlist-assigned", subjectId: playlistId, actorId: user.id },
+      userIds,
+    );
   }
   revalidatePath(`/playlists/${playlistId}`);
 }

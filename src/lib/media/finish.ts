@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { videos } from "@/lib/db/schema";
 import type { MediaStore, StoredPart } from "@/lib/storage";
+import { notifyPanel } from "@/lib/notify/queue";
 import { codecWarning, probeRanges } from "./probe";
 
 export async function finishUpload(
@@ -39,6 +40,17 @@ export async function finishUpload(
       status: "ready",
     })
     .where(eq(videos.id, video.id));
+
+  // The match is ready to watch, so the panel hears about it now and not at
+  // upload start: an email about footage that is not there yet is worse than none.
+  const [row] = await db
+    .select({ teamId: videos.teamId, uploadedBy: videos.uploadedBy })
+    .from(videos)
+    .where(eq(videos.id, video.id))
+    .limit(1);
+  if (row) {
+    await notifyPanel({ teamId: row.teamId, kind: "match-footage", subjectId: video.id, actorId: row.uploadedBy });
+  }
 
   return { warning: codecWarning(probe.codec) };
 }
