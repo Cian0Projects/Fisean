@@ -15,7 +15,7 @@ import { sessions, users, teams, type Role } from "@/lib/db/schema";
 import { appSecret } from "./secret";
 
 const COOKIE = "fisean_session";
-const TTL_DAYS = 60;
+const TTL_DAYS = 90;
 
 function secret(): Uint8Array {
   return new TextEncoder().encode(appSecret());
