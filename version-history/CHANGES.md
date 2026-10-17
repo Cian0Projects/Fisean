@@ -16,6 +16,33 @@ is used, how it is deployed).
 
 -->
 
+## A public home page that shows the real app
+*2026-10-17*
+
+The page a club sees before signing in was rewritten after comparing it with
+Hudl, Spiideo and Veo. It had read as a generic template: a slogan, two
+numbered rows of three, one cropped video and nothing specific to the Gaelic
+games. It is now set in the same light programme style as the list pages and
+built from things the app actually does, in short lines: a plain hero, three
+rows each showing a real screen (clipping, the stat sheet, the drill board)
+taken from frames of the promo video in `public/home/`, a Sunday to Tuesday
+account of a club's week, and four questions clubs ask. Each screen plays into
+place the first time it is scrolled to (`RevealOnScroll`, a few lines of
+IntersectionObserver), and stands still for anyone who has asked for reduced
+motion. A first version tied the motion to the scroll position with a CSS
+view timeline, and a quick flick of the wheel ran it too fast to be seen. There is
+one main action, Set up your club, with joining by code as a
+link beside it. The promo now keeps its own 16:9 shape instead of being cropped
+to 16:10, and has a poster frame while it loads. The page's headlines are
+set in Barlow Condensed, a second face loaded for the home page only, because
+Chivo at black weight read as a startup template rather than as sport. The
+promo sits on a stretch of dark pitch marked at the 13, 20, 45 and 65 that
+runs off the screen's edge, with the logo's green under its corner. The home
+page has no spot blue at all: it is black, white and the logo's green, which
+is now its own token (`--color-logo`), kept apart from the outcome green the
+app uses for a good play. The mark is drawn by the one `Mark` component
+everywhere, in that green, and the wordmark beside it is set in ink.
+
 ## Bring matches across from other apps, and all four codes
 *2026-10-17*
 

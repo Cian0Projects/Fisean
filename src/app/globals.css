@@ -1,9 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --ardawn-night: #080f0c;
   --ardawn-paper: #f0eee7;
-  --ardawn-green: #35c46b;
 }
 
 /*
@@ -23,10 +21,12 @@
  * Those routes put `.dark-room` round themselves and every token below flips.
  *
  * Colour carries meaning here and nothing else. Black is the ink; the spot
- * blue marks the club's own furniture — the wordmark, boxed numbers, where
- * you are, the one action that matters. Green, red and amber are reserved
- * for what happened on the field — good for us, against us, unclear — so
- * nothing decorative is allowed to borrow those three.
+ * blue marks the club's own furniture — boxed numbers, where you are, the
+ * one action that matters. Green, red and amber are reserved for what
+ * happened on the field — good for us, against us, unclear — so nothing
+ * decorative is allowed to borrow those three. The one exception is the
+ * logo's own green (--color-logo), which belongs to the mark and to the
+ * public home page, and is never used to say how a play went.
  */
 @theme {
   /* The card: page, a raised row, a pressed control. */
@@ -56,6 +56,15 @@
   --color-spot-tint: #e9ebf7;
   /* What sits on a spot-filled button. */
   --color-on-spot: #ffffff;
+
+  /*
+   * The identity green: the field held under the goalpost in the mark, and
+   * the accent of the public home page. The same in every room, because a
+   * logo does not change with the lights. Too light to set as text on white,
+   * so it is only ever a fill, with ink on top of it.
+   */
+  --color-logo: #35c46b;
+  --color-logo-deep: #2aa75a;
 
   /* The sod a pitch map is drawn on, and what a hollow mark is filled with. */
   --color-pitch: #eef3ee;
@@ -306,6 +315,20 @@
     line-height: 0.92;
   }
 
+  /*
+   * The home page's headline face (see layout.tsx). Condensed type is set
+   * looser than Chivo's black, not tighter: the letters are already narrow,
+   * and closing them up further is what makes a headline look generated.
+   */
+  .headline {
+    font-family: var(--font-display), var(--font-sans);
+    font-weight: 700;
+    letter-spacing: 0;
+    line-height: 0.92;
+    /* No last word left alone on a line at headline size. */
+    text-wrap: balance;
+  }
+
   .title {
     font-weight: 700;
     letter-spacing: -0.012em;
@@ -361,10 +384,11 @@
     height: 100%;
   }
 
+  /* Set in the ink, so the mark's green is the only colour in the logo. */
   .wordmark {
     font-weight: 900;
     letter-spacing: -0.03em;
-    color: var(--color-ash);
+    color: var(--color-ink);
   }
 
   /* Prose stops before it gets hard to track back to the next line. */
@@ -466,40 +490,6 @@
     background: var(--color-surface-2);
   }
 
-  .ardawn-primary,
-  .ardawn-outline,
-  .ardawn-ghost {
-    @apply inline-flex items-center justify-center gap-2 px-3 py-2
-           text-[13px] font-semibold transition-colors select-none;
-    border-radius: 2px;
-  }
-
-  .ardawn-primary {
-    background: var(--ardawn-green);
-    border: 1px solid var(--ardawn-green);
-    color: var(--ardawn-night);
-  }
-
-  .ardawn-primary:hover {
-    background: #62d98b;
-    border-color: #62d98b;
-  }
-
-  .ardawn-outline {
-    border: 1px solid color-mix(in oklab, var(--ardawn-paper) 70%, transparent);
-    color: var(--ardawn-paper);
-  }
-
-  .ardawn-outline:hover,
-  .ardawn-ghost:hover {
-    background: color-mix(in oklab, var(--ardawn-paper) 10%, transparent);
-  }
-
-  .ardawn-ghost {
-    border: 1px solid transparent;
-    color: color-mix(in oklab, var(--ardawn-paper) 80%, transparent);
-  }
-
   .field {
     @apply w-full px-3 py-2 text-[14px] outline-none transition-colors;
     border-radius: 2px;
@@ -540,6 +530,121 @@
     border-radius: 2px;
     color: var(--color-ash);
     font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * The home page's hero picture: the promo set on a stretch of pitch. A
+   * dark sod panel, mown in bands and marked with the lines every GAA
+   * ground has (13, 20, 45 and 65), runs off the right edge of the
+   * screen, and the logo's green field sits under the video's corner. Plain
+   * rectangles, like the mark itself. The video is shown whole, because it
+   * is the app's own screens and a cropped clip list would read as broken.
+   */
+  .hero-stage {
+    position: relative;
+    isolation: isolate;
+    padding-block: 2rem;
+  }
+  .hero-pitch {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 12%;
+    right: -1rem;
+    z-index: -1;
+    overflow: hidden;
+    background:
+      repeating-linear-gradient(90deg, rgb(255 255 255 / 0.035) 0 3rem, transparent 3rem 6rem),
+      #0a0f0d;
+    box-shadow: inset 0 0 0 2px rgb(236 238 231 / 0.5);
+  }
+  .hero-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1.5px;
+    background: rgb(236 238 231 / 0.42);
+  }
+  .hero-line > span {
+    position: absolute;
+    top: 0.35rem;
+    left: 0.35rem;
+    font-size: 10px;
+    font-weight: 600;
+    color: rgb(236 238 231 / 0.62);
+    font-variant-numeric: tabular-nums;
+  }
+  .hero-field {
+    position: absolute;
+    left: 4%;
+    bottom: -0.9rem;
+    width: 34%;
+    height: 2.25rem;
+    z-index: -1;
+    background: var(--color-logo);
+  }
+  @media (min-width: 640px) {
+    .hero-pitch {
+      right: -1.5rem;
+    }
+  }
+  @media (min-width: 1024px) {
+    .hero-stage {
+      padding-block: 3.25rem;
+    }
+    /* Out past the sheet's padding and its centred margin, to the screen's edge. */
+    .hero-pitch {
+      left: 18%;
+      right: calc((min(100vw, 88rem) - 100vw) / 2 - 2.5rem);
+    }
+    .hero-field {
+      left: 6%;
+      bottom: 0.9rem;
+      height: 3.25rem;
+    }
+  }
+
+  /*
+   * The home page's one action, filled in the logo's green with ink on it.
+   * Ink on this green clears 9:1; white on it would not clear 3:1.
+   */
+  .btn-brand {
+    @apply inline-flex items-center justify-center gap-2 px-3 py-2
+           text-[13px] font-semibold transition-colors select-none;
+    border-radius: 2px;
+    background: var(--color-logo);
+    border: 1px solid var(--color-logo);
+    color: #0a0f0d;
+  }
+  .btn-brand:hover {
+    background: var(--color-logo-deep);
+    border-color: var(--color-logo-deep);
+  }
+
+  /*
+   * The home page's screens play into place the first time they are
+   * scrolled to (RevealOnScroll.tsx sets the state). `waiting` is only ever
+   * set by that script, so without it everything is simply shown. The
+   * screenshot follows its words a beat later, so the two read as one move.
+   */
+  [data-reveal] {
+    transition:
+      opacity 750ms cubic-bezier(0.2, 0.7, 0.2, 1),
+      transform 750ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  [data-reveal][data-from="left"],
+  [data-reveal][data-from="right"] {
+    transition-delay: 150ms;
+  }
+  [data-reveal="waiting"] {
+    opacity: 0;
+    transform: translateY(2.5rem);
+  }
+  [data-reveal="waiting"][data-from="left"] {
+    transform: translateX(-5rem);
+  }
+  [data-reveal="waiting"][data-from="right"] {
+    transform: translateX(5rem);
   }
 
   /* The current page, marked by a bar of the spot ink under it. */
@@ -606,8 +711,15 @@
   .btn,
   .btn-primary,
   .btn-ghost,
-  .btn-outline {
+  .btn-outline,
+  .btn-brand {
     display: none !important;
+  }
+
+  /* Paper has no scroll, so nothing waits to be revealed on it. */
+  [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
   }
 
   .card,

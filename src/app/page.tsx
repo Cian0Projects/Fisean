@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
@@ -32,6 +33,8 @@ import { MatchPreview, type PreviewSource } from "@/components/matches/MatchPrev
 import { PitchMap, type PitchMark } from "@/components/pitch/PitchMap";
 import { ResultBox, verdict, verdictColour } from "@/components/matches/ResultBox";
 import { PromoVideo } from "@/components/home/PromoVideo";
+import { RevealOnScroll } from "@/components/home/RevealOnScroll";
+import { Mark } from "@/components/ui/Mark";
 
 export default async function Home() {
   const user = await currentUser();
@@ -39,141 +42,288 @@ export default async function Home() {
   return <Dashboard />;
 }
 
+/*
+ * The page a club sees before it has an account. It is set like the rest of
+ * the list pages, as a club programme, and the footage screens sit in it as
+ * pictures of the real app rather than illustrations of one.
+ *
+ * The copy is held to two rules. Every claim is something the app does today,
+ * shown or named precisely, because vague promises are what make a landing
+ * page read as generated. And it never suggests Ardawn tags or counts the
+ * match by itself: a coach does the clipping and logs the stat sheet, and the
+ * pitch is that this is quick, not that it is automatic.
+ */
 function PublicHomepage() {
   return (
-    <main className="min-h-screen overflow-hidden bg-[var(--ardawn-night)] text-[var(--ardawn-paper)]">
-      <header className="border-b" style={{ borderColor: "rgba(240, 238, 231, 0.14)" }}>
+    <main className="min-h-screen overflow-x-clip bg-stage text-ink">
+      <RevealOnScroll />
+      <header className="border-b border-line">
         <div className="sheet flex items-center justify-between py-4">
           <Link href="/" className="flex items-center gap-3" aria-label="Ardawn home">
-            <ArdawnMark className="h-7 w-7" />
-            <span className="wordmark text-[25px] leading-none text-[var(--ardawn-paper)]">Ardawn</span>
+            <Mark className="h-7" />
+            <span className="wordmark text-[25px] leading-none">Ardawn</span>
           </Link>
           <nav className="flex items-center gap-2 sm:gap-5" aria-label="Main navigation">
-            <a href="#how-it-works" className="hidden text-[13px] font-semibold text-[var(--ardawn-paper)]/65 sm:inline">
+            <a href="#how-it-works" className="hidden text-[13px] font-semibold text-ink-dim hover:text-ink sm:inline">
               How it works
             </a>
-            <a href="#the-difference" className="hidden text-[13px] font-semibold text-[var(--ardawn-paper)]/65 sm:inline">
-              Why Ardawn
+            <a href="#questions" className="hidden text-[13px] font-semibold text-ink-dim hover:text-ink sm:inline">
+              Questions
             </a>
-            <a href="/login" className="ardawn-outline">
+            <a href="/login" className="btn-outline">
               Sign in
             </a>
           </nav>
         </div>
       </header>
 
-      <section className="sheet grid gap-12 pb-16 pt-14 sm:pb-24 sm:pt-20 lg:grid-cols-[minmax(0,1fr)_minmax(25rem,0.88fr)] lg:items-center lg:gap-20 lg:pt-28">
+      <section className="sheet grid gap-12 pb-12 pt-12 sm:pb-16 sm:pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(26rem,1.05fr)] lg:items-center lg:gap-16 lg:pt-24">
         <div>
-          <p className="mb-5 flex items-center gap-3 text-[12px] font-semibold tracking-[0.08em] text-[var(--color-ash)]">
-            <span className="h-[3px] w-8 bg-[var(--ardawn-green)]" />
-            GAA video review, clipping, stats and drills
+          <p className="mb-5 text-[13px] font-semibold text-ink-dim">
+            Video review for hurling, camogie, Gaelic football and ladies football
           </p>
-          <h1 className="display max-w-3xl text-[clamp(3.25rem,8vw,7.4rem)]">
-            Turn match day into your next advantage.
+          <h1 className="headline max-w-3xl text-[clamp(3.6rem,7.6vw,7.2rem)]">
+            Every match, ready to watch back.
           </h1>
-          <p className="measure mt-7 text-[17px] leading-relaxed text-[var(--ardawn-paper)]/70 sm:text-[19px]">
-            Ardawn gives your club one calm place to watch the match back, mark
-            the moments that matter, and bring a better question to training.
+          <p className="measure mt-7 text-[17px] leading-relaxed text-ink-dim sm:text-[19px]">
+            Upload the match and the whole panel can watch it on their phones. Then
+            clip it, keep the stats and plan training, all in one app.
           </p>
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <a href="/join" className="ardawn-primary px-5 py-3 text-[14px]">
-              Join your team
-            </a>
-            <a href="/start" className="ardawn-outline px-4 py-3 text-[14px]">
+          <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-4">
+            <a href="/start" className="btn-brand px-5 py-3 text-[14px]">
               Set up your club
             </a>
-            <a href="#how-it-works" className="ardawn-ghost px-4 py-3 text-[14px]">
-              See how it works <span aria-hidden>↓</span>
+            <p className="text-[14px] text-ink-dim">
+              Got a code from your club?{" "}
+              <a href="/join" className="font-semibold text-ink underline">
+                Join your team
+              </a>
+            </p>
+          </div>
+        </div>
+
+        <div className="hero-stage">
+          <HeroPitch />
+          <span className="hero-field" aria-hidden />
+          <div className="overflow-hidden border border-[#111317] bg-[#111317]">
+            <PromoVideo src="/Ardawn_Promo.mp4" poster="/home/clipping.jpg" />
+          </div>
+        </div>
+      </section>
+
+      {/* What Ardawn is, in one glance before any scrolling: watching the
+          match is the product, and the other three are what you do with it. */}
+      <section className="sheet pb-14 sm:pb-20" aria-label="What Ardawn does">
+        <dl className="grid border-t-[3px] border-rule sm:grid-cols-2 lg:grid-cols-4">
+          <Feature name="Watch">Full matches in game time, on any phone or laptop.</Feature>
+          <Feature name="Clip">Cut out the key plays and send them to the players involved.</Feature>
+          <Feature name="Stats">Log the stat sheet and see it on a pitch map.</Feature>
+          <Feature name="Drills">Draw a drill, play it back and share it as a video.</Feature>
+        </dl>
+      </section>
+
+      <section className="sheet pb-8 sm:pb-12" id="how-it-works">
+        <h2 className="section-head title text-[15px]">A closer look</h2>
+        <div className="divide-y divide-line">
+          <ScreenRow
+            name="Clipping"
+            title="Clip the match."
+            image="/home/clipping.jpg"
+            alt="The review screen: the match playing, six tagged clips listed beside it, and a timeline of clips underneath."
+          >
+            Tag each clip with the player and what happened, then share it with the panel.
+          </ScreenRow>
+
+          <ScreenRow
+            name="Stats"
+            title="Keep the stats."
+            image="/home/stats.jpg"
+            alt="Logging stats against the video: six numbered stat buttons, a pitch with numbered player marks, and a lane for each stat along the timeline."
+            flip
+          >
+            Log tackles, shots, turnovers and more, and see them on a pitch map.
+          </ScreenRow>
+
+          <ScreenRow
+            name="Drills"
+            title="Draw the drills."
+            image="/home/drill.jpg"
+            alt="The drill board: three attackers and two defenders on a pitch, with steps, playback speed and an export button below."
+          >
+            Plan a drill on the pitch, play it back, and send it to the panel as a video.
+          </ScreenRow>
+        </div>
+      </section>
+
+      <section className="border-y border-line bg-surface">
+        <div className="sheet py-16 sm:py-20">
+          <h2 className="headline max-w-2xl text-[clamp(2.7rem,5vw,4.4rem)]">
+            Sunday&apos;s match, ready for Tuesday.
+          </h2>
+          <dl className="mt-10 border-t-[3px] border-rule">
+            <WeekRow when="Sunday evening">Upload the match, or bring it in from Veo, Pixellot or Hudl.</WeekRow>
+            <WeekRow when="Monday">Clip it and log the stats.</WeekRow>
+            <WeekRow when="Before training">The panel watches their clips on their phones.</WeekRow>
+          </dl>
+        </div>
+      </section>
+
+      <section id="questions">
+        <div className="sheet grid gap-10 py-16 sm:py-20 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.6fr)] lg:gap-20">
+          <h2 className="headline text-[clamp(2.7rem,5vw,4.4rem)]">Questions clubs ask</h2>
+          <div className="border-t-[3px] border-rule">
+            <Question q="What footage works?">
+              Any match saved as an MP4. Upload it, or bring it in from Veo, Pixellot,
+              Hudl, Spiideo, Google Drive or Dropbox.
+            </Question>
+            <Question q="Who can see our footage?">Only your club.</Question>
+            <Question q="Do players need to install anything?">
+              No. It works in the browser on any phone or laptop.
+            </Question>
+            <Question q="How do we get started?">
+              Press Set up your club, upload a match, and send the panel your club&apos;s
+              code. Need a sign-up code? Email{" "}
+              <a href="mailto:hello@ardawnsport.ie" className="font-semibold text-ink underline">
+                hello@ardawnsport.ie
+              </a>
+              .
+            </Question>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-line bg-surface">
+        <div className="sheet flex flex-col gap-6 py-14 sm:flex-row sm:items-end sm:justify-between sm:py-16">
+          <h2 className="headline max-w-xl text-[clamp(2.7rem,5vw,4.4rem)]">Bring your next match in.</h2>
+          <div className="flex flex-col items-start gap-3 sm:items-end">
+            <a href="/start" className="btn-brand px-5 py-3 text-[14px]">
+              Set up your club
             </a>
-          </div>
-          <p className="mt-7 text-[12px] text-[var(--color-ink-faint)]">
-            Private to your squad. Built for the way GAA is actually reviewed.
-          </p>
-        </div>
-
-        <BrandBanner />
-      </section>
-
-      <section className="border-y border-white/10 bg-[#0d1712]" id="the-difference">
-        <div className="sheet grid divide-y lg:grid-cols-3 lg:divide-x lg:divide-y-0">
-          <div className="py-7 lg:pr-10">
-            <p className="figure text-[2.7rem] text-[var(--ardawn-green)]">01</p>
-            <h2 className="title mt-3 text-[20px]">See the whole match</h2>
-            <p className="mt-2 text-[14px] text-[var(--ardawn-paper)]/65">
-              Keep the footage, fixture and scoreline together. No hunting through camera rolls.
-            </p>
-          </div>
-          <div className="py-7 lg:px-10">
-            <p className="figure text-[2.7rem] text-[var(--ardawn-green)]">02</p>
-            <h2 className="title mt-3 text-[20px]">Keep the moments</h2>
-            <p className="mt-2 text-[14px] text-[var(--ardawn-paper)]/65">
-              Clip a delivery, a turnover or a score in seconds. Add context while it is fresh.
-            </p>
-          </div>
-          <div className="py-7 lg:pl-10">
-            <p className="figure text-[2.7rem] text-[var(--ardawn-green)]">03</p>
-            <h2 className="title mt-3 text-[20px]">Share the lesson</h2>
-            <p className="mt-2 text-[14px] text-[var(--ardawn-paper)]/65">
-              Build playlists for the panel, then arrive at training ready to work on the detail.
+            <p className="text-[14px] text-ink-dim">
+              Got a code?{" "}
+              <a href="/join" className="font-semibold text-ink underline">
+                Join your team
+              </a>
             </p>
           </div>
         </div>
       </section>
 
-      <section className="sheet py-20 sm:py-28" id="how-it-works">
-        <div className="grid gap-12 lg:grid-cols-[0.72fr_1.28fr] lg:gap-24">
-          <div>
-            <p className="mb-3 text-[12px] font-semibold tracking-[0.08em] text-[var(--ardawn-green)]">The match desk</p>
-            <h2 className="display max-w-lg text-[clamp(2.6rem,5vw,4.7rem)]">
-              From raw footage to a useful conversation.
-            </h2>
-          </div>
-          <div className="grid gap-0 border-t-[3px] border-[var(--ardawn-paper)]">
-            <LandingStep number="01" title="Upload once" copy="Your match footage belongs to the club, alongside its fixture and stat sheet." />
-            <LandingStep number="02" title="Mark what matters" copy="Use the timeline to cut clips, tag players and draw the shape of the play." />
-            <LandingStep number="03" title="Give the panel a path" copy="Send a playlist to the team so review becomes shared language, not another chore." />
-          </div>
-        </div>
-      </section>
-
-      <footer className="border-t border-white/10">
-        <div className="sheet flex flex-col gap-4 py-8 text-[13px] text-[var(--ardawn-paper)]/50 sm:flex-row sm:items-center sm:justify-between">
-          <span className="wordmark text-[18px] text-[var(--ardawn-paper)]">Ardawn</span>
-          <span>Match footage, made useful.</span>
-          <a href="/login" className="font-semibold text-[var(--ardawn-paper)]">Sign in to your team</a>
+      <footer className="border-t border-line">
+        <div className="sheet flex flex-col gap-4 py-8 text-[13px] text-ink-faint sm:flex-row sm:items-center sm:justify-between">
+          <span className="wordmark text-[18px]">Ardawn</span>
+          <a href="mailto:hello@ardawnsport.ie" className="hover:text-ink">
+            hello@ardawnsport.ie
+          </a>
+          <a href="/login" className="font-semibold text-ink">Sign in to your team</a>
         </div>
       </footer>
     </main>
   );
 }
 
-function BrandBanner() {
+/*
+ * One screen of the real app beside what it is for. The rows alternate sides
+ * so the eye zigzags down the page instead of reading a column of cards, and
+ * each one plays into place the first time it is scrolled to (see
+ * RevealOnScroll), the screenshot sliding in from its own side.
+ */
+function ScreenRow({
+  name,
+  title,
+  image,
+  alt,
+  flip = false,
+  children,
+}: {
+  name: string;
+  title: string;
+  image: string;
+  alt: string;
+  flip?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="relative overflow-hidden border border-white/10 bg-[var(--ardawn-night)]">
-      <PromoVideo src="/Ardawn_Promo.mp4" />
-    </div>
-  );
-}
-
-function ArdawnMark({ className = "" }: { className?: string }) {
-  return (
-    <span className={`relative inline-block shrink-0 ${className}`} aria-hidden>
-      <span className="absolute inset-x-0 top-0 h-full border-x-[0.18em] border-[var(--ardawn-paper)]" />
-      <span className="absolute inset-x-0 top-[53%] h-[0.18em] bg-[var(--ardawn-paper)]" />
-      <span className="absolute inset-x-[0.18em] bottom-0 h-[47%] bg-[var(--ardawn-green)]" />
-    </span>
-  );
-}
-
-function LandingStep({ number, title, copy }: { number: string; title: string; copy: string }) {
-  return (
-    <div className="grid grid-cols-[3.5rem_1fr] gap-4 border-b border-[var(--color-line)] py-6 sm:grid-cols-[4.5rem_1fr] sm:gap-7">
-      <span className="jersey h-8 w-8">{number}</span>
-      <div>
-        <h3 className="title text-[20px]">{title}</h3>
-        <p className="mt-1 max-w-xl text-[14px] text-[var(--color-ink-dim)]">{copy}</p>
+    <div
+      className={`grid gap-8 py-12 sm:py-16 lg:items-center lg:gap-16 ${
+        flip ? "lg:grid-cols-[minmax(0,8fr)_minmax(0,5fr)]" : "lg:grid-cols-[minmax(0,5fr)_minmax(0,8fr)]"
+      }`}
+    >
+      <div data-reveal="" className={flip ? "lg:order-2" : undefined}>
+        <p className="text-[13px] font-semibold text-ink-faint">{name}</p>
+        <h3 className="headline mt-2 text-[clamp(2.3rem,3.8vw,3.4rem)]">{title}</h3>
+        <p className="mt-4 max-w-md text-[16px] leading-relaxed text-ink-dim sm:text-[17px]">{children}</p>
       </div>
+      <Image
+        src={image}
+        alt={alt}
+        width={1920}
+        height={1080}
+        sizes="(min-width: 1024px) 60vw, 100vw"
+        data-reveal=""
+        data-from={flip ? "left" : "right"}
+        className={`block h-auto w-full border border-line-strong ${flip ? "lg:order-1" : ""}`}
+      />
     </div>
+  );
+}
+
+function Feature({ name, children }: { name: string; children: React.ReactNode }) {
+  return (
+    <div className="border-b border-line py-5 sm:pr-8 lg:border-b-0">
+      <dt className="headline text-[27px]">{name}</dt>
+      <dd className="mt-1.5 text-[15px] leading-relaxed text-ink-dim">{children}</dd>
+    </div>
+  );
+}
+
+function WeekRow({ when, children }: { when: string; children: React.ReactNode }) {
+  return (
+    <div className="grid gap-2 border-b border-line py-6 sm:grid-cols-[14rem_1fr] sm:gap-8">
+      <dt className="headline text-[25px]">{when}</dt>
+      <dd className="measure text-[15px] leading-relaxed text-ink-dim sm:text-[16px]">{children}</dd>
+    </div>
+  );
+}
+
+/*
+ * A plain disclosure, so the answers are in the page for search engines and
+ * screen readers and the list still scans as six questions.
+ */
+function Question({ q, children }: { q: string; children: React.ReactNode }) {
+  return (
+    <details className="group border-b border-line">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-6 py-5 text-[17px] font-semibold [&::-webkit-details-marker]:hidden">
+        {q}
+        <span className="text-[22px] font-normal leading-none text-ink-faint transition-transform group-open:rotate-45" aria-hidden>
+          +
+        </span>
+      </summary>
+      <p className="measure pb-6 text-[15px] leading-relaxed text-ink-dim">{children}</p>
+    </details>
+  );
+}
+
+/*
+ * The lines on the hero's stretch of pitch. The panel is half a 145 m
+ * ground, halfway at its left edge and the end line off the screen's right,
+ * so each line sits at its distance from that end line. Every GAA pitch is
+ * marked at the 13, 20, 45 and 65 whichever code is played on it, so these
+ * are true for all four. A whole pitch in this space crowded the 13 and 20
+ * into one another.
+ */
+const HALF_PITCH_M = 72.5;
+const PITCH_LINES = [65, 45, 20, 13];
+
+function HeroPitch() {
+  return (
+    <span className="hero-pitch" aria-hidden>
+      {PITCH_LINES.map((metres) => (
+        <span key={metres} className="hero-line" style={{ left: `${(1 - metres / HALF_PITCH_M) * 100}%` }}>
+          <span>{metres}</span>
+        </span>
+      ))}
+    </span>
   );
 }
 

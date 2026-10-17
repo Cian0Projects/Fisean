@@ -9,7 +9,7 @@ import { useRef, useState } from "react";
  * not a player. A click (or Enter/Space, since it is a button) pauses it, and a
  * play mark shows only while paused, so nothing sits over the footage as it runs.
  */
-export function PromoVideo({ src }: { src: string }) {
+export function PromoVideo({ src, poster }: { src: string; poster?: string }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [paused, setPaused] = useState(false);
 
@@ -29,8 +29,9 @@ export function PromoVideo({ src }: { src: string }) {
     >
       <video
         ref={ref}
-        className="block aspect-[16/10] h-full w-full object-cover"
+        className="block aspect-video h-auto w-full object-contain"
         src={src}
+        poster={poster}
         autoPlay
         muted
         loop

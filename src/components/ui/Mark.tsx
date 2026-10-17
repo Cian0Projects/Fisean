@@ -25,7 +25,7 @@ type Ink = { posts?: string; ball?: string };
 
 export function Mark({
   posts = "var(--color-ink)",
-  ball = "var(--color-ash)",
+  ball = "var(--color-logo)",
   className,
   title,
 }: Ink & { className?: string; title?: string }) {

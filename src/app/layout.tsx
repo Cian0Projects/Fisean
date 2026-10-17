@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Chivo } from "next/font/google";
+import { Barlow_Condensed, Chivo } from "next/font/google";
 import "./globals.css";
 
 /**
@@ -20,6 +20,20 @@ const chivo = Chivo({
   variable: "--font-chivo",
 });
 
+/*
+ * A second face for the public home page's headlines only. A condensed
+ * grotesque is what a scoreboard, a jersey number and a county final
+ * programme cover are set in, so it reads as sport before a word of it is
+ * read; Chivo at black weight, tightly tracked, reads as a startup. The app
+ * itself keeps the one face above.
+ */
+const barlowCondensed = Barlow_Condensed({
+  subsets: ["latin", "latin-ext"],
+  weight: ["600", "700"],
+  display: "swap",
+  variable: "--font-display",
+});
+
 export const metadata: Metadata = {
   title: "Ardawn: GAA video review",
   description:
@@ -38,7 +52,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={chivo.variable}>
+    <html lang="en" className={`${chivo.variable} ${barlowCondensed.variable}`}>
       <body>{children}</body>
     </html>
   );
