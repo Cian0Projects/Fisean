@@ -32,6 +32,8 @@ import {
   STAT_TYPES,
   type Half,
 } from "../hurling/stats";
+import { GAME_CODES } from "../hurling/codes";
+import { SOURCE_KINDS } from "../media/import";
 
 const now = sql`(unixepoch() * 1000)`;
 const id = () =>
@@ -52,6 +54,11 @@ export const teams = sqliteTable(
      * put a player on the wrong club's panel.
      */
     joinCode: text("join_code").notNull(),
+    /**
+     * Which of the four games this team plays; see src/lib/hurling/codes.ts.
+     * Hurling for the clubs that signed up before the question was asked.
+     */
+    code: text("code", { enum: GAME_CODES }).notNull().default("hurling"),
     /** 35 for senior inter-county, 30 for most club and minor grades. */
     halfLengthMin: integer("half_length_min").notNull().default(30),
     /**
@@ -198,6 +205,38 @@ export const videos = sqliteTable(
     createdAt: integer("created_at").notNull().default(now),
   },
   (t) => [index("videos_team").on(t.teamId), index("videos_match").on(t.matchId)],
+);
+
+/**
+ * A match file the server is fetching from another app, for a club bringing
+ * its old footage across (src/lib/media/import.ts). The video row exists from
+ * the start, as an upload in progress, so the match shows up at once and the
+ * file counts against the club's allowance; this row holds what only the
+ * fetch needs. It is deleted when the file is in, taking the link with it:
+ * download links carry their own access, so none is kept longer than needed.
+ */
+export const footageImports = sqliteTable(
+  "footage_imports",
+  {
+    id: id(),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    videoId: text("video_id")
+      .notNull()
+      .references(() => videos.id, { onDelete: "cascade" }),
+    /** Where to fetch from, after any share link was turned into a download link. */
+    sourceUrl: text("source_url").notNull(),
+    source: text("source", { enum: SOURCE_KINDS }).notNull().default("other"),
+    /** Whether the source answers byte ranges; without them the file is read start to end. */
+    ranges: integer("ranges", { mode: "boolean" }).notNull().default(true),
+    receivedBytes: integer("received_bytes").notNull().default(0),
+    /** Why it stopped, in words for the coach. Null while it is going. */
+    error: text("error"),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: integer("created_at").notNull().default(now),
+  },
+  (t) => [index("footage_imports_team").on(t.teamId), uniqueIndex("footage_imports_video").on(t.videoId)],
 );
 
 /**

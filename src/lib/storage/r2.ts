@@ -173,6 +173,10 @@ export class R2Store implements MediaStore {
     );
   }
 
+  async putPart(key: string, uploadId: string, partNumber: number, bytes: Uint8Array<ArrayBuffer>): Promise<void> {
+    await this.call(this.presignPart(key, uploadId, partNumber), { method: "PUT", body: bytes });
+  }
+
   async listParts(key: string, uploadId: string): Promise<StoredPart[]> {
     const parts: StoredPart[] = [];
     let marker = "0";

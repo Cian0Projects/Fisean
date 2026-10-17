@@ -18,7 +18,7 @@ import { db } from "@/lib/db/client";
 import { videos } from "@/lib/db/schema";
 import { store } from "@/lib/storage";
 import { missingParts, parsePartList, planParts } from "@/lib/media/upload";
-import { codecWarning, probeRanges } from "@/lib/media/probe";
+import { finishUpload } from "@/lib/media/finish";
 
 type Ctx = { params: Promise<{ videoId: string }> };
 
@@ -66,34 +66,11 @@ export async function POST(_req: NextRequest, ctx: Ctx) {
     return problem("Some of the file has not arrived yet.", 409, { missing });
   }
 
-  await media.completeMultipart(video.storageKey, video.uploadId, held);
-
-  // Duration, frame rate and codec come from the file's own index, read from
-  // its two ends — no ffmpeg, and no reading the gigabytes in between.
-  const probe = await probeRanges(video.sizeBytes, async (start, length) => {
-    const stream = await media.readRange(video.storageKey, { start, end: start + length - 1 });
-    return new Uint8Array(await new Response(stream).arrayBuffer());
-  });
-
-  await db
-    .update(videos)
-    .set({
-      durationMs: probe.durationMs,
-      width: probe.width,
-      height: probe.height,
-      fps: probe.fps,
-      codec: probe.codec,
-      moovAtStart: probe.moovAtStart,
-      uploadId: null,
-      // Ready as it stands: the player seeks the original with range
-      // requests, so there is nothing to transcode.
-      status: "ready",
-    })
-    .where(eq(videos.id, video.id));
+  const { warning } = await finishUpload(media, video, held);
 
   revalidatePath("/");
   revalidatePath("/admin");
-  return NextResponse.json({ videoId: video.id, warning: codecWarning(probe.codec) });
+  return NextResponse.json({ videoId: video.id, warning });
 }
 
 export async function DELETE(_req: NextRequest, ctx: Ctx) {

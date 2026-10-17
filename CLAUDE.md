@@ -1,9 +1,12 @@
 @AGENTS.md
 
+Do not commit or push anything in this repo unless I specifically request you and give you the password 'jeff'
+
 # Físeán — working notes
 
-Hurling match video review for GAA clubs — one hosted instance serves many
-clubs, each scoped by `teamId`. Next.js 16 (App
+Match video review for GAA clubs in all four codes (hurling, camogie, Gaelic
+football, ladies Gaelic football) — one hosted instance serves many clubs,
+each scoped by `teamId`, each with its code on `teams.code`. Next.js 16 (App
 Router), TypeScript, SQLite + Drizzle, Tailwind 4. Seven runtime dependencies
 and no ffmpeg — keep it that way unless asked.
 
@@ -28,6 +31,7 @@ some of these are not worth opening whole — `Grep` for the symbol instead.
 | Colour, type, spacing | `src/app/globals.css` — the whole design system |
 | The video workspace | `src/components/review/ReviewWorkspace.tsx` (819) — **grep it, don't read it** |
 | Player transport | `src/components/player/engine.ts` |
+| Importing footage from Veo, Pixellot, Hudl, Drive… | `src/lib/media/import.ts` (rules, tested); `source.ts` (guarded fetch); `importer.ts` (queue, resumed from `src/instrumentation.ts`); `src/lib/actions/imports.ts`; `src/components/admin/FootageImport.tsx` |
 | Footage upload, club sign-up | `src/lib/media/upload.ts` (part plan); `src/app/api/upload/`; `src/components/admin/FootageUpload.tsx`; `src/lib/db/clubs.ts` (create a club, shared by `/start` and `create-admin`) |
 | Storage (R2, local stand-in) | `src/lib/storage/index.ts` (interface, S3-shaped); `r2.ts`; `local.ts` (signed links served by `/api/media`); `sigv4.ts` (presigning, no SDK) |
 | Training drills (coaches) | `src/lib/hurling/drill.ts` (model, playback, video timing); `src/components/drills/DrillEditor.tsx` (board); `recordDrill.ts` beside it (video export via MediaRecorder, no ffmpeg) |
@@ -46,6 +50,11 @@ needs justifying in the same voice, not to find out how something works.
 - **Pure domain logic goes in `src/lib/hurling/`**, not in actions or
   components, because that is what the tests can import. Actions keep auth,
   scoping and persistence only.
+- **Four codes, not one.** Never write hurling-only copy for something every
+  code shares; say "match", "ball", "the panel". Anything that differs by
+  code (ball, kick-out vs puck-out, 45 vs 65, two-point arc) reads
+  `teams.code` through `src/lib/hurling/codes.ts`. The `hurling/` folder
+  name is historical; it holds every code's rules.
 - **Positions are normalised 0–1**, never pixels or metres — a GAA pitch is
   130–145 m long, so metres would be a lie. Convert at the edges.
 - **Irish terms stay Irish** for the things people say in Irish: cúl, cúilín,

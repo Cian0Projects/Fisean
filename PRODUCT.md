@@ -8,7 +8,8 @@ web
 
 ## Users
 
-One GAA club's hurling panel: selectors, the manager and coaches, and the
+A GAA club's panel in any of the four codes (hurling, camogie, Gaelic
+football, ladies Gaelic football): selectors, the manager and coaches, and the
 players themselves. Players and coaches use the desktop pages about equally —
 coaches to tag and publish, players to catch up on the clips they are in and
 the playlists set for them. Players also use the phone view (`/m`) and the
@@ -24,9 +25,10 @@ gets watched, by name, before the next session.
 ## Positioning
 
 Built for one club and run on its own machine: no per-seat licence, no
-upload of several-gigabyte files through a browser, hurling's own notation
-(cúl–cúilín scorelines, poc amach, 30- and 35-minute halves) rather than a
-generic sports template.
+upload of several-gigabyte files through a browser, the Gaelic games' own
+notation (cúl–cúilín scorelines, poc amach, 30- and 35-minute halves) rather
+than a generic sports template. A club moving from Veo, Pixellot, Hudl or
+Spiideo pastes its download links and the server brings the matches across.
 
 ## Operating Context
 
@@ -65,5 +67,7 @@ to quote.
 
 - The last match leads: it is what everyone came to look at.
 - Watched by name — assignment and follow-up matter more than browsing.
-- Hurling's own vocabulary and notation, never a generic sports template.
+- The Gaelic games' own vocabulary and notation, never a generic sports
+  template. All four codes, never hurling alone in anything a club reads.
+- Moving a club's old footage across must take minutes, not a weekend.
 - Nothing that needs a server bill or a dependency to earn its place.

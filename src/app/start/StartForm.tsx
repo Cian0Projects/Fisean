@@ -3,11 +3,12 @@
 import { useActionState } from "react";
 import { startClub } from "@/lib/actions/auth";
 import { Gate, GateLink } from "@/components/ui/Gate";
+import { GAME_CODES, GAME_LABELS } from "@/lib/hurling/codes";
 
 /**
  * Setting up a club. This replaces a terminal command, so it is aimed at the
  * club secretary or the manager rather than whoever is good with computers:
- * four fields — five when the host asks for a sign-up code — and the next
+ * five fields — six when the host asks for a sign-up code — and the next
  * screen has the code to send the panel and a place to drop the first match.
  */
 export function StartForm({ needsCode }: { needsCode: boolean }) {
@@ -50,9 +51,28 @@ export function StartForm({ needsCode }: { needsCode: boolean }) {
             id="teamName"
             name="teamName"
             autoFocus={!needsCode}
-            placeholder="Ballygunner senior hurlers"
+            placeholder="St Brigid's seniors"
             className="field"
           />
+        </div>
+
+        <div>
+          <label htmlFor="code" className="label mb-1.5 block">
+            Game
+          </label>
+          <select id="code" name="code" defaultValue="" className="field">
+            <option value="" disabled>
+              Choose the game your team plays
+            </option>
+            {GAME_CODES.map((c) => (
+              <option key={c} value={c}>
+                {GAME_LABELS[c]}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1.5 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+            A dual club sets up each team on its own.
+          </p>
         </div>
 
         <div>

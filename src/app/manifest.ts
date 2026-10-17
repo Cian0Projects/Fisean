@@ -16,7 +16,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Ardawn",
     short_name: "Ardawn",
-    description: "Watch and clip hurling match footage.",
+    description: "Watch and clip match footage for hurling, camogie and Gaelic football.",
     start_url: "/m",
     scope: "/",
     display: "standalone",

@@ -15,9 +15,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { drills } from "@/lib/db/schema";
+import { drills, teams } from "@/lib/db/schema";
 import { assertSameTeam, requireCoach } from "@/lib/auth/guard";
 import { DRILL_LIMITS, parseDrill, starterDrill, type DrillData } from "@/lib/hurling/drill";
+import { ballFor } from "@/lib/hurling/codes";
 
 async function loadOwnDrill(id: string) {
   const user = await requireCoach();
@@ -31,16 +32,20 @@ async function loadOwnDrill(id: string) {
   return { user, drill };
 }
 
-/** A new drill opens on a four-on-three starter, then straight into the editor. */
+/**
+ * A new drill opens on a four-on-three starter, with the ball the team plays
+ * with, then straight into the editor.
+ */
 export async function createDrill(): Promise<void> {
   const user = await requireCoach();
+  const [team] = await db.select({ code: teams.code }).from(teams).where(eq(teams.id, user.teamId)).limit(1);
   const [drill] = await db
     .insert(drills)
     .values({
       teamId: user.teamId,
       createdBy: user.id,
       title: "Untitled drill",
-      data: JSON.stringify(starterDrill()),
+      data: JSON.stringify(starterDrill(ballFor(team?.code ?? "hurling"))),
     })
     .returning({ id: drills.id });
   revalidatePath("/drills");

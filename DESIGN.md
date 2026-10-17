@@ -1,6 +1,6 @@
 ---
 name: Físeán
-description: Hurling match video review for one GAA club, printed like the club's match programme.
+description: Match video review for GAA clubs in hurling, camogie, Gaelic football and ladies football, printed like the club's match programme.
 colors:
   programme-white: "#ffffff"
   raised-grey: "#f4f5f7"

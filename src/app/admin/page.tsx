@@ -4,6 +4,7 @@ import { matches, teams, users, videos } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/guard";
 import { Nav } from "@/components/ui/Nav";
 import { AdminPanels } from "@/components/admin/AdminPanels";
+import { importsForTeam } from "@/lib/queries/imports";
 
 export default async function AdminPage() {
   const user = await requireUser();
@@ -76,6 +77,7 @@ export default async function AdminPage() {
           codec: v.codec,
           moovAtStart: v.moovAtStart,
         }))}
+        imports={await importsForTeam(user.teamId)}
       />
     </>
   );

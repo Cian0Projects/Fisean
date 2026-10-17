@@ -143,7 +143,7 @@ export class LocalDiskStore implements MediaStore {
     });
   }
 
-  /** Called by /api/media when the browser PUTs to a part URL. */
+  /** Called by /api/media when the browser PUTs to a part URL, and by the importer directly. */
   async putPart(key: string, uploadId: string, partNumber: number, bytes: Uint8Array): Promise<void> {
     const dir = await this.ownedUpload(key, uploadId);
     // Write then rename, so a part cut off mid-write is never listed as done.

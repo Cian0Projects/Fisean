@@ -16,6 +16,27 @@ is used, how it is deployed).
 
 -->
 
+## Bring matches across from other apps, and all four codes
+*2026-10-17*
+
+A club moving to Ardawn can now bring last season with it in minutes. On the
+squad page, a coach pastes download links from Veo, Pixellot, Hudl, Spiideo,
+Google Drive or Dropbox, one per line or a whole export email at once. Each
+link is checked straight away and comes back as a match named from its file,
+and the server then fetches the files itself, straight into storage, so
+nothing goes through the clubhouse broadband and the page can be closed.
+None of those apps lets a club move its whole library out, but every one
+hands over a single match as a download link, so that is what this takes.
+Transfers resume after a restart (a new `footage_imports` table, picked up
+from `src/instrumentation.ts`), and an expired link can be swapped for a
+fresh one without losing what has arrived. Every fetch, redirects included,
+refuses private network addresses. Ardawn is also now plainly for all four
+codes, hurling, camogie, Gaelic football and ladies Gaelic football, in the
+copy and the docs, and each club says which it plays at sign-up (a new
+`teams.code` column, hurling for existing clubs). For now the code only sets
+the ball a new drill starts with; the kick-out, the 45 and the two-point
+arc come next.
+
 ## Club badges, and the squad as one list
 *2026-10-14*
 

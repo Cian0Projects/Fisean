@@ -84,13 +84,14 @@ export function emptyDrill(): DrillData {
 }
 
 /**
- * A starter: four on three attacking the goal, the sliotar with the first
+ * A starter: four on three attacking the goal, the ball with the first
  * attacker, so a new drill opens on something to move rather than an empty
- * field.
+ * field. The ball is the team's own: a sliotar for hurling and camogie, a
+ * football for both footballs (`ballFor` in codes.ts).
  */
-export function starterDrill(): DrillData {
+export function starterDrill(ball: BallKind = "sliotar"): DrillData {
   let d = applyPreset(emptyDrill(), "4v3");
-  d = addBall(d, "sliotar");
+  d = addBall(d, ball);
   const carrier = d.steps[0].at.a1;
   return movePiece(d, 0, "ball1", { x: carrier.x + 0.018, y: carrier.y + 0.012 });
 }

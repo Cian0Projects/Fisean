@@ -13,6 +13,7 @@ import { eq, isNull } from "drizzle-orm";
 import { db } from "./client";
 import { eventTypes, teams, users } from "./schema";
 import { HURLING_EVENTS } from "../hurling/events";
+import type { GameCode } from "../hurling/codes";
 import { generateJoinCode, hashPassword } from "../auth/password";
 
 /** A problem worth showing the person filling in the form, word for word. */
@@ -69,6 +70,8 @@ export async function freshJoinCode(): Promise<string> {
 
 export async function createClub(input: {
   teamName: string;
+  /** Which game the team plays. The terminal script leaves it out and gets hurling. */
+  code?: GameCode;
   displayName: string;
   username: string;
   password: string;
@@ -96,7 +99,11 @@ export async function createClub(input: {
 
   // One transaction, so a failure part-way never leaves a club with no admin.
   return db.transaction((tx) => {
-    const team = tx.insert(teams).values({ name: teamName, joinCode }).returning().get();
+    const team = tx
+      .insert(teams)
+      .values({ name: teamName, joinCode, code: input.code ?? "hurling" })
+      .returning()
+      .get();
     const admin = tx
       .insert(users)
       .values({ teamId: team.id, username, displayName, passwordHash, role: "admin" })

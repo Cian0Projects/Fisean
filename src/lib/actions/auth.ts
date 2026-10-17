@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { teams, users } from "@/lib/db/schema";
 import { ClubSetupError, createClub } from "@/lib/db/clubs";
+import { isGameCode } from "@/lib/hurling/codes";
 import { hashPassword, normaliseJoinCode, verifyPassword } from "@/lib/auth/password";
 import { createSession, destroySession } from "@/lib/auth/session";
 
@@ -108,10 +109,14 @@ export async function startClub(_prev: AuthState, form: FormData): Promise<AuthS
     return { error: "That sign-up code is not right. Ask whoever sent you the link." };
   }
 
+  const code = form.get("code");
+  if (!isGameCode(code)) return { error: "Choose the game your team plays." };
+
   let club;
   try {
     club = await createClub({
       teamName: String(form.get("teamName") ?? ""),
+      code,
       displayName: String(form.get("displayName") ?? ""),
       username: String(form.get("username") ?? ""),
       password: String(form.get("password") ?? ""),

@@ -2,7 +2,7 @@
   "name": "fisean",
   "version": "0.1.0",
   "private": true,
-  "description": "Físeán — hurling match video review for GAA teams",
+  "description": "Físeán: match video review for GAA teams in hurling, camogie, Gaelic football and ladies football",
   "scripts": {
     "dev": "next dev",
     "lan": "next dev -H 0.0.0.0",

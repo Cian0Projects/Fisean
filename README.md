@@ -2,9 +2,10 @@
 
 # Físeán
 
-Hurling match video review for GAA teams. Clip, tag, annotate and share
-footage — built so a selector can open a 70-minute match on a Sunday evening
-and have it tagged and pushed to the panel's phones before Tuesday training.
+Match video review for GAA teams: hurling, camogie, Gaelic football and
+ladies Gaelic football. Clip, tag, annotate and share footage — built so a
+selector can open a 60 or 70-minute match on a Sunday evening and have it
+tagged and pushed to the panel's phones before Tuesday training.
 
 One hosted instance serves every club. A club secretary sets the club up at
 `/start`, drops a match file onto the squad page, and sends the panel a
@@ -156,7 +157,18 @@ Three further details do the remaining work, all in
 
 ---
 
-## Tailored to hurling
+## Built for the Gaelic games
+
+Ardawn is for all four codes: hurling, camogie, Gaelic football and ladies
+Gaelic football. A club says which it plays when it signs up
+([`src/lib/hurling/codes.ts`](src/lib/hurling/codes.ts)), so whatever differs
+between them follows the club rather than assuming one code. Footage, clips,
+playlists, the game clock, positions and the pitch are common to all four.
+Today the code picks the ball a new drill starts with. The built-in tag set
+and stat sheet were written for hurling first, so the puck-out, the 65 and
+the sideline cut are hurling's; the kick-out, the 45 and football's two-point
+arc are the next to follow the club's code. The folder is still called
+`hurling/` because that is where the domain logic began.
 
 The event taxonomy lives in the database, not in component code, so a club can
 add the events it actually tracks without a migration. The built-in set is in

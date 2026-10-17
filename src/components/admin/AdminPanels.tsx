@@ -15,7 +15,9 @@ import { matchDate, fileSize } from "@/lib/format";
 import { ClubBadge } from "@/components/ui/ClubBadge";
 import { BadgeEditor } from "./BadgeEditor";
 import { UploadArea, UploadButton, UploadProvider, useUploads } from "./FootageUpload";
+import { FootageImport } from "./FootageImport";
 import type { Role } from "@/lib/db/schema";
+import type { ImportView } from "@/lib/queries/imports";
 
 type Member = {
   id: string;
@@ -62,6 +64,7 @@ export function AdminPanels({
   members,
   matches,
   videos,
+  imports,
 }: {
   viewer: { id: string; role: Role };
   joinCode: string;
@@ -70,6 +73,7 @@ export function AdminPanels({
   members: Member[];
   matches: Match[];
   videos: Video[];
+  imports: ImportView[];
 }) {
   const isAdmin = viewer.role === "admin";
 
@@ -107,7 +111,7 @@ export function AdminPanels({
 
           <aside className="space-y-14">
             {isAdmin && <Matches matches={matches} videos={videos} />}
-            <Footage videos={videos} canDelete={isAdmin} />
+            <Footage videos={videos} imports={imports} canDelete={isAdmin} />
           </aside>
         </div>
       </main>
@@ -460,12 +464,21 @@ function AddMatch({ onDone }: { onDone: () => void }) {
   );
 }
 
-function Footage({ videos, canDelete }: { videos: Video[]; canDelete: boolean }) {
+function Footage({
+  videos,
+  imports,
+  canDelete,
+}: {
+  videos: Video[];
+  imports: ImportView[];
+  canDelete: boolean;
+}) {
   const [, startTransition] = useTransition();
   const { uploads } = useUploads();
-  // A file on its way up is shown in the upload queue, with its progress;
-  // listing its half-written row here as well would show it twice.
-  const inFlight = new Set(uploads.map((u) => u.videoId));
+  // A file on its way up is shown in the upload queue, and one coming across
+  // from another app in the import list, each with its progress; listing its
+  // half-written row here as well would show it twice.
+  const inFlight = new Set([...uploads.map((u) => u.videoId), ...imports.map((i) => i.videoId)]);
   const listed = videos.filter((v) => !inFlight.has(v.id));
 
   return (
@@ -476,6 +489,7 @@ function Footage({ videos, canDelete }: { videos: Video[]; canDelete: boolean })
       />
 
       <UploadArea />
+      <FootageImport initial={imports} />
 
       {listed.length === 0 ? (
         <Empty>No footage yet.</Empty>

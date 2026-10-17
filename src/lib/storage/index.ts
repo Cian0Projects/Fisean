@@ -49,6 +49,11 @@ export interface MediaStore {
   createMultipart(key: string, contentType: string): Promise<string>;
   /** A URL the browser can PUT one part's bytes to, without a session. */
   presignPart(key: string, uploadId: string, partNumber: number): string;
+  /**
+   * Store one part from the server itself, for footage the server fetches
+   * from another app rather than the browser sending it (src/lib/media/importer.ts).
+   */
+  putPart(key: string, uploadId: string, partNumber: number, bytes: Uint8Array<ArrayBuffer>): Promise<void>;
   /** Parts received so far. Throws if the upload no longer exists. */
   listParts(key: string, uploadId: string): Promise<StoredPart[]>;
   /** Stitch the parts, in order, into the object at `key`. */
