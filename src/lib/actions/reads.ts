@@ -29,6 +29,7 @@ export async function listComments(clipId: string): Promise<CommentRow[]> {
       atMs: comments.atMs,
       parentId: comments.parentId,
       createdAt: comments.createdAt,
+      editedAt: comments.editedAt,
       userId: comments.userId,
       authorName: users.displayName,
     })

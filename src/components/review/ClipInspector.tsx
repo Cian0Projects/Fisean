@@ -11,6 +11,7 @@
 import { useEffect, useState, useTransition } from "react";
 import type { PlayerEngine } from "@/components/player/engine";
 import { formatClock } from "@/lib/hurling/notation";
+import { CommentItem } from "./CommentItem";
 import { positionLabel } from "@/lib/hurling/positions";
 import { CATEGORY_LABELS, tagTone, type EventCategory } from "@/lib/hurling/events";
 import { TagMark } from "@/components/ui/TagMark";
@@ -270,23 +271,14 @@ export function ClipInspector({
             ) : (
               <ul className="space-y-2.5">
                 {comments.map((c) => (
-                  <li key={c.id} className="text-[13px]">
-                    <div className="flex items-baseline gap-2">
-                      <span className="font-medium">{c.authorName}</span>
-                      {c.atMs != null && (
-                        <button
-                          onClick={() => engine.seek(clip.startMs + c.atMs!, { exact: true })}
-                          className="tabular text-[12px]"
-                          style={{ color: "var(--color-ash)" }}
-                        >
-                          {formatClock(c.atMs)}
-                        </button>
-                      )}
-                    </div>
-                    <p className="mt-0.5 whitespace-pre-wrap" style={{ color: "var(--color-ink-dim)" }}>
-                      {c.body}
-                    </p>
-                  </li>
+                  <CommentItem
+                    key={c.id}
+                    comment={c}
+                    viewerId={viewer.id}
+                    onSeek={(atMs) => engine.seek(clip.startMs + atMs, { exact: true })}
+                    onSaved={(u) => setComments((prev) => prev?.map((x) => (x.id === u.id ? u : x)) ?? prev)}
+                    onTextFocus={onTextFocus}
+                  />
                 ))}
               </ul>
             )}

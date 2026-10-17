@@ -45,6 +45,7 @@ export type CommentRow = {
   createdAt: number;
   authorName: string;
   userId: string | null;
+  editedAt: number | null;
 };
 
 export type AnnotationRow = {

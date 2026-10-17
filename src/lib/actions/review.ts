@@ -16,6 +16,7 @@ export type PostedComment = {
   createdAt: number;
   authorName: string;
   userId: string | null;
+  editedAt: number | null;
 };
 
 export async function addComment(input: {
@@ -61,7 +62,37 @@ export async function addComment(input: {
     createdAt: row.createdAt,
     authorName: user.displayName,
     userId: user.id,
+    editedAt: null,
   };
+}
+
+/**
+ * Only the author may reword a comment, coaches included: editing someone
+ * else's words would put them in that person's mouth. Deleting stays open to
+ * coaches via assertCanEditOwned.
+ */
+export async function editComment(input: {
+  commentId: string;
+  body: string;
+}): Promise<{ body: string; editedAt: number }> {
+  const user = await requireUserOrThrow();
+  const body = input.body.trim();
+  if (!body) throw new Error("Write something first.");
+  if (body.length > 4000) throw new Error("That comment is too long.");
+
+  const [row] = await db.select().from(comments).where(eq(comments.id, input.commentId)).limit(1);
+  if (!row) throw new Error("That comment no longer exists.");
+  const [clip] = await db.select().from(clips).where(eq(clips.id, row.clipId)).limit(1);
+  if (!clip) throw new Error("That clip no longer exists.");
+  assertSameTeam(user, clip);
+  if (row.userId !== user.id) throw new Error("You can only edit your own comments.");
+
+  if (body === row.body) return { body: row.body, editedAt: row.editedAt ?? row.createdAt };
+
+  const editedAt = Date.now();
+  await db.update(comments).set({ body, editedAt }).where(eq(comments.id, row.id));
+  revalidatePath(`/review/${clip.videoId}`);
+  return { body, editedAt };
 }
 
 export async function deleteComment(commentId: string): Promise<void> {

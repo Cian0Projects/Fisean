@@ -16,7 +16,7 @@ import { VideoStage, Timecode } from "@/components/player/VideoStage";
 import { AnnotationLayer } from "@/components/player/AnnotationLayer";
 import { useHotkeys } from "@/lib/keyboard/useHotkeys";
 import type { Command } from "@/lib/keyboard/keymap";
-import { formatClock } from "@/lib/hurling/notation";
+import { CommentItem } from "@/components/review/CommentItem";
 import { markPlaylistViewed } from "@/lib/actions/playlists";
 import { addComment } from "@/lib/actions/review";
 import { listComments } from "@/lib/actions/reads";
@@ -46,6 +46,7 @@ export function PlaylistPlayer({
   setBy,
   clips,
   viewerName,
+  viewerId,
 }: {
   playlistId: string;
   title: string;
@@ -54,6 +55,7 @@ export function PlaylistPlayer({
   setBy: string | null;
   clips: PlaylistClip[];
   viewerName: string;
+  viewerId: string;
 }) {
   const engine = useMemo(() => new PlayerEngine(), []);
   const [index, setIndex] = useState(0);
@@ -276,23 +278,15 @@ export function PlaylistPlayer({
               ) : (
                 <ul className="space-y-2.5">
                   {comments.map((c) => (
-                    <li key={c.id} className="text-[13px]">
-                      <div className="flex items-baseline gap-2">
-                        <span className="font-medium">{c.authorName}</span>
-                        {c.atMs != null && (
-                          <button
-                            onClick={() => engine.seek(current.startMs + c.atMs!, { exact: true })}
-                            className="tabular text-[12px] underline"
-                            style={{ color: "var(--color-ash)" }}
-                          >
-                            {formatClock(c.atMs)}
-                          </button>
-                        )}
-                      </div>
-                      <p className="mt-0.5 whitespace-pre-wrap" style={{ color: "var(--color-ink-dim)" }}>
-                        {c.body}
-                      </p>
-                    </li>
+                    <CommentItem
+                      key={c.id}
+                      comment={c}
+                      viewerId={viewerId}
+                      underlineTime
+                      onSeek={(atMs) => engine.seek(current.startMs + atMs, { exact: true })}
+                      onSaved={(u) => setComments((prev) => prev?.map((x) => (x.id === u.id ? u : x)) ?? prev)}
+                      onTextFocus={setTyping}
+                    />
                   ))}
                 </ul>
               )}

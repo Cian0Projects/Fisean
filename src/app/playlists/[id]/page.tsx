@@ -94,6 +94,7 @@ export default async function PlaylistPage({
       setBy={setBy?.displayName ?? null}
       clips={playlistClips}
       viewerName={user.displayName}
+      viewerId={user.id}
     />
   );
 }
