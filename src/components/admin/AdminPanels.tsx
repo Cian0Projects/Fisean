@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import {
-  createMatch,
   deleteVideo,
   removeMember,
   rotateJoinCode,
@@ -15,7 +14,7 @@ import { codecWarning } from "@/lib/media/probe";
 import { matchDate, fileSize } from "@/lib/format";
 import { ClubBadge } from "@/components/ui/ClubBadge";
 import { BadgeEditor } from "./BadgeEditor";
-import { UploadArea, UploadButton, UploadProvider, useUploads } from "./FootageUpload";
+import { UploadArea, UploadProvider, useUploads } from "./FootageUpload";
 import { FootageImport } from "./FootageImport";
 import type { Role } from "@/lib/db/schema";
 import type { ImportView } from "@/lib/queries/imports";
@@ -385,25 +384,18 @@ function AddEmail({ member }: { member: Member }) {
 
 /* ------------------------------------------------------- matches, footage */
 
+/**
+ * The matches already made. There is no way to add one here: a match is made
+ * by uploading its footage (the Footage panel asks for a title and a date),
+ * so there is one place to start and no empty match to wonder about.
+ */
 function Matches({ matches, videos }: { matches: Match[]; videos: Video[] }) {
-  const [open, setOpen] = useState(false);
-
   return (
     <section className="@container">
-      <SectionHead
-        title="Matches"
-        note="A match can exist before its footage does. Opponent and date are all it needs."
-        action={
-          <button onClick={() => setOpen((v) => !v)} className={open ? "btn-ghost" : "btn-primary"}>
-            {open ? "Cancel" : "New match"}
-          </button>
-        }
-      />
-
-      {open && <AddMatch onDone={() => setOpen(false)} />}
+      <SectionHead title="Matches" note="Each match appears here once its footage is uploaded." />
 
       {matches.length === 0 ? (
-        <Empty>None yet. Add the first one with New match.</Empty>
+        <Empty>None yet. Upload a match file under Footage to add the first one.</Empty>
       ) : (
         <ul>
           {matches.map((m) => (
@@ -420,8 +412,7 @@ function Matches({ matches, videos }: { matches: Match[]; videos: Video[] }) {
 }
 
 /**
- * A match row: watch it, log its stats, or add a video to it. Uploading files
- * the video straight against this match without asking which one it is.
+ * A match row: watch it or log its stats.
  *
  * Watch sits on the row itself because the row is where someone who has just
  * uploaded looks for the match; the footage list in the rail is about files,
@@ -455,69 +446,8 @@ function MatchRow({ match, footage }: { match: Match; footage: Video[] }) {
         <Link href={`/matches/${match.id}/stats/log`} className="btn-ghost text-xs">
           Log stats
         </Link>
-        <UploadButton matchId={match.id} className="btn-ghost text-xs">
-          Upload video
-        </UploadButton>
       </div>
     </li>
-  );
-}
-
-function AddMatch({ onDone }: { onDone: () => void }) {
-  const [pending, startTransition] = useTransition();
-
-  return (
-    <form
-      className="mb-6 grid gap-4 border-b pb-6 @md:grid-cols-2"
-      style={{ borderColor: "var(--color-line)" }}
-      action={(form) =>
-        startTransition(async () => {
-          await createMatch({
-            opponent: String(form.get("opponent")),
-            playedOn: String(form.get("playedOn")),
-            competition: String(form.get("competition") || ""),
-            venue: String(form.get("venue") || ""),
-            halfLengthMin: Number(form.get("halfLengthMin") || 30),
-          });
-          onDone();
-        })
-      }
-    >
-      <div>
-        <label className="label mb-1.5 block">Opponent</label>
-        <input name="opponent" required className="field" />
-      </div>
-      <div>
-        <label className="label mb-1.5 block">Date</label>
-        <input
-          name="playedOn"
-          type="date"
-          required
-          defaultValue={new Date().toISOString().slice(0, 10)}
-          className="field"
-        />
-      </div>
-      <div>
-        <label className="label mb-1.5 block">Competition</label>
-        <input name="competition" placeholder="County Senior Championship" className="field" />
-      </div>
-      <div>
-        <label className="label mb-1.5 block">Venue</label>
-        <input name="venue" className="field" />
-      </div>
-      <div>
-        <label className="label mb-1.5 block">Half length</label>
-        <select name="halfLengthMin" defaultValue={30} className="field">
-          <option value={30}>30 minutes, club and underage</option>
-          <option value={35}>35 minutes, senior inter-county</option>
-        </select>
-      </div>
-      <div className="flex items-end">
-        <button type="submit" disabled={pending} className="btn-primary w-full">
-          {pending ? "Adding…" : "Add the match"}
-        </button>
-      </div>
-    </form>
   );
 }
 

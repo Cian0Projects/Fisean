@@ -8,8 +8,7 @@
  * the desktop anywhere onto the squad page, or press Upload video and pick
  * it. The match does not exist until its footage does, so one short form
  * follows — the match's title and the day it was played — and the match is
- * made with the upload. A match already listed has its own Upload video
- * button, for a second camera angle, which asks nothing.
+ * made with the upload. This is the only way to add a match.
  *
  * The file goes up as numbered parts, three at a time, each PUT straight to
  * a signed URL — Cloudflare R2 when hosted, the app's local stand-in for it
@@ -21,7 +20,7 @@
  * starting three gigabytes over.
  *
  * Upload state lives in one provider so the page-wide drop target, the
- * Footage panel and each match's own button all feed the same queue.
+ * Footage panel all feed the same queue.
  */
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
