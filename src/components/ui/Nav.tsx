@@ -26,7 +26,9 @@ export function Nav({ user }: { user: SessionUser }) {
     ...(user.role !== "player"
       ? [{ href: "/drills", label: "Drills", match: (p: string) => p.startsWith("/drills") }]
       : []),
-    ...(user.role === "admin"
+    // Coaches upload the footage, so they need the page; what is only for the
+    // admin (the panel, roles, badge, team code, deleting) is hidden inside it.
+    ...(user.role !== "player"
       ? [{ href: "/admin", label: "Squad", match: (p: string) => p.startsWith("/admin") }]
       : []),
   ];
