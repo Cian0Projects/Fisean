@@ -1,25 +1,26 @@
 ---
 name: Físeán
-description: Match video review for GAA clubs in hurling, camogie, Gaelic football and ladies football, printed like the club's match programme.
+description: Match video review for GAA clubs in hurling, camogie, Gaelic football and ladies football, set like the club's match programme with the lights down.
 colors:
-  programme-white: "#ffffff"
-  raised-grey: "#f4f5f7"
-  pressed-grey: "#eceef2"
-  hairline: "#dcdfe5"
-  field-edge: "#a3a9b4"
-  programme-black: "#15171b"
-  ink-dim: "#484d57"
-  ink-faint: "#676d79"
+  graphite: "#111317"
+  raised-graphite: "#171a1f"
+  pressed-graphite: "#1e2229"
+  hairline: "#262b33"
+  field-edge: "#3d4450"
+  chalk: "#eceef2"
+  chalk-dim: "#a6acb8"
+  chalk-faint: "#848b98"
+  pale-reflex: "#b3bcf6"
+  pale-reflex-faded: "#7a84c2"
+  good-for-us: "#4cc17a"
+  against-us: "#d2442f"
+  against-us-ink: "#e05a44"
+  unclear-amber: "#e0b95e"
+  sod: "#0d1a13"
+  logo-green: "#35c46b"
+  daylight-white: "#ffffff"
+  daylight-black: "#15171b"
   reflex-blue: "#1f2f96"
-  reflex-blue-faded: "#6c77b9"
-  good-for-us: "#17803f"
-  against-us: "#c2361f"
-  against-us-ink: "#a92c18"
-  unclear-amber: "#946000"
-  screening-graphite: "#111317"
-  screening-surface: "#171a1f"
-  screening-chalk: "#eceef2"
-  screening-blue: "#b3bcf6"
 typography:
   display:
     fontFamily: "Chivo, ui-sans-serif, system-ui, sans-serif"
@@ -65,31 +66,31 @@ spacing:
   section: "56px"
 components:
   button-primary:
-    backgroundColor: "{colors.reflex-blue}"
-    textColor: "{colors.programme-white}"
+    backgroundColor: "{colors.chalk}"
+    textColor: "{colors.graphite}"
     rounded: "{rounded.print}"
     padding: "8px 12px"
   button-outline:
-    backgroundColor: "{colors.programme-white}"
-    textColor: "{colors.programme-black}"
+    backgroundColor: "transparent"
+    textColor: "{colors.chalk}"
     rounded: "{rounded.print}"
     padding: "8px 12px"
   button-outline-hover:
-    backgroundColor: "{colors.pressed-grey}"
+    backgroundColor: "{colors.pressed-graphite}"
   button-ghost:
-    textColor: "{colors.ink-dim}"
+    textColor: "{colors.chalk-dim}"
     rounded: "{rounded.print}"
     padding: "8px 12px"
   button-ghost-hover:
-    backgroundColor: "{colors.pressed-grey}"
-    textColor: "{colors.programme-black}"
+    backgroundColor: "{colors.pressed-graphite}"
+    textColor: "{colors.chalk}"
   field:
-    backgroundColor: "{colors.programme-white}"
-    textColor: "{colors.programme-black}"
+    backgroundColor: "{colors.graphite}"
+    textColor: "{colors.chalk}"
     rounded: "{rounded.print}"
     padding: "8px 12px"
   jersey:
-    textColor: "{colors.reflex-blue}"
+    textColor: "{colors.pale-reflex}"
     rounded: "{rounded.print}"
     size: "24px"
 ---
@@ -98,21 +99,26 @@ components:
 
 ## Overview
 
-**Creative North Star: "The Match Programme"**
+**Creative North Star: "The Match Programme, in the screening room"**
 
-The list pages — matches, playlists, the squad, sign-in — are printed the way a
-club's match programme is: white card, black ink, and one spot colour, a
-printer's reflex blue, the colour a local printer runs a programme or a raffle
-ticket in. Names are set heavy and big, the way an opponent's name runs across
-a programme cover; everything else is plain and small beneath it. Sections open
-on a heavy black rule and rows are divided by hairlines, so a page reads as one
-sheet rather than a stack of boxes.
+Every screen is laid out the way a club's match programme is, and every screen
+is in the screening room: graphite ground, chalk ink, and one spot colour, a
+printer's reflex blue lifted pale so it still reads as the same ink with the
+lights down. Names are set heavy and big, the way an opponent's name runs
+across a programme cover; everything else is plain and small beneath it.
+Sections open on a heavy chalk rule and rows are divided by hairlines, so a
+page reads as one sheet rather than a stack of boxes.
 
-The screens that put footage on screen — review, live stat logging, the
-playlist player, the phone watch screen — are a screening room. They take the
-same system with the lights down: graphite ground, chalk ink, and the spot
-blue lifted pale. A route opts in by wrapping itself in the dark-room scope;
-every token flips and nothing else changes.
+It began as the palette of the screens with footage on them (review, live stat
+logging, the playlist player, the phone watch screen), because a bright
+surround beside 70 minutes of video tires the eye and washes out the picture.
+It now runs through the whole app, so going from the fixture list into a match
+is walking further into the same room rather than the lights snapping off.
+
+Two things stay in daylight. The public home page wraps itself in the
+`.daylight` scope, which sets the old programme-white palette, until it is
+redesigned on its own. And print drops everything to ink on paper, so the stat
+sheet still goes round a dressing room as a white page.
 
 Colour means an outcome and nothing else. Green is good for us, red is against
 us, amber is unclear; the spot blue is the club's own furniture. It is
@@ -120,34 +126,38 @@ deliberately not the club's jersey colours.
 
 **Key Characteristics:**
 - One grotesque (Chivo) doing every job through weight.
-- One spot ink on white; heavy rules open sections, hairlines divide rows.
+- One pale spot ink on graphite; heavy chalk rules open sections, hairlines divide rows.
 - Boxed numbers wherever a number is a position, a jersey or a running order.
-- Light for reading and managing, dark only where video plays.
+- Dark on every screen; white only on paper and, for now, the public home page.
 - Wide sheet (88rem) with a main column and a rail, never a narrow centred column.
 
 ## Colors
 
-A one-ink print palette: black and a single reflex blue on white, with three
-reserved outcome colours that never decorate.
+A one-ink palette with the lights down: chalk and a single pale reflex blue on
+graphite, with three reserved outcome colours that never decorate. Every value
+is a token in `src/app/globals.css`, so nothing outside it names a colour.
 
 ### Primary
-- **Reflex Blue** (reflex-blue): the spot ink. Wordmark, the bar under the current page, boxed jersey and position numbers, the primary button, figures that count something, focus rings and the text caret.
+- **Pale Reflex** (pale-reflex): the spot ink. The bar under the current page, boxed jersey and position numbers, figures that count something, links, focus rings and the text caret.
 
 ### Neutral
-- **Programme White** (programme-white): the page. Every list page's ground.
-- **Raised Grey** / **Pressed Grey** (raised-grey, pressed-grey): a row under the pointer, a pressed control, a code block. Never a card fill for content.
+- **Graphite** (graphite): the page, on every screen. Graphite rather than a tinted near-black.
+- **Raised / Pressed Graphite** (raised-graphite, pressed-graphite): a row under the pointer, a pressed control, the rare panel. Never a card fill for content.
 - **Hairline** (hairline): the rule between rows, table heads, strip dividers.
 - **Field Edge** (field-edge): the edge of a form field and of an empty-state box.
-- **Programme Black** (programme-black): body ink, and the heavy rule that opens a section.
-- **Ink Dim** / **Ink Faint** (ink-dim, ink-faint): secondary lines and captions. Faint still clears 4.5:1 on white.
+- **Chalk** (chalk): body ink, the heavy rule that opens a section, and the fill of the one primary action.
+- **Chalk Dim** / **Chalk Faint** (chalk-dim, chalk-faint): secondary lines and captions. Faint still clears 4.5:1 on graphite.
+- **Sod** (sod): the ground a pitch map or drill board is drawn on.
 
 ### Outcome (reserved)
-- **Good for Us** (good-for-us), **Against Us** (against-us, against-us-ink for small text), **Unclear Amber** (unclear-amber): results, verdicts, stat marks. Always paired with words or a mark shape.
+- **Good for Us** (good-for-us), **Against Us** (against-us, against-us-ink for small text), **Unclear Amber** (unclear-amber): results, verdicts, stat marks. Brighter than their printed versions so each clears 4.5:1 on graphite. Always paired with words or a mark shape.
 
-### Screening room
-- **Graphite** (screening-graphite), **Screening Surface**, **Chalk** (screening-chalk), **Pale Reflex** (screening-blue): the same roles with the lights down, set by the dark-room scope.
+### Daylight and print
+- **Daylight White**, **Daylight Black**, **Reflex Blue** (daylight-white, daylight-black, reflex-blue): the same roles in the light. The `.daylight` scope sets them for the public home page, and the print stylesheet sets them, with the outcome colours darkened to clear 4.5:1 on white, for anything that goes to paper.
 
-**The One Ink Rule.** Reflex blue is the only colour the chrome may use. A second accent is a mistake.
+**The One Ink Rule.** The pale reflex blue is the only colour the chrome may use. A second accent is a mistake. The logo's green belongs to the mark and the public home page, and never says how a play went.
+
+**The Footage Is Black Rule.** A frame that holds video (a match preview, the player stage) is literal black, not a token. Footage is not part of the palette, and black is what it letterboxes into on every screen.
 
 **The Outcome Rule.** Green, red and amber mean something happened on the field. Watching a playlist, deleting a file or being selected are not outcomes and do not borrow them.
 
@@ -180,7 +190,7 @@ The sheet is 88rem wide with 16 / 24 / 40px gutters (phone, tablet, laptop). Lis
 
 ## Elevation & Depth
 
-Flat. There are no shadows. Depth is a heavy rule above a section, a hairline between rows, and a tone step (raised grey) on hover. The only box with a heavy edge is the result box, ruled like a programme's scores panel.
+Flat. There are no shadows. Depth is a heavy rule above a section, a hairline between rows, and a tone step (raised graphite) on hover. The only box with a heavy edge is the result box, ruled like a programme's scores panel.
 
 **The Printed Sheet Rule.** If it could not be printed in one ink on card, it does not belong: no shadows, gradients, glass or glow.
 
@@ -192,23 +202,23 @@ Square print corners (2px) on buttons, fields, number boxes and the join code; 3
 
 ### Buttons
 - **Shape:** square print corner (2px).
-- **Primary:** solid reflex blue with white text, semibold 13–14px. One per region. In the screening room it prints in reverse: chalk fill, graphite text.
-- **Outline:** a 1px black rule, black text; a pressed-grey fill on hover.
-- **Ghost:** dim text with no edge; pressed-grey on hover. Used for row actions.
-- **Focus:** 2px reflex-blue outline, offset 2px.
+- **Primary:** printed in reverse, chalk fill with graphite text, semibold 13–14px, the way a programme's back page runs white out of black. One per region. Not a pale tint of the spot ink, which reads as somebody else's dark mode. In daylight it is solid reflex blue with white text.
+- **Outline:** a 1px chalk rule, chalk text; a pressed-graphite fill on hover.
+- **Ghost:** dim text with no edge; pressed-graphite on hover. Used for row actions.
+- **Focus:** 2px pale-reflex outline, offset 2px.
 
 ### Inputs / Fields
-- **Style:** white fill, 1px field-edge border, 2px corners.
-- **Focus:** the border and a 1px ring turn reflex blue; the caret is reflex blue.
+- **Style:** graphite fill, 1px field-edge border, 2px corners. The page sets `color-scheme: dark`, so date pickers, selects and autofill are dark too.
+- **Focus:** the border and a 1px ring turn pale reflex; the caret is pale reflex.
 
 ### Navigation
-- **Style:** a white masthead with a hairline underneath. Mark and wordmark in reflex blue, then the club name, then semibold section links. The current section has a 3px reflex-blue bar under it. The jersey box comes before the signed-in name. On phones the masthead keeps the mark, the section links and "Phone view".
+- **Style:** a graphite masthead with a hairline underneath. The mark, the wordmark in chalk, then the club name, then semibold section links. The current section has a 3px pale-reflex bar under it. The jersey box comes before the signed-in name. On phones the masthead keeps the mark, the section links and "Phone view".
 
 ### Jersey / number box
 - Outlined in the spot ink (1.5px), square, tabular figures. It marks jersey numbers, formation positions and running-order steps. It is dashed when the slot is empty.
 
 ### Result box
-- Ruled in black at 1.5px. One row per side: the name, then the score in figure weight with the total in brackets. The verdict ("Won by 6 points") sits under a heavy rule and is the only outcome colour on the cover. Before the stat sheet has shots, a dashed "No result yet" box holds its place. One component (`src/components/matches/ResultBox.tsx`) on the cover and the stat sheet; on the stat sheet it adds the half-time line, and the scorers follow it in programme notation ("R Hayes 0-4 (0-2f)").
+- Ruled in chalk at 1.5px. One row per side: the name, then the score in figure weight with the total in brackets. The verdict ("Won by 6 points") sits under a heavy rule and is the only outcome colour on the cover. Before the stat sheet has shots, a dashed "No result yet" box holds its place. One component (`src/components/matches/ResultBox.tsx`) on the cover and the stat sheet; on the stat sheet it adds the half-time line, and the scorers follow it in programme notation ("R Hayes 0-4 (0-2f)").
 
 ### Match preview
 - A match's thumbnail, taken from its own footage: one of its first three team clips, preferring a named one. It is 16:9 with a 2px corner on a black ground. It rests on the clip's first frame and loops up to 8s of the clip while its fixture row is hovered or focused, and never under reduced motion. The lead match captions it on a translucent black strip; a fixture row gets a small play badge. With no picture to show, the lead match draws our shot map from the stat sheet instead; with no shots either, it is a single caption line. A fixture row keeps its dashed slot so the list stays aligned.
@@ -219,15 +229,16 @@ Square print corners (2px) on buttons, fields, number boxes and the join code; 3
 ## Do's and Don'ts
 
 ### Do:
-- **Do** open every section with the 3px black rule and divide its rows with hairlines.
-- **Do** box numbers that are positions, jerseys or steps in a sequence, in reflex blue.
+- **Do** open every section with the 3px chalk rule and divide its rows with hairlines.
+- **Do** box numbers that are positions, jerseys or steps in a sequence, in the spot ink.
 - **Do** say counts in a line of prose ("1 camera angle, 14 clips and 75 stats logged.") rather than as a strip of big figures. On the stat sheet each section opens on a sentence ("We won 5 possessions and lost 8.").
 - **Do** write won-of-total as "1 of 2". A hyphenated pair is a scoreline and nothing else.
-- **Do** wrap any route that plays footage in the dark-room scope.
+- **Do** take every colour from a token, so print and daylight can swap the palette under it.
 - **Do** keep sentence case, and pair every outcome colour with words or a shape.
 
 ### Don't:
-- **Don't** use club jersey colours, a second accent, gradients or shadows.
+- **Don't** use club jersey colours, a second accent, gradients, shadows or glow.
+- **Don't** use a light token as if it were black (the rule or ink behind a video, say): on graphite those are chalk.
 - **Don't** put a kicker or eyebrow above a heading; the date and context go under the name.
 - **Don't** use Unicode glyphs as icons; use the drawn icons in `src/components/ui/Icon.tsx`.
 - **Don't** mark a row with a coloured side stripe; use a dot or the chip's own mark.

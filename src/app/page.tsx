@@ -1,3 +1,4 @@
+import type { Viewport } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
@@ -36,9 +37,24 @@ import { PromoVideo } from "@/components/home/PromoVideo";
 import { RevealOnScroll } from "@/components/home/RevealOnScroll";
 import { Mark } from "@/components/ui/Mark";
 
+/*
+ * The app is graphite throughout; the public home page alone stays in
+ * daylight until it is redesigned on its own, so the phone's browser bar
+ * follows whichever of the two this request gets.
+ */
+export async function generateViewport(): Promise<Viewport> {
+  const user = await currentUser();
+  return { themeColor: user ? "#111317" : "#ffffff" };
+}
+
 export default async function Home() {
   const user = await currentUser();
-  if (!user) return <PublicHomepage />;
+  if (!user)
+    return (
+      <div className="daylight">
+        <PublicHomepage />
+      </div>
+    );
   return <Dashboard />;
 }
 

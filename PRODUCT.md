@@ -53,8 +53,10 @@ Spiideo pastes its download links and the server brings the matches across.
 - Colour means an outcome: green good for us, red against us, amber unclear,
   never decorative. Marks also carry shape so maps survive colour-blindness
   and photocopying. Club jersey colours are deliberately not used in the chrome.
-- The video workspace stays dark so footage reads; the list pages (matches,
-  playlists, squad) are light.
+- Every screen is dark, the same graphite as the video workspace where it
+  started, so footage reads and the app is one room (the owner's call,
+  2026-10-19). The public home page stays light until it is redesigned on its
+  own, and print is always ink on white paper.
 - Sentence case everywhere; no all-caps labels, no dot-joined meta strings.
 
 ## Evidence on Hand

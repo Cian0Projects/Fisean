@@ -16,6 +16,22 @@ is used, how it is deployed).
 
 -->
 
+## The whole app in the screening room
+*2026-10-19*
+
+Every signed-in screen is now dark: the matches, playlists, squad, drills,
+stats, account and sign-in pages take the graphite, chalk and pale blue that
+review and live stat logging already used, rather than the white programme
+card. The dark palette is the default in `globals.css`, so the `DarkRoom`
+wrapper and the four route layouts that applied it are gone. The one primary
+action is printed in reverse (chalk on graphite) everywhere, and the browser's
+own controls and status bar are dark to match. The signed-out home page is
+deliberately unchanged: it sits in a new `.daylight` scope with the old light
+palette until it is redesigned on its own. Print is unaffected; the stat sheet
+still goes to paper in ink on white, and the print stylesheet now sets the
+darker outcome and lane colours itself, since the screen defaults are the
+bright ones. Emails keep their own light templates.
+
 ## A Stats section for coaches
 *2026-10-19*
 

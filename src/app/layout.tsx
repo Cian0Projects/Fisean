@@ -39,11 +39,12 @@ export const metadata: Metadata = {
   description:
     "Clip, tag and share GAA match footage. Built for teams.",
   applicationName: "Ardawn",
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "Ardawn" },
+  appleWebApp: { capable: true, statusBarStyle: "black", title: "Ardawn" },
 };
 
+/* The browser's own bar matches the graphite every screen is set on. */
 export const viewport: Viewport = {
-  themeColor: "#ffffff",
+  themeColor: "#111317",
   width: "device-width",
   initialScale: 1,
   // Players watch clips on phones; the video stage should reach the edges.

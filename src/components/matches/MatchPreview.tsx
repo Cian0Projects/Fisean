@@ -143,9 +143,10 @@ export function MatchPreview({
           : "Watch the match"
       }
       className={`${frame} relative block overflow-hidden`}
-      // The frame is a little screening room of its own: black while the
-      // first frame loads, so the thumbnail never flashes white.
-      style={{ background: "var(--color-rule)", borderRadius: 2 }}
+      // Black while the first frame loads, whatever the page around it, so the
+      // thumbnail never flashes a colour the footage is not. Literal rather
+      // than a token: a video frame is not part of the palette.
+      style={{ background: "#000", borderRadius: 2 }}
     >
       {near && (
         <video
@@ -173,10 +174,7 @@ export function MatchPreview({
       {size === "lead" ? (
         <span
           className="absolute inset-x-0 bottom-0 flex items-center gap-2 px-3 py-2 text-[12px]"
-          style={{
-            background: "color-mix(in oklab, var(--color-rule) 82%, transparent)",
-            color: "var(--color-stage)",
-          }}
+          style={{ background: "rgb(0 0 0 / 0.72)", color: "#eceef2" }}
         >
           <PlayIcon size={10} />
           <span className="min-w-0 flex-1 truncate font-semibold">
@@ -189,8 +187,8 @@ export function MatchPreview({
           aria-hidden
           className="absolute bottom-1 left-1 flex h-5 w-5 items-center justify-center"
           style={{
-            background: "color-mix(in oklab, var(--color-rule) 82%, transparent)",
-            color: "var(--color-stage)",
+            background: "rgb(0 0 0 / 0.72)",
+            color: "#eceef2",
             borderRadius: 2,
           }}
         >
