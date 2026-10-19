@@ -329,12 +329,13 @@ export function StatLogger({
       </div>
 
       {/* The pitch is as wide as the screen's height allows, so its bottom
-          edge stays in sight, and it sits hard left. The panel takes all the
-          width that is left, which on a laptop is enough to put its
-          questions two to a row: that, not a smaller pitch, is what keeps
-          a shot, the longest form, on the screen without scrolling. */}
+          edge stays in sight, and it sits hard left. On a narrower screen
+          (a tablet on its side) it also gives way to the panel, which keeps
+          at least 30rem: enough to pack its questions a few to a row, which
+          is what keeps a shot, the longest form, on the screen. The panel
+          takes whatever is left beyond that. */}
       <div
-        className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,max(26rem,calc((100dvh_-_19rem)_*_var(--pitch-ratio))))_minmax(23rem,1fr)]"
+        className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,max(26rem,min(calc((100dvh_-_19rem)_*_var(--pitch-ratio)),calc(100vw_-_34.5rem))))_minmax(23rem,1fr)]"
         style={{ "--pitch-ratio": String(VIEW_W / pitchViewHeight()) } as CSSProperties}
       >
         {/* ------------------------------------------------------ the pitch */}
@@ -385,8 +386,9 @@ export function StatLogger({
           className="@container flex min-w-0 flex-col lg:border-l lg:pl-6"
           style={{ borderColor: "var(--color-line)" }}
         >
-          {/* Type first: it decides what the rest of the panel even asks. */}
-          <div className="grid grid-cols-2 gap-1.5 @md:grid-cols-4">
+          {/* Type first: it decides what the rest of the panel even asks.
+              Each button only as wide as its name, so they share rows. */}
+          <div className="flex flex-wrap gap-1.5">
             {STAT_TYPES.map((t) => {
               const m = STAT_TYPE_META[t];
               const here = t === statType;
@@ -398,7 +400,7 @@ export function StatLogger({
                     chooseType(t);
                   }}
                   aria-pressed={here}
-                  className="flex items-center gap-2 rounded px-2.5 py-2 text-left text-[14px] transition-colors"
+                  className="flex items-center gap-1.5 rounded px-2 py-1.5 text-left text-[14px] transition-colors"
                   style={{
                     border: `1px solid ${here ? "var(--color-ink)" : "var(--color-line-strong)"}`,
                     background: here ? "var(--color-surface-2)" : "transparent",
@@ -406,20 +408,26 @@ export function StatLogger({
                   }}
                 >
                   <span className="kbd">{m.hotkey}</span>
-                  <span className="min-w-0 flex-1 truncate">{m.label}</span>
-                  <span className="tabular text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-                    {rows.filter((r) => r.statType === t).length || ""}
-                  </span>
+                  {m.label}
+                  {rows.some((r) => r.statType === t) && (
+                    <span className="tabular text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+                      {rows.filter((r) => r.statType === t).length}
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
 
-          <div className="mt-4">
+          <div className="mt-3">
             <VoiceBar voice={voice} onDiscard={resetEntry} />
           </div>
 
-          <div className="mt-4 grid items-start gap-x-6 gap-y-4 @xl:grid-cols-2">
+          {/* The questions pack left to right, each as wide as its answers,
+              rather than into equal columns that leave a short question
+              stranded in a wide one. A long one (a shot's result) wraps
+              onto its own row. */}
+          <div className="mt-3 flex flex-wrap items-start gap-x-7 gap-y-3 *:max-w-full *:min-w-0">
             <StatFields
               statType={statType}
               detail={detail}
@@ -436,7 +444,7 @@ export function StatLogger({
             />
 
             {clips.length > 0 && (
-              <div className="col-span-full">
+              <div className="basis-full">
                 <label className="label mb-1.5 block" htmlFor="stat-clip">
                   Clip of the moment
                 </label>
@@ -458,7 +466,7 @@ export function StatLogger({
 
             {error && (
               <p
-                className="col-span-full rounded px-3 py-2 text-[13px]"
+                className="basis-full rounded px-3 py-2 text-[13px]"
                 style={{
                   background: "color-mix(in oklab, var(--color-danger) 20%, transparent)",
                   color: "var(--color-ink)",
@@ -470,7 +478,7 @@ export function StatLogger({
           </div>
 
           <div
-            className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t pt-4"
+            className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t pt-3"
             style={{ borderColor: "var(--color-line)" }}
           >
             <button onClick={submit} disabled={!ready || pending} className="btn-primary">
