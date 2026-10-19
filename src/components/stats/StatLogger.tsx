@@ -273,6 +273,8 @@ export function StatLogger({
     setOrigin(row.originX != null && row.originY != null ? { x: row.originX, y: row.originY } : null);
     setDest(row.destX != null && row.destY != null ? { x: row.destX, y: row.destY } : null);
     setError(null);
+    // The list sits under the form now, so bring the form back into view.
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const remove = (id: string) => {
@@ -290,36 +292,76 @@ export function StatLogger({
   const newest = [...rows].sort((a, b) => b.createdAt - a.createdAt);
 
   return (
-    <main className="mx-auto max-w-6xl px-4 pt-8 pb-16">
-      <header
-        className="flex flex-wrap items-end justify-between gap-4 border-b pb-5"
-        style={{ borderColor: "var(--color-line-strong)" }}
-      >
-        <div>
-          <h1 className="display text-[clamp(2rem,5vw,3rem)]">{match.opponent}</h1>
-          <p className="mt-2 text-[14px]" style={{ color: "var(--color-ink-dim)" }}>
-            Logging the stat sheet for {matchDateLong(match.playedOn)}
-          </p>
+    <main className="mx-auto max-w-[90rem] px-4 pt-4 pb-12">
+      {/* One screen during a match: nothing a logger needs between seeing
+          it and logging it may sit below the fold. So the header is a line,
+          the pitch takes the width, every question sits in one panel beside
+          it with the log button at its foot, and the running list waits
+          underneath, where it is only needed for a correction. */}
+      <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+        <div className="flex min-w-0 items-baseline gap-3">
+          <h1 className="title truncate text-xl">{match.opponent}</h1>
+          <span className="text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
+            {matchDateLong(match.playedOn)}
+          </span>
         </div>
         <div className="flex items-center gap-2">
-          <Link href={`/matches/${match.id}/numbers`} className="btn-outline text-xs">
+          <Link href={`/matches/${match.id}/numbers`} className="btn-ghost text-xs">
             Put names to numbers
           </Link>
-          <Link href={`/matches/${match.id}/stats`} className="btn-outline text-xs">
+          <Link href={`/matches/${match.id}/stats`} className="btn-ghost text-xs">
             See the report
           </Link>
         </div>
       </header>
 
-      <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <section>
-          <MatchClock matchId={match.id} clock={clock} />
+      <div className="mt-3">
+        <MatchClock matchId={match.id} clock={clock} />
+      </div>
 
-          {/* Type first: it decides what the rest of the form even asks. */}
-          <div
-            className="flex flex-wrap items-stretch border-b"
-            style={{ borderColor: "var(--color-line)" }}
-          >
+      <div className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,1fr)_23rem]">
+        {/* ------------------------------------------------------ the pitch */}
+        <section className="min-w-0">
+          <div className="mb-1.5 flex items-baseline justify-between gap-3">
+            <span className="label">Where on the pitch</span>
+            <span className="text-right text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+              {meta.points === 2
+                ? !origin
+                  ? "Tap where it was struck from"
+                  : !dest
+                    ? "Now tap where it landed"
+                    : "Tap again to start over"
+                : origin
+                  ? "Tap again to move it"
+                  : "Tap the pitch, or leave it unplaced"}
+            </span>
+          </div>
+          <PitchMap marks={marks} onPlace={placePoint} />
+          <div className="mt-1.5 flex min-h-7 flex-wrap items-center justify-between gap-2">
+            <p className="text-[13px]" style={{ color: "var(--color-ink-dim)" }}>
+              {meta.hint}
+            </p>
+            {(origin || dest) && (
+              <button
+                onClick={() => {
+                  setOrigin(null);
+                  setDest(null);
+                }}
+                className="btn-ghost text-xs"
+              >
+                Clear the point{meta.points === 2 ? "s" : ""}
+              </button>
+            )}
+          </div>
+        </section>
+
+        {/* ---------------------------------------------------- the details */}
+        <section
+          className="flex min-w-0 flex-col lg:border-l lg:pl-6"
+          style={{ borderColor: "var(--color-line)" }}
+        >
+          {/* Type first: it decides what the rest of the panel even asks. */}
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 lg:grid-cols-2">
             {STAT_TYPES.map((t) => {
               const m = STAT_TYPE_META[t];
               const here = t === statType;
@@ -331,26 +373,24 @@ export function StatLogger({
                     chooseType(t);
                   }}
                   aria-pressed={here}
-                  className={`flex items-center gap-2 px-3 py-2.5 text-[14px] transition-colors ${here ? "here" : ""}`}
-                  style={{ color: here ? "var(--color-ink)" : "var(--color-ink-dim)" }}
+                  className="flex items-center gap-2 rounded px-2.5 py-2 text-left text-[14px] transition-colors"
+                  style={{
+                    border: `1px solid ${here ? "var(--color-ink)" : "var(--color-line-strong)"}`,
+                    background: here ? "var(--color-surface-2)" : "transparent",
+                    color: here ? "var(--color-ink)" : "var(--color-ink-dim)",
+                  }}
                 >
                   <span className="kbd">{m.hotkey}</span>
-                  {m.label}
+                  <span className="min-w-0 flex-1 truncate">{m.label}</span>
+                  <span className="tabular text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+                    {rows.filter((r) => r.statType === t).length || ""}
+                  </span>
                 </button>
               );
             })}
           </div>
 
-          <div className="mt-3 flex flex-wrap items-baseline justify-between gap-3">
-            <p className="text-[14px]" style={{ color: "var(--color-ink-dim)" }}>
-              {meta.hint}
-            </p>
-            <p className="tabular text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
-              {rows.filter((r) => r.statType === statType).length} logged
-            </p>
-          </div>
-
-          <div className="mt-6 space-y-6">
+          <div className="mt-4 space-y-4">
             <VoiceBar voice={voice} onDiscard={resetEntry} />
 
             <StatFields
@@ -369,7 +409,7 @@ export function StatLogger({
             />
 
             {clips.length > 0 && (
-              <div className="sm:w-1/2 sm:pr-2">
+              <div>
                 <label className="label mb-1.5 block" htmlFor="stat-clip">
                   Clip of the moment
                 </label>
@@ -389,37 +429,6 @@ export function StatLogger({
               </div>
             )}
 
-            {meta.points > 0 && (
-              <div>
-                <div className="mb-1.5 flex items-baseline justify-between gap-2">
-                  <span className="label">Where on the pitch</span>
-                  <span className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-                    {meta.points === 2
-                      ? !origin
-                        ? "Click where it was struck from"
-                        : !dest
-                          ? "Now click where it landed"
-                          : "Click again to start over"
-                      : origin
-                        ? "Click again to move it"
-                        : "Click the pitch, or leave it unplaced"}
-                  </span>
-                </div>
-                <PitchMap marks={marks} onPlace={placePoint} />
-                {(origin || dest) && (
-                  <button
-                    onClick={() => {
-                      setOrigin(null);
-                      setDest(null);
-                    }}
-                    className="btn-ghost mt-1.5 text-xs"
-                  >
-                    Clear the point{meta.points === 2 ? "s" : ""}
-                  </button>
-                )}
-              </div>
-            )}
-
             {error && (
               <p
                 className="rounded px-3 py-2 text-[13px]"
@@ -431,118 +440,120 @@ export function StatLogger({
                 {error}
               </p>
             )}
-
-            <div
-              className="flex items-center gap-3 border-t pt-5"
-              style={{ borderColor: "var(--color-line)" }}
-            >
-              <button onClick={submit} disabled={!ready || pending} className="btn-primary">
-                {editingId ? "Save changes" : `Log this ${meta.label.toLowerCase()}`}
-              </button>
-              {editingId && (
-                <button
-                  onClick={() => {
-                    resetEntry();
-                    voice.reset();
-                  }}
-                  className="btn-ghost text-xs"
-                >
-                  Cancel
-                  <span className="kbd">Esc</span>
-                </button>
-              )}
-              {!editingId && !ready && (
-                <span className="text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
-                  Pick how it ended first
-                </span>
-              )}
-              {seenAt != null && (
-                <span className="tabular ml-auto text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
-                  {seenLabel(seenAt, clock.whistles, halfLengthMin)}
-                </span>
-              )}
-            </div>
           </div>
-        </section>
 
-        <section className="flex max-h-[44rem] min-h-0 flex-col">
           <div
-            className="flex shrink-0 items-baseline justify-between border-b pb-2"
-            style={{ borderColor: "var(--color-line-strong)" }}
+            className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t pt-4"
+            style={{ borderColor: "var(--color-line)" }}
           >
-            <h2 className="title text-base">Logged so far</h2>
-            <span className="tabular text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
-              {rows.length}
-            </span>
+            <button onClick={submit} disabled={!ready || pending} className="btn-primary">
+              {editingId ? "Save changes" : `Log this ${meta.label.toLowerCase()}`}
+            </button>
+            {editingId && (
+              <button
+                onClick={() => {
+                  resetEntry();
+                  voice.reset();
+                }}
+                className="btn-ghost text-xs"
+              >
+                Cancel
+                <span className="kbd">Esc</span>
+              </button>
+            )}
+            {!editingId && !ready && (
+              <span className="text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
+                Pick how it ended first
+              </span>
+            )}
+            {seenAt != null && (
+              <span className="tabular ml-auto text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
+                {seenLabel(seenAt, clock.whistles, halfLengthMin)}
+              </span>
+            )}
           </div>
-
-          {newest.length === 0 ? (
-            <p className="py-8 text-[14px]" style={{ color: "var(--color-ink-faint)" }}>
-              Nothing yet. Press <span className="kbd">1</span> to <span className="kbd">7</span> to
-              pick what happened, then log it.
-            </p>
-          ) : (
-            <ul className="min-h-0 flex-1 overflow-y-auto">
-              {newest.map((r) => {
-                const timing = statTiming(r, undefined, halfLengthMin, clock.whistles);
-                const half = timing.half ?? r.half;
-                // A tackle has no outcome axis, so it gets a plain mark rather
-                // than borrowing the one that means "unclear".
-                const outcome = effectiveOutcome(r);
-                const shape = outcome ? statShape(r) : "filled";
-                const colour = outcome ? statColour(r) : "var(--color-line-strong)";
-                return (
-                  <li
-                    key={r.id}
-                    className="fixture group flex items-start gap-2.5 py-2.5"
-                    style={{
-                      background: r.id === editingId ? "var(--color-surface-2)" : undefined,
-                    }}
-                  >
-                    <span
-                      aria-hidden
-                      className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{
-                        background: shape === "filled" ? colour : "transparent",
-                        border:
-                          shape === "filled"
-                            ? "none"
-                            : `2px ${shape === "dashed" ? "dashed" : "solid"} ${colour}`,
-                      }}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[14px]">{describeStat(r)}</div>
-                      <div className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-                        {playerLabel(r.playerNumber, sheet)}
-                        {half && `, ${half === 1 ? "1st" : "2nd"} half`}
-                        {timing.gameMs != null && ` at ${formatClock(timing.gameMs)}`}
-                        {r.originX != null && ", on the map"}
-                        {r.atMs != null && `, ${formatClock(r.atMs)}`}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-                      <button
-                        onClick={() => edit(r)}
-                        className="px-1 text-[12px]"
-                        style={{ color: "var(--color-ink-dim)" }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => remove(r.id)}
-                        className="px-1 text-[12px]"
-                        style={{ color: "var(--color-danger-ink)" }}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
         </section>
       </div>
+
+      {/* ------------------------------------------------- logged so far */}
+      <section className="mt-8">
+        <div
+          className="flex items-baseline justify-between border-b pb-2"
+          style={{ borderColor: "var(--color-line-strong)" }}
+        >
+          <h2 className="title text-base">Logged so far</h2>
+          <span className="tabular text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
+            {rows.length}
+          </span>
+        </div>
+
+        {newest.length === 0 ? (
+          <p className="py-6 text-[14px]" style={{ color: "var(--color-ink-faint)" }}>
+            Nothing yet. Pick what happened, tap where, then log it.
+          </p>
+        ) : (
+          <ul className="grid gap-x-8 sm:grid-cols-2 xl:grid-cols-3">
+            {newest.map((r) => {
+              const timing = statTiming(r, undefined, halfLengthMin, clock.whistles);
+              const half = timing.half ?? r.half;
+              // A tackle has no outcome axis, so it gets a plain mark rather
+              // than borrowing the one that means "unclear".
+              const outcome = effectiveOutcome(r);
+              const shape = outcome ? statShape(r) : "filled";
+              const colour = outcome ? statColour(r) : "var(--color-line-strong)";
+              return (
+                <li
+                  key={r.id}
+                  className="fixture group flex items-start gap-2.5 py-2.5"
+                  style={{
+                    background: r.id === editingId ? "var(--color-surface-2)" : undefined,
+                  }}
+                >
+                  <span
+                    aria-hidden
+                    className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{
+                      background: shape === "filled" ? colour : "transparent",
+                      border:
+                        shape === "filled"
+                          ? "none"
+                          : `2px ${shape === "dashed" ? "dashed" : "solid"} ${colour}`,
+                    }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[14px]">{describeStat(r)}</div>
+                    <div className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+                      {playerLabel(r.playerNumber, sheet)}
+                      {half && `, ${half === 1 ? "1st" : "2nd"} half`}
+                      {timing.gameMs != null && ` at ${formatClock(timing.gameMs)}`}
+                      {r.originX != null && ", on the map"}
+                      {r.atMs != null && `, ${formatClock(r.atMs)}`}
+                    </div>
+                  </div>
+                  {/* Shown on hover with a mouse; always there on a touch
+                      screen, which has no hover to reveal them. */}
+                  <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100">
+                    <button
+                      onClick={() => edit(r)}
+                      className="px-1 text-[12px]"
+                      style={{ color: "var(--color-ink-dim)" }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => remove(r.id)}
+                      className="px-1 text-[12px]"
+                      style={{ color: "var(--color-danger-ink)" }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
     </main>
   );
 }

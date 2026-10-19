@@ -123,8 +123,28 @@ export function MatchClock({ matchId, clock }: { matchId: string; clock: MatchCl
             ? "Second half"
             : "Full time";
 
+  // The whistle that is due now, said out loud. Before throw-in and over the
+  // interval one is always due; once a half has run its length, its end is.
+  // Forgetting throw-in is the one mistake that leaves every phone's clock
+  // at 0:00, so that prompt is the loudest thing on the strip.
+  const halfRunOut = game?.half != null && game.halfMs >= clock.halfLengthMin * 60_000;
+  const prompt =
+    whistles.throwIn == null
+      ? "Tap Throw-in at the first whistle. Every stat's minute is counted from it."
+      : game?.phase === "half_time"
+        ? "Tap Second half when play restarts."
+        : halfRunOut && next
+          ? `Tap ${next.label} at the whistle.`
+          : null;
+
   return (
-    <div className="border-b pb-4" style={{ borderColor: "var(--color-line)" }}>
+    <div
+      className="rounded px-3 py-2.5"
+      style={{
+        border: `1px solid ${prompt ? "var(--color-ink)" : "var(--color-line)"}`,
+        background: prompt ? "var(--color-surface-2)" : "transparent",
+      }}
+    >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex items-baseline gap-2.5">
           <span className="display tabular text-[1.75rem] leading-none">
@@ -134,9 +154,23 @@ export function MatchClock({ matchId, clock }: { matchId: string; clock: MatchCl
             {status}
           </span>
         </div>
+        {prompt && (
+          <p className="flex min-w-0 items-center gap-2 text-[14px]" style={{ color: "var(--color-ink)" }}>
+            <span
+              aria-hidden
+              className="inline-block h-2 w-2 shrink-0 rounded-full motion-safe:animate-pulse"
+              style={{ background: "var(--color-ink)" }}
+            />
+            {prompt}
+          </p>
+        )}
         <div className="flex-1" />
         {next && (
-          <button onClick={() => blow(next.key, "now")} disabled={pending} className="btn-outline text-sm">
+          <button
+            onClick={() => blow(next.key, "now")}
+            disabled={pending}
+            className={prompt ? "btn-primary" : "btn-outline text-sm"}
+          >
             {next.label}
           </button>
         )}
@@ -150,8 +184,8 @@ export function MatchClock({ matchId, clock }: { matchId: string; clock: MatchCl
       </div>
 
       {whistles.throwIn == null && !adjusting && (
-        <p className="mt-2 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-          Whoever keeps time taps each whistle. Stats logged before then are still timed once it is set.
+        <p className="mt-1.5 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+          Any coach logging this match can tap it. Stats logged before then are still timed once it is set.
         </p>
       )}
 
