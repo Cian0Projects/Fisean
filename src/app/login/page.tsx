@@ -23,8 +23,6 @@ export default function LoginPage({
       intro="Match footage, clipped and tagged, with the stat sheet beside it. Private to your club."
       footer={
         <>
-          New to the panel? <GateLink href={next ? `/join?next=${encodeURIComponent(next)}` : "/join"}>Join with your team code</GateLink>
-          <br />
           Setting up a new club? <GateLink href="/start">Start here</GateLink>
         </>
       }
@@ -60,6 +58,23 @@ export default function LoginPage({
           {pending ? "Sending…" : "Email me a code"}
         </button>
       </form>
+
+      {/* A code only goes to an existing account, so someone who has never
+          joined needs to be pointed at the way in before they type and wait. */}
+      <div
+        className="mt-6 space-y-3 rounded-lg border p-4"
+        style={{ borderColor: "var(--color-line)" }}
+      >
+        <p className="text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
+          Don&apos;t have an account yet? An email code only works once you have joined your club&apos;s panel.
+        </p>
+        <a
+          href={next ? `/join?next=${encodeURIComponent(next)}` : "/join"}
+          className="btn-outline w-full text-center"
+        >
+          Join with your team code
+        </a>
+      </div>
     </Gate>
   );
 }
