@@ -301,7 +301,7 @@ export function StatLogger({
   const newest = [...rows].sort((a, b) => b.createdAt - a.createdAt);
 
   return (
-    <main className="mx-auto max-w-[90rem] px-4 pt-4 pb-12">
+    <main className="px-4 pt-4 pb-12 lg:px-6">
       {/* One screen during a match: nothing a logger needs between seeing
           it and logging it may sit below the fold. So the header is a line,
           the pitch takes the width, every question sits in one panel beside
@@ -328,12 +328,13 @@ export function StatLogger({
         <MatchClock matchId={match.id} clock={clock} />
       </div>
 
-      {/* The pitch is as wide as the screen's height allows, so it and the
-          panel beside it fit with room to spare above and below, rather
-          than as wide as the screen, which on a laptop pushes its bottom
-          edge out of sight. */}
+      {/* The pitch is as wide as the screen's height allows, so its bottom
+          edge stays in sight, and it sits hard left. The panel takes all the
+          width that is left, which on a laptop is enough to put its
+          questions two to a row: that, not a smaller pitch, is what keeps
+          a shot, the longest form, on the screen without scrolling. */}
       <div
-        className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,max(26rem,calc((100dvh_-_19rem)_*_var(--pitch-ratio))))_23rem] lg:justify-center"
+        className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,max(26rem,calc((100dvh_-_19rem)_*_var(--pitch-ratio))))_minmax(23rem,1fr)]"
         style={{ "--pitch-ratio": String(VIEW_W / pitchViewHeight()) } as CSSProperties}
       >
         {/* ------------------------------------------------------ the pitch */}
@@ -381,11 +382,11 @@ export function StatLogger({
 
         {/* ---------------------------------------------------- the details */}
         <section
-          className="flex min-w-0 flex-col lg:border-l lg:pl-6"
+          className="@container flex min-w-0 flex-col lg:border-l lg:pl-6"
           style={{ borderColor: "var(--color-line)" }}
         >
           {/* Type first: it decides what the rest of the panel even asks. */}
-          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 lg:grid-cols-2">
+          <div className="grid grid-cols-2 gap-1.5 @md:grid-cols-4">
             {STAT_TYPES.map((t) => {
               const m = STAT_TYPE_META[t];
               const here = t === statType;
@@ -414,9 +415,11 @@ export function StatLogger({
             })}
           </div>
 
-          <div className="mt-4 space-y-4">
+          <div className="mt-4">
             <VoiceBar voice={voice} onDiscard={resetEntry} />
+          </div>
 
+          <div className="mt-4 grid items-start gap-x-6 gap-y-4 @xl:grid-cols-2">
             <StatFields
               statType={statType}
               detail={detail}
@@ -433,7 +436,7 @@ export function StatLogger({
             />
 
             {clips.length > 0 && (
-              <div>
+              <div className="col-span-full">
                 <label className="label mb-1.5 block" htmlFor="stat-clip">
                   Clip of the moment
                 </label>
@@ -455,7 +458,7 @@ export function StatLogger({
 
             {error && (
               <p
-                className="rounded px-3 py-2 text-[13px]"
+                className="col-span-full rounded px-3 py-2 text-[13px]"
                 style={{
                   background: "color-mix(in oklab, var(--color-danger) 20%, transparent)",
                   color: "var(--color-ink)",
