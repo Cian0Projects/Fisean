@@ -16,6 +16,18 @@ is used, how it is deployed).
 
 -->
 
+## A Stats section for coaches
+*2026-10-19*
+
+Coaches have a Stats link in the masthead, beside Matches. It opens a page
+that starts a match (opponent, date, half length, nothing else, since
+footage can be added days later) and goes straight to logging it, and lists
+the club's matches with how many stats each has, a link to log more and a
+link to the report. Before this, a match could only be created by uploading
+footage, and logging was reached from a match's row on the Squad page,
+which nobody thought to look at on match day. Everyone logging the same game
+opens the same match from here, so their stats land on one sheet.
+
 ## A match clock for logging on the line
 *2026-10-19*
 

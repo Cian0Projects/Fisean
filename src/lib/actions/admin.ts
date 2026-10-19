@@ -53,6 +53,7 @@ export async function createMatch(input: {
     .returning();
 
   revalidatePath("/");
+  revalidatePath("/stats");
   return { id: match.id };
 }
 

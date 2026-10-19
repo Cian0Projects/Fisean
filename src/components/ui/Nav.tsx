@@ -19,8 +19,20 @@ import { InstallHint } from "@/components/ui/InstallHint";
 export function Nav({ user }: { user: SessionUser }) {
   const pathname = usePathname();
 
+  const coach = user.role !== "player";
+  // A coach's stat pages are under a match, but they belong to Stats: that
+  // is the way the coach came in. A player has no Stats section, so a match's
+  // stat sheet stays under Matches for them.
+  const isStatsPage = (p: string) => p.startsWith("/stats") || /^\/matches\/[^/]+\/stats/.test(p);
+
   const sections = [
-    { href: "/", label: "Matches", match: (p: string) => p === "/" || p.startsWith("/matches") },
+    {
+      href: "/",
+      label: "Matches",
+      match: (p: string) => p === "/" || (p.startsWith("/matches") && !(coach && isStatsPage(p))),
+    },
+    // Logging is the coaches' job, and it has to be one tap away on match day.
+    ...(coach ? [{ href: "/stats", label: "Stats", match: isStatsPage }] : []),
     { href: "/playlists", label: "Playlists", match: (p: string) => p.startsWith("/playlists") },
     // The drill board is the coaches' planning, not something a player reviews.
     ...(user.role !== "player"
