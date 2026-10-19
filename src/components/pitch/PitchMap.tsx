@@ -17,6 +17,12 @@
  * is the one pair a colour-blind reader cannot separate by hue, so a filled
  * dot, a ring and a dashed ring say the same thing the colours do — and the
  * map survives being photocopied.
+ *
+ * `turned` draws it from the other side of the ground, half a circle round,
+ * for a logger whose team has swapped ends: our end on the right, the near
+ * wing at the top. Only the drawing turns. Marks are turned on the way in and
+ * taps turned back on the way out, so what is stored never depends on where
+ * anyone was standing.
  */
 import { useId } from "react";
 import { DEFAULT_PITCH, clampToPitch, type PitchSize } from "@/lib/hurling/pitch";
@@ -56,6 +62,7 @@ export function PitchMap({
   caption,
   className,
   decorative = false,
+  turned = false,
 }: {
   marks: PitchMark[];
   size?: PitchSize;
@@ -66,12 +73,23 @@ export function PitchMap({
   className?: string;
   /** Markings only — no sod, no frame, no labels. For the sign-in screen. */
   decorative?: boolean;
+  /** Seen from the other side: our end on the right. See the file note. */
+  turned?: boolean;
 }) {
   const uid = useId().replace(/:/g, "");
   const H = pitchViewHeight(size);
 
-  const arrows = marks.filter((m) => m.toX != null && m.toY != null);
-  const dots = marks.filter((m) => m.toX == null || m.toY == null);
+  const shown = turned
+    ? marks.map((m) => ({
+        ...m,
+        x: 1 - m.x,
+        y: 1 - m.y,
+        toX: m.toX != null ? 1 - m.toX : m.toX,
+        toY: m.toY != null ? 1 - m.toY : m.toY,
+      }))
+    : marks;
+  const arrows = shown.filter((m) => m.toX != null && m.toY != null);
+  const dots = shown.filter((m) => m.toX == null || m.toY == null);
   // One marker per colour in use — an SVG marker cannot inherit a stroke.
   const arrowColours = [...new Set(arrows.map((m) => m.colour))];
   const markerId = (colour: string) => `${uid}-arrow-${arrowColours.indexOf(colour)}`;
@@ -79,9 +97,9 @@ export function PitchMap({
   const place = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!onPlace) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    onPlace(
-      clampToPitch((e.clientX - rect.left) / rect.width, (e.clientY - rect.top) / rect.height),
-    );
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    onPlace(turned ? clampToPitch(1 - x, 1 - y) : clampToPitch(x, y));
   };
 
   return (
@@ -128,10 +146,10 @@ export function PitchMap({
         display={decorative ? "none" : undefined}
       >
         <text x={10} y={19}>
-          Our end
+          {turned ? "Their end" : "Our end"}
         </text>
         <text x={VIEW_W - 10} y={19} textAnchor="end">
-          Their end
+          {turned ? "Our end" : "Their end"}
         </text>
         {caption && (
           <text x={VIEW_W / 2} y={19} textAnchor="middle" fill="var(--color-ink-dim)">

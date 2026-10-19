@@ -14,9 +14,17 @@
  * the review workspace — a stat sheet is typed up in one sitting and always
  * has a few corrections in it.
  */
-import { useEffect, useMemo, useState, useTransition } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  useTransition,
+  type CSSProperties,
+} from "react";
 import Link from "next/link";
 import { PitchMap, type PitchMark } from "@/components/pitch/PitchMap";
+import { VIEW_W, pitchViewHeight } from "@/components/pitch/PitchMarkings";
 import { deleteMatchStat, logMatchStat, updateMatchStat } from "@/lib/actions/stats";
 import {
   STAT_TYPES,
@@ -89,6 +97,7 @@ export function StatLogger({
   // describing it takes a few seconds and the play has moved on by then.
   const [seenAt, setSeenAt] = useState<number | null>(null);
   const clock = useMatchClock(match.id, whistles, halfLengthMin);
+  const [turned, turn] = useEndsSwapped(match.id);
   const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
   const [dest, setDest] = useState<{ x: number; y: number } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -319,12 +328,27 @@ export function StatLogger({
         <MatchClock matchId={match.id} clock={clock} />
       </div>
 
-      <div className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,1fr)_23rem]">
+      {/* The pitch is as wide as the screen's height allows, so it and the
+          panel beside it fit with room to spare above and below, rather
+          than as wide as the screen, which on a laptop pushes its bottom
+          edge out of sight. */}
+      <div
+        className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,max(26rem,calc((100dvh_-_19rem)_*_var(--pitch-ratio))))_23rem] lg:justify-center"
+        style={{ "--pitch-ratio": String(VIEW_W / pitchViewHeight()) } as CSSProperties}
+      >
         {/* ------------------------------------------------------ the pitch */}
         <section className="min-w-0">
-          <div className="mb-1.5 flex items-baseline justify-between gap-3">
+          <div className="mb-1.5 flex items-center gap-3">
             <span className="label">Where on the pitch</span>
-            <span className="text-right text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+            <button
+              onClick={turn}
+              aria-pressed={turned}
+              title="Teams changed ends? Turn the pitch round."
+              className="btn-ghost px-2 py-1 text-xs"
+            >
+              Swap ends
+            </button>
+            <span className="ml-auto text-right text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
               {meta.points === 2
                 ? !origin
                   ? "Tap where it was struck from"
@@ -336,7 +360,7 @@ export function StatLogger({
                   : "Tap the pitch, or leave it unplaced"}
             </span>
           </div>
-          <PitchMap marks={marks} onPlace={placePoint} />
+          <PitchMap marks={marks} onPlace={placePoint} turned={turned} />
           <div className="mt-1.5 flex min-h-7 flex-wrap items-center justify-between gap-2">
             <p className="text-[13px]" style={{ color: "var(--color-ink-dim)" }}>
               {meta.hint}
@@ -556,6 +580,52 @@ export function StatLogger({
       </section>
     </main>
   );
+}
+
+/**
+ * Which way round this logger sees the pitch, for this match. Kept on the
+ * phone, not the server: it is about where one person is standing, and two
+ * loggers on opposite sides of the ground want opposite answers. Held in
+ * memory as well, so the button still works where storage is blocked.
+ */
+const endsListeners = new Set<() => void>();
+const endsInMemory = new Map<string, boolean>();
+const endsKey = (matchId: string) => `ardawn:ends-swapped:${matchId}`;
+
+function subscribeEnds(listener: () => void) {
+  endsListeners.add(listener);
+  return () => {
+    endsListeners.delete(listener);
+  };
+}
+
+function endsSwapped(matchId: string): boolean {
+  const key = endsKey(matchId);
+  if (endsInMemory.has(key)) return endsInMemory.get(key)!;
+  try {
+    return localStorage.getItem(key) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function useEndsSwapped(matchId: string): [boolean, () => void] {
+  const swapped = useSyncExternalStore(
+    subscribeEnds,
+    () => endsSwapped(matchId),
+    () => false,
+  );
+  const toggle = () => {
+    const key = endsKey(matchId);
+    endsInMemory.set(key, !swapped);
+    try {
+      localStorage.setItem(key, swapped ? "0" : "1");
+    } catch {
+      // Private window or blocked storage: it holds for this visit.
+    }
+    endsListeners.forEach((l) => l());
+  };
+  return [swapped, toggle];
 }
 
 /** When the entry being logged was seen: on the game clock once it is running, else the time of day. */
