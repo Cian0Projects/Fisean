@@ -110,6 +110,15 @@ export function StartForm({ needsCode }: { needsCode: boolean }) {
         <button type="submit" disabled={pending} className="btn-primary w-full">
           {pending ? "Sending…" : "Set up the club"}
         </button>
+        {/* The data agreement says setting up a club is agreeing to it, so
+            the place where that happens has to say so too. */}
+        <p className="text-center text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+          Setting up the club accepts the{" "}
+          <a href="/privacy/agreement" target="_blank" className="underline">
+            data agreement
+          </a>{" "}
+          for its footage and panel.
+        </p>
       </form>
     </Gate>
   );

@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
+import { destroySession } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
 import {
   matches,
@@ -57,13 +59,26 @@ export async function createMatch(input: {
   return { id: match.id };
 }
 
+/**
+ * Delete a match and everything that hangs off it: its footage, clips,
+ * number sheet and stats. The video rows go by cascade, but the files they
+ * point to are in storage, not the database, so they are read out first and
+ * removed after; otherwise "deleted" would mean only "no longer listed".
+ */
 export async function deleteMatch(matchId: string): Promise<void> {
   const user = await requireAdmin();
   const [match] = await db.select().from(matches).where(eq(matches.id, matchId)).limit(1);
   if (!match) return;
   assertSameTeam(user, match);
+
+  const footage = await db
+    .select({ storageKey: videos.storageKey, uploadId: videos.uploadId })
+    .from(videos)
+    .where(eq(videos.matchId, matchId));
   await db.delete(matches).where(eq(matches.id, matchId));
+  await removeStoredFiles(footage);
   revalidatePath("/");
+  revalidatePath("/admin");
 }
 
 /* ---------------------------------------------------------------- markers */
@@ -103,19 +118,66 @@ export async function deleteVideo(videoId: string): Promise<void> {
   if (!video) return;
   assertSameTeam(user, video);
 
-  // Remove the row first; if unlinking the file fails the app stays coherent
-  // and the orphan can be cleaned up separately.
   await db.delete(videos).where(eq(videos.id, videoId));
-  try {
-    const { store } = await import("@/lib/storage");
-    const media = await store();
-    // A file stopped part-way is a set of parts, not yet an object.
-    if (video.uploadId) await media.abortMultipart(video.storageKey, video.uploadId);
-    else await media.remove(video.storageKey);
-  } catch {
-    // Leave the file; the database is the source of truth.
-  }
+  await removeStoredFiles([video]);
   revalidatePath("/");
+}
+
+/**
+ * Take footage out of storage once its rows are gone. The rows go first so
+ * that, if storage fails, the app stays coherent and the orphan can be
+ * cleaned up separately: the database is the source of truth. Each file is
+ * tried on its own, so one failure does not leave the rest of a season behind.
+ */
+async function removeStoredFiles(
+  footage: { storageKey: string; uploadId: string | null }[],
+): Promise<void> {
+  if (footage.length === 0) return;
+  const { store } = await import("@/lib/storage");
+  const media = await store().catch(() => null);
+  if (!media) return;
+  for (const video of footage) {
+    try {
+      // A file stopped part-way is a set of parts, not yet an object.
+      if (video.uploadId) await media.abortMultipart(video.storageKey, video.uploadId);
+      else await media.remove(video.storageKey);
+    } catch {
+      // Leave the file; see above.
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ club */
+
+/**
+ * Close the club: every match, file, clip, stat, drill and person, at once.
+ *
+ * The privacy page and the data agreement both promise a club can do this
+ * itself, without emailing anyone, so it lives here rather than in a script.
+ * Typing the club's name is the confirmation, the way a repository is
+ * deleted on GitHub: a confirm() box is clicked through, a name is not.
+ *
+ * Deleting the team row cascades to everything scoped by `teamId`, sessions
+ * included, so every member is signed out on their next request. Backups
+ * still hold the club until they age out, as docs/DEPLOYMENT.md sets.
+ */
+export async function deleteClub(typedName: string): Promise<{ error: string }> {
+  const admin = await requireAdmin();
+  const [team] = await db.select().from(teams).where(eq(teams.id, admin.teamId)).limit(1);
+  if (!team) return { error: "That club no longer exists." };
+  if (typedName.trim().toLowerCase() !== team.name.trim().toLowerCase()) {
+    return { error: `Type ${team.name} exactly as it is shown to confirm.` };
+  }
+
+  const footage = await db
+    .select({ storageKey: videos.storageKey, uploadId: videos.uploadId })
+    .from(videos)
+    .where(eq(videos.teamId, team.id));
+  await db.delete(teams).where(eq(teams.id, team.id));
+  await removeStoredFiles(footage);
+
+  await destroySession();
+  redirect("/");
 }
 
 /* ---------------------------------------------------------------- members */

@@ -192,7 +192,13 @@ function PublicHomepage() {
               Any match saved as an MP4. Upload it, or bring it in from Veo, Pixellot,
               Hudl, Spiideo, Google Drive or Dropbox.
             </Question>
-            <Question q="Who can see our footage?">Only your club.</Question>
+            <Question q="Who can see our footage?">
+              Only your club. It is stored in the EU, and removing a player ends their access at
+              once.{" "}
+              <a href="/privacy" className="font-semibold text-ink underline">
+                Where footage is kept and who can see it
+              </a>
+            </Question>
             <Question q="Do players need to install anything?">
               No. It works in the browser on any phone or laptop.
             </Question>
@@ -230,6 +236,9 @@ function PublicHomepage() {
           <span className="wordmark text-[18px]">Ardawn</span>
           <a href="mailto:hello@ardawnsport.ie" className="hover:text-ink">
             hello@ardawnsport.ie
+          </a>
+          <a href="/privacy" className="hover:text-ink">
+            Privacy and footage
           </a>
           <a href="/login" className="font-semibold text-ink">Sign in to your team</a>
         </div>

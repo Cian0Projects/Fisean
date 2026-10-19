@@ -16,6 +16,21 @@ is used, how it is deployed).
 
 -->
 
+## Privacy page, data agreement, and deleting a club
+*2026-10-19*
+
+A committee asks where footage is kept and who can see it before it lets a
+panel be filmed, so `/privacy` answers that from what the code does: EU
+storage on R2, access by club code, removal ending access at once. Behind it,
+`/privacy/agreement` is the Article 28 data processing agreement, accepted by
+setting up a club (the sign-up form now says so) and printable for a signed
+copy. Both promise a club can delete its own data, which was only half true:
+deleting a match dropped its video rows but left the files in storage, and
+there was no way to close a club at all. Deleting a match now removes its
+files, each match row has a Delete button for admins, and the squad page ends
+with Close the club, which deletes the team row (everything cascades from it,
+sessions included) and its footage once the club's name is typed.
+
 ## The whole app in the screening room
 *2026-10-19*
 

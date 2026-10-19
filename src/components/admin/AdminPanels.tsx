@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import {
+  deleteClub,
+  deleteMatch,
   deleteVideo,
   removeMember,
   rotateJoinCode,
@@ -105,13 +107,14 @@ export function AdminPanels({
             {isAdmin ? (
               <Panel members={members} viewerId={viewer.id} />
             ) : (
-              <Matches matches={matches} videos={videos} />
+              <Matches matches={matches} videos={videos} canDelete={false} />
             )}
           </div>
 
           <aside className="space-y-14">
-            {isAdmin && <Matches matches={matches} videos={videos} />}
+            {isAdmin && <Matches matches={matches} videos={videos} canDelete />}
             <Footage videos={videos} imports={imports} canDelete={isAdmin} />
+            {isAdmin && <CloseClub teamName={teamName} />}
           </aside>
         </div>
       </main>
@@ -389,7 +392,15 @@ function AddEmail({ member }: { member: Member }) {
  * by uploading its footage (the Footage panel asks for a title and a date),
  * so there is one place to start and no empty match to wonder about.
  */
-function Matches({ matches, videos }: { matches: Match[]; videos: Video[] }) {
+function Matches({
+  matches,
+  videos,
+  canDelete,
+}: {
+  matches: Match[];
+  videos: Video[];
+  canDelete: boolean;
+}) {
   return (
     <section className="@container">
       <SectionHead title="Matches" note="Each match appears here once its footage is uploaded." />
@@ -403,6 +414,7 @@ function Matches({ matches, videos }: { matches: Match[]; videos: Video[] }) {
               key={m.id}
               match={m}
               footage={videos.filter((v) => v.matchId === m.id)}
+              canDelete={canDelete}
             />
           ))}
         </ul>
@@ -418,7 +430,16 @@ function Matches({ matches, videos }: { matches: Match[]; videos: Video[] }) {
  * uploaded looks for the match; the footage list in the rail is about files,
  * not games.
  */
-function MatchRow({ match, footage }: { match: Match; footage: Video[] }) {
+function MatchRow({
+  match,
+  footage,
+  canDelete,
+}: {
+  match: Match;
+  footage: Video[];
+  canDelete: boolean;
+}) {
+  const [pending, startTransition] = useTransition();
   const ready = footage.find((v) => v.status === "ready");
   const arriving = !ready && footage.some((v) => v.status === "uploading");
   const where = [match.competition, match.venue].filter(Boolean).join(" at ") || "Friendly";
@@ -446,8 +467,87 @@ function MatchRow({ match, footage }: { match: Match; footage: Video[] }) {
         <Link href={`/matches/${match.id}/stats/log`} className="btn-ghost text-xs">
           Log stats
         </Link>
+        {canDelete && (
+          <button
+            disabled={pending}
+            onClick={() => {
+              if (
+                !confirm(
+                  `Delete the match against ${match.opponent}? Its footage, clips and stats go with it, and cannot be brought back.`,
+                )
+              )
+                return;
+              startTransition(() => void deleteMatch(match.id));
+            }}
+            className="btn-ghost text-xs"
+          >
+            {pending ? "Deleting…" : "Delete"}
+          </button>
+        )}
       </div>
     </li>
+  );
+}
+
+/* -------------------------------------------------------------- the club */
+
+/**
+ * Closing the club, at the foot of the rail where nobody lands on it by
+ * accident. Folded shut, and the button only wakes once the club's name has
+ * been typed, because this is the one action in the app with no way back.
+ */
+function CloseClub({ teamName }: { teamName: string }) {
+  const [typed, setTyped] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const matchesName = typed.trim().toLowerCase() === teamName.trim().toLowerCase();
+
+  return (
+    <section>
+      <SectionHead title="Close the club" />
+      <details className="group">
+        <summary className="btn-outline cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+          Delete the club and everything in it
+        </summary>
+        <div className="mt-4 space-y-3">
+          <p className="text-[14px] leading-relaxed" style={{ color: "var(--color-ink-dim)" }}>
+            Every match, file of footage, clip, stat, drill and person on the panel is deleted at
+            once, and everyone is signed out. This cannot be undone. Backups hold a copy for up to
+            30 days, then it is gone for good.
+          </p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              setError(null);
+              startTransition(async () => {
+                const result = await deleteClub(typed);
+                if (result?.error) setError(result.error);
+              });
+            }}
+            className="space-y-3"
+          >
+            <label htmlFor="closeClubName" className="label block">
+              Type <strong style={{ color: "var(--color-ink)" }}>{teamName}</strong> to confirm
+            </label>
+            <input
+              id="closeClubName"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              autoComplete="off"
+              className="field"
+            />
+            {error && (
+              <p className="text-[12px]" style={{ color: "var(--color-danger-ink)" }}>
+                {error}
+              </p>
+            )}
+            <button type="submit" disabled={!matchesName || pending} className="btn-outline w-full">
+              {pending ? "Deleting the club…" : "Delete the club for good"}
+            </button>
+          </form>
+        </div>
+      </details>
+    </section>
   );
 }
 
