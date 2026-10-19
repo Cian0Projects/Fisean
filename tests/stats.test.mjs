@@ -25,6 +25,8 @@ import {
   shootingEfficiency,
   statColour,
   statShape,
+  footageMomentOf,
+  liveGameTime,
   statTiming,
   stepToStat,
   summariseShooting,
@@ -545,6 +547,45 @@ test("the half comes from the footage's markers when they are set, else from the
   assert.deepEqual(statTiming({ half: 2, atMs: 5_000 }, undefined), { half: 2, gameMs: null });
   assert.deepEqual(statTiming({ half: 1, atMs: 5_000 }, { throwIn: null }), { half: 1, gameMs: null });
   assert.equal(normaliseEntry({ statType: "free_won", half: 3 }).half, null);
+});
+
+test("an entry seen on the line is timed from the match whistles", () => {
+  const day = Date.UTC(2026, 9, 18, 14, 0);
+  const whistles = { throwIn: day, halfTime: day + 33 * 60_000, secondHalf: day + 45 * 60_000, fullTime: null };
+
+  // Seen five minutes after the second-half throw-in of a 30-minute half: the 36th minute.
+  const seen = statTiming({ half: null, seenAt: whistles.secondHalf + 5 * 60_000 }, undefined, 30, whistles);
+  assert.deepEqual(seen, { half: 2, gameMs: 35 * 60_000 });
+
+  // Footage wins where both exist.
+  assert.equal(statTiming({ atMs: 60_000, seenAt: whistles.secondHalf }, { throwIn: 0 }, 30, whistles).half, 1);
+
+  // Throw-in not tapped yet: the coach's half stands.
+  assert.deepEqual(statTiming({ half: 1, seenAt: day }, undefined, 30, { throwIn: null }), { half: 1, gameMs: null });
+
+  // Typed up the next morning with full time never tapped: no clock, rather than the 1,000th minute.
+  const nextDay = day + 20 * 3_600_000;
+  assert.deepEqual(statTiming({ half: 2, seenAt: nextDay }, undefined, 30, whistles), { half: 2, gameMs: null });
+  assert.equal(liveGameTime(nextDay, whistles, 30), null);
+  // Stoppage time is still play.
+  assert.equal(liveGameTime(whistles.secondHalf + 38 * 60_000, whistles, 30).half, 2);
+});
+
+test("a stat seen on the line lands on footage from each half's own marker", () => {
+  const day = Date.UTC(2026, 9, 18, 14, 0);
+  const whistles = { throwIn: day, halfTime: day + 33 * 60_000, secondHalf: day + 45 * 60_000 };
+  // The camera started 47 seconds before throw-in and was stopped over the
+  // interval, so the second half starts 34 minutes into the file, not 45.
+  const video = { throwIn: 47_000, secondHalf: 34 * 60_000 };
+
+  assert.equal(footageMomentOf(day + 10 * 60_000, whistles, video, 30), 47_000 + 10 * 60_000);
+  assert.equal(footageMomentOf(whistles.secondHalf + 2 * 60_000, whistles, video, 30), 34 * 60_000 + 2 * 60_000);
+
+  // Second half not marked on the video yet: no guess.
+  assert.equal(footageMomentOf(whistles.secondHalf + 60_000, whistles, { throwIn: 47_000 }, 30), null);
+  // Seen during the interval, or past the end of the file.
+  assert.equal(footageMomentOf(day + 40 * 60_000, whistles, video, 30), null);
+  assert.equal(footageMomentOf(day + 10 * 60_000, whistles, video, 30, 5 * 60_000), null);
 });
 
 test("chronological orders by half, then by clock only when the whole half has one", () => {

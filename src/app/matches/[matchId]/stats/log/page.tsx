@@ -8,6 +8,7 @@ import { Nav } from "@/components/ui/Nav";
 import { StatLogger } from "@/components/stats/StatLogger";
 import { formatClock } from "@/lib/hurling/notation";
 import { loadNumberSheet, loadStatRows } from "@/lib/queries/stats";
+import { whistlesOf } from "@/lib/hurling/stats";
 
 /**
  * Logging the stat sheet.
@@ -73,6 +74,8 @@ export default async function LogMatchStatsPage({
           venue: match.venue,
           playedOn: match.playedOn,
         }}
+        whistles={whistlesOf(match)}
+        halfLengthMin={match.halfLengthMin}
         numbers={numbers}
         initialRows={rows}
         clips={clipRows.map((c) => ({

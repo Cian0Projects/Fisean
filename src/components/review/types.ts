@@ -2,6 +2,7 @@
 import type { Shape } from "@/lib/db/schema";
 import { clipTagTone, type TagTone } from "@/lib/hurling/events";
 import { toneColour } from "@/components/ui/TagMark";
+import type { Markers } from "@/lib/hurling/notation";
 
 export type EventTypeRow = {
   id: string;
@@ -74,6 +75,8 @@ export type MatchInfo = {
   competition: string | null;
   playedOn: string;
   halfLengthMin: number;
+  /** The match's whistles, tapped on the line. They place line-logged stats on this video. */
+  whistles?: Markers;
 };
 
 export type Viewer = {

@@ -43,6 +43,16 @@ export function PauseIcon(props: IconProps) {
   );
 }
 
+/** A microphone, for logging a stat by voice. */
+export function MicIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="5.5" y="1.5" width="5" height="8.5" rx="2.5" fill="currentColor" />
+      <path d="M3.5 7.5a4.5 4.5 0 0 0 9 0M8 12v2.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 /** Four corners pointing out to go full screen, or in to leave it. */
 export function FullScreenIcon({ exit = false, ...props }: IconProps & { exit?: boolean }) {
   return (

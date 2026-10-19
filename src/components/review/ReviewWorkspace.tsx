@@ -49,7 +49,7 @@ import type { Shape } from "@/lib/db/schema";
 import { StatPad } from "@/components/stats/StatPad";
 import { StatLanes } from "@/components/stats/StatLanes";
 import { numberSheet, type SheetEntry, type StatRow } from "@/components/stats/types";
-import { STAT_LEAD_IN_MS, type StatType } from "@/lib/hurling/stats";
+import { STAT_LEAD_IN_MS, footageMomentOf, type StatType } from "@/lib/hurling/stats";
 import { ClipList } from "./ClipList";
 import { ClipInspector } from "./ClipInspector";
 import {
@@ -119,6 +119,21 @@ export function ReviewWorkspace({
   // same entries as ticks, so both have to read from one list.
   const [statRows, setStatRows] = useState<StatRow[]>(initialStatRows ?? []);
   const [statType, setStatType] = useState<StatType>("tackle");
+  // Stats logged on the line, before this video existed, carry the moment
+  // they were seen rather than a place in the file. Once the video's
+  // throw-in is marked, the match whistles put them on it, so they tick on
+  // the timeline and play back like any other. Worked out, never stored:
+  // moving a marker moves them. Editing one in the pad does pin it to its
+  // place in this file, which by then is the right place.
+  const placedStatRows = useMemo(
+    () =>
+      statRows.map((r) => {
+        if (r.atMs != null || r.seenAt == null) return r;
+        const atMs = footageMomentOf(r.seenAt, match.whistles ?? {}, markers, match.halfLengthMin, video.durationMs);
+        return atMs == null ? r : { ...r, atMs };
+      }),
+    [statRows, match.whistles, markers, match.halfLengthMin, video.durationMs],
+  );
   const statsOpen = viewMode === "stats" && canLogStats;
   const [helpOpen, setHelpOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -708,7 +723,7 @@ export function ReviewWorkspace({
             <StatLanes
               engine={engine}
               durationMs={video.durationMs}
-              rows={statRows}
+              rows={placedStatRows}
               sheet={statSheet}
               focusType={statType}
               onFocusType={setStatType}
@@ -787,7 +802,7 @@ export function ReviewWorkspace({
               matchId={match.id}
               videoId={video.id}
               sheet={statSheet}
-              rows={statRows}
+              rows={placedStatRows}
               setRows={setStatRows}
               statType={statType}
               setStatType={setStatType}

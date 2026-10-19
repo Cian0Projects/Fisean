@@ -5,7 +5,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { clips, matchStats, matches, videos } from "@/lib/db/schema";
 import { assertSameTeam, requireCoach } from "@/lib/auth/guard";
-import { normaliseEntry, type StatDraft } from "@/lib/hurling/stats";
+import { normaliseEntry, whistlesOf, type StatDraft } from "@/lib/hurling/stats";
+import type { Markers } from "@/lib/hurling/notation";
 import type { StatRow } from "@/components/stats/types";
 
 export type StatInput = StatDraft & {
@@ -14,6 +15,8 @@ export type StatInput = StatDraft & {
   /** Set by the live logging pad, off the video's own clock. Never typed. */
   videoId?: string | null;
   atMs?: number | null;
+  /** The real-world moment the coach started the entry, by the server's clock. */
+  seenAt?: number | null;
 };
 
 /** What the logging form keeps in its list. Names come from the match's number sheet. */
@@ -34,6 +37,7 @@ function normalise(input: StatInput | Omit<StatInput, "matchId">): StatValues {
     videoId,
     // A timestamp only means anything alongside the video it was read from.
     atMs: videoId && Number.isFinite(input.atMs) ? Math.max(0, Math.trunc(input.atMs!)) : null,
+    seenAt: Number.isFinite(input.seenAt) && input.seenAt! > 0 ? Math.trunc(input.seenAt!) : null,
   };
 }
 
@@ -158,4 +162,53 @@ export async function deleteMatchStat(statId: string): Promise<void> {
 
   await db.delete(matchStats).where(eq(matchStats.id, statId));
   revalidateStats(existing.matchId);
+}
+
+/* ------------------------------------------------------- the match clock */
+
+const WHISTLE_COLUMNS = {
+  throwIn: "throwInAt",
+  halfTime: "halfTimeAt",
+  secondHalf: "secondHalfAt",
+  fullTime: "fullTimeAt",
+} as const;
+
+export type Whistle = keyof typeof WHISTLE_COLUMNS;
+
+/**
+ * Blow one of the match's whistles, move it, or take it back.
+ *
+ * "now" is read off the server's clock when the request lands, not the
+ * phone's, so every logger's entries and the timekeeper's whistles are on one
+ * clock. A specific time is how a whistle tapped late gets corrected; null
+ * clears one tapped by mistake. Any coach can keep time: if the one phone
+ * doing it dies at half time, someone else carries on.
+ */
+export async function setMatchWhistle(
+  matchId: string,
+  whistle: Whistle,
+  at: number | "now" | null,
+): Promise<Markers> {
+  const user = await requireCoach();
+  if (!(whistle in WHISTLE_COLUMNS)) throw new Error("That is not one of the match's whistles.");
+
+  const [match] = await db
+    .select({ id: matches.id, teamId: matches.teamId })
+    .from(matches)
+    .where(eq(matches.id, matchId))
+    .limit(1);
+  if (!match) throw new Error("That match no longer exists.");
+  assertSameTeam(user, match);
+
+  const value = at === "now" ? Date.now() : at === null ? null : Number.isFinite(at) && at > 0 ? Math.trunc(at) : undefined;
+  if (value === undefined) throw new Error("That is not a time.");
+
+  const [row] = await db
+    .update(matches)
+    .set({ [WHISTLE_COLUMNS[whistle]]: value })
+    .where(eq(matches.id, match.id))
+    .returning();
+
+  revalidateStats(match.id);
+  return whistlesOf(row);
 }

@@ -196,6 +196,17 @@ export const matches = sqliteTable(
       .default("home"),
     halfLengthMin: integer("half_length_min").notNull().default(30),
     notes: text("notes"),
+    /**
+     * The match's own whistles, as real-world times (ms since the epoch, by
+     * the server's clock). Tapped by whoever keeps time on the line, so stats
+     * logged on several phones with no footage can all be put on one game
+     * clock. Footage keeps its own markers in `video_markers`, because a file
+     * position and a time of day are different clocks.
+     */
+    throwInAt: integer("throw_in_at"),
+    halfTimeAt: integer("half_time_at"),
+    secondHalfAt: integer("second_half_at"),
+    fullTimeAt: integer("full_time_at"),
     createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: integer("created_at").notNull().default(now),
   },
@@ -640,6 +651,14 @@ export const matchStats = sqliteTable(
      */
     videoId: text("video_id").references(() => videos.id, { onDelete: "set null" }),
     atMs: integer("at_ms"),
+    /**
+     * When it happened, as a real-world time by the server's clock: stamped
+     * the moment the coach started the entry (opened the mic, picked the
+     * type, placed it), not when they pressed log. Read against the match's
+     * whistles it gives the game clock, worked out when the sheet is read, so
+     * a throw-in tapped late or corrected afterwards moves every entry.
+     */
+    seenAt: integer("seen_at"),
     createdAt: integer("created_at").notNull().default(now),
     updatedAt: integer("updated_at").notNull().default(now),
   },

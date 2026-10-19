@@ -37,6 +37,7 @@ export const statColumns = {
   clipId: matchStats.clipId,
   videoId: matchStats.videoId,
   atMs: matchStats.atMs,
+  seenAt: matchStats.seenAt,
   createdAt: matchStats.createdAt,
 };
 

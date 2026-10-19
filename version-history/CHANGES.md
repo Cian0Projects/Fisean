@@ -16,6 +16,40 @@ is used, how it is deployed).
 
 -->
 
+## A match clock for logging on the line
+*2026-10-19*
+
+Stats logged with no footage now carry a game clock. Every entry on the stat
+sheet is stamped with the real-world moment it was seen (`match_stats.seen_at`,
+set when the coach starts the entry, not when they press log), and the match
+has four whistle times (`matches.throw_in_at` and the rest) that whoever keeps
+time taps from the logging page. The game minute is worked out from the two
+when the sheet is read, with the same conversion footage already used, so
+several loggers on several phones land on one clock, a logger can start
+before throw-in is tapped, and a whistle tapped late can be corrected
+afterwards with every entry moving with it. Each phone checks the whistles
+every 20 seconds, which is how the others see the clock start, and corrects
+for its own clock being off by reading the server's. Footage still wins where
+an entry has both. When footage is uploaded to the match later and its
+throw-in and second half are marked, these entries land on it at the right
+moment, each half measured from its own marker, so a file that starts before
+the whistle or stops over the interval still lines up.
+
+## Log a stat by voice
+*2026-10-19*
+
+Both stat logging forms, the live pad in the review workspace and the
+standalone sheet, have a mic button. One tap opens it and the form fills in
+as the coach talks: "shot seven point from a free", "pass seven to eleven
+won", "their kick-out, long, we won it". It stays open through pauses and
+stops when the entry is logged or discarded, and "scrap that" retakes the
+stat without touching the screen. Nothing is logged by voice alone: the
+coach still places it on the pitch and presses log. The engine is the
+browser's own speech recognition (free, no key, Chrome, Edge and Safari,
+needs a signal); everything that turns the words into a stat is in
+`src/lib/hurling/voice.ts` with its own tests, so many words can mean one
+thing and a paid engine can replace the browser's later without changing it.
+
 ## Sign in by email, and share emails
 *2026-10-17*
 

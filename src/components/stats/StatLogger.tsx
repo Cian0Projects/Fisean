@@ -23,8 +23,10 @@ import {
   STAT_TYPE_META,
   describeStat,
   effectiveOutcome,
+  liveGameTime,
   statColour,
   statShape,
+  statTiming,
   type StatType,
 } from "@/lib/hurling/stats";
 import {
@@ -48,7 +50,9 @@ import {
   type StatRow,
 } from "./types";
 import { matchDateLong } from "@/lib/format";
-import { formatClock } from "@/lib/hurling/notation";
+import { formatClock, type Markers } from "@/lib/hurling/notation";
+import { MatchClock, useMatchClock } from "./MatchClock";
+import { VoiceBar, useVoiceEntry } from "./VoiceEntry";
 
 type ClipOption = { id: string; label: string };
 
@@ -57,8 +61,13 @@ export function StatLogger({
   numbers,
   initialRows,
   clips,
+  whistles,
+  halfLengthMin,
 }: {
   match: StatMatchInfo;
+  /** The match's whistles as they stood when the page loaded. */
+  whistles: Markers;
+  halfLengthMin: number;
   /** Who wore what in this match, so far. */
   numbers: SheetEntry[];
   initialRows: StatRow[];
@@ -75,6 +84,11 @@ export function StatLogger({
     videoId: null,
     atMs: null,
   });
+  // When this entry was seen, on the server's clock: stamped by the first
+  // thing the coach does towards it, not when they press log, because
+  // describing it takes a few seconds and the play has moved on by then.
+  const [seenAt, setSeenAt] = useState<number | null>(null);
+  const clock = useMatchClock(match.id, whistles, halfLengthMin);
   const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
   const [dest, setDest] = useState<{ x: number; y: number } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -85,13 +99,17 @@ export function StatLogger({
   const sheet = useMemo(() => numberSheet(numbers), [numbers]);
   const named = playerAllowed(statType, detail);
   const ready = detailReady(statType, detail);
-  const patch = (p: Partial<StatDetail>) => setDetail((d) => ({ ...d, ...p }));
+  const patch = (p: Partial<StatDetail>) => {
+    voice.pin(p);
+    setDetail((d) => ({ ...d, ...p }));
+  };
 
   /** Keep the type and the context, drop the details — the next entry is a different moment. */
   const resetEntry = () => {
     setDetail(nextDetail);
     setClipId("");
     setEntryVideo({ videoId: null, atMs: null });
+    setSeenAt(null);
     setOrigin(null);
     setDest(null);
     setEditingId(null);
@@ -104,6 +122,31 @@ export function StatLogger({
     setDest(null);
     if (STAT_TYPE_META[next].points === 0) setOrigin(null);
   };
+
+  /**
+   * Stamp the entry the first time the coach touches it, and with the match
+   * clock running, settle its half too. Left alone when editing: an old entry
+   * keeps the moment it was seen.
+   */
+  const startEntry = () => {
+    if (editingId || seenAt !== null) return;
+    const at = clock.now();
+    setSeenAt(at);
+    const half = liveGameTime(at, clock.whistles, halfLengthMin)?.half;
+    if (half) setDetail((d) => ({ ...d, half }));
+  };
+
+  const voice = useVoiceEntry({
+    statType,
+    detail,
+    chooseType,
+    setDetail,
+    onStart: startEntry,
+    onRetake: () => {
+      setOrigin(null);
+      setDest(null);
+    },
+  });
 
   /**
    * Number keys pick the stat type. One listener, and it stands down whenever
@@ -141,6 +184,7 @@ export function StatLogger({
 
   const placePoint = (p: { x: number; y: number }) => {
     if (meta.points === 0) return;
+    startEntry();
     if (meta.points === 1) {
       setOrigin(p);
       return;
@@ -187,6 +231,7 @@ export function StatLogger({
 
   const submit = () => {
     if (!ready || pending) return;
+    voice.stop();
     const input = {
       ...detailToDraft(statType, detail),
       originX: origin?.x ?? null,
@@ -196,6 +241,9 @@ export function StatLogger({
       clipId: clipId || null,
       videoId: entryVideo.videoId,
       atMs: entryVideo.atMs,
+      // Logged without touching anything first (the type already showing,
+      // straight to log): now is the best there is.
+      seenAt: editingId ? seenAt : (seenAt ?? clock.now()),
     };
 
     startTransition(async () => {
@@ -208,6 +256,7 @@ export function StatLogger({
           setRows((prev) => [...prev, saved]);
         }
         resetEntry();
+        voice.reset();
       } catch (err) {
         setError((err as Error).message || "That entry could not be saved.");
       }
@@ -220,6 +269,7 @@ export function StatLogger({
     setDetail(detailFromRow(row));
     setClipId(row.clipId ?? "");
     setEntryVideo({ videoId: row.videoId, atMs: row.atMs });
+    setSeenAt(row.seenAt);
     setOrigin(row.originX != null && row.originY != null ? { x: row.originX, y: row.originY } : null);
     setDest(row.destX != null && row.destY != null ? { x: row.destX, y: row.destY } : null);
     setError(null);
@@ -263,6 +313,8 @@ export function StatLogger({
 
       <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <section>
+          <MatchClock matchId={match.id} clock={clock} />
+
           {/* Type first: it decides what the rest of the form even asks. */}
           <div
             className="flex flex-wrap items-stretch border-b"
@@ -274,7 +326,10 @@ export function StatLogger({
               return (
                 <button
                   key={t}
-                  onClick={() => chooseType(t)}
+                  onClick={() => {
+                    startEntry();
+                    chooseType(t);
+                  }}
                   aria-pressed={here}
                   className={`flex items-center gap-2 px-3 py-2.5 text-[14px] transition-colors ${here ? "here" : ""}`}
                   style={{ color: here ? "var(--color-ink)" : "var(--color-ink-dim)" }}
@@ -296,13 +351,21 @@ export function StatLogger({
           </div>
 
           <div className="mt-6 space-y-6">
+            <VoiceBar voice={voice} onDiscard={resetEntry} />
+
             <StatFields
               statType={statType}
               detail={detail}
               onChange={patch}
               sheet={sheet}
               idPrefix="stat"
-              halfNote={detail.half ? undefined : "Pick it once; it stays set for the entries after."}
+              halfNote={
+                clock.whistles.throwIn != null
+                  ? "Set from the match clock when the entry starts."
+                  : detail.half
+                    ? undefined
+                    : "Pick it once; it stays set for the entries after."
+              }
             />
 
             {clips.length > 0 && (
@@ -377,7 +440,13 @@ export function StatLogger({
                 {editingId ? "Save changes" : `Log this ${meta.label.toLowerCase()}`}
               </button>
               {editingId && (
-                <button onClick={resetEntry} className="btn-ghost text-xs">
+                <button
+                  onClick={() => {
+                    resetEntry();
+                    voice.reset();
+                  }}
+                  className="btn-ghost text-xs"
+                >
                   Cancel
                   <span className="kbd">Esc</span>
                 </button>
@@ -385,6 +454,11 @@ export function StatLogger({
               {!editingId && !ready && (
                 <span className="text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
                   Pick how it ended first
+                </span>
+              )}
+              {seenAt != null && (
+                <span className="tabular ml-auto text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
+                  {seenLabel(seenAt, clock.whistles, halfLengthMin)}
                 </span>
               )}
             </div>
@@ -410,6 +484,8 @@ export function StatLogger({
           ) : (
             <ul className="min-h-0 flex-1 overflow-y-auto">
               {newest.map((r) => {
+                const timing = statTiming(r, undefined, halfLengthMin, clock.whistles);
+                const half = timing.half ?? r.half;
                 // A tackle has no outcome axis, so it gets a plain mark rather
                 // than borrowing the one that means "unclear".
                 const outcome = effectiveOutcome(r);
@@ -438,7 +514,8 @@ export function StatLogger({
                       <div className="text-[14px]">{describeStat(r)}</div>
                       <div className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
                         {playerLabel(r.playerNumber, sheet)}
-                        {r.half && `, ${r.half === 1 ? "1st" : "2nd"} half`}
+                        {half && `, ${half === 1 ? "1st" : "2nd"} half`}
+                        {timing.gameMs != null && ` at ${formatClock(timing.gameMs)}`}
                         {r.originX != null && ", on the map"}
                         {r.atMs != null && `, ${formatClock(r.atMs)}`}
                       </div>
@@ -468,4 +545,11 @@ export function StatLogger({
       </div>
     </main>
   );
+}
+
+/** When the entry being logged was seen: on the game clock once it is running, else the time of day. */
+function seenLabel(at: number, whistles: Markers, halfLengthMin: number): string {
+  const game = liveGameTime(at, whistles, halfLengthMin);
+  if (game?.half) return `Seen at ${formatClock(game.gameMs)}, ${game.half === 1 ? "1st" : "2nd"} half`;
+  return `Seen at ${new Date(at).toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit" })}`;
 }

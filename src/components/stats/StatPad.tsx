@@ -52,6 +52,7 @@ import {
   type StatDetail,
 } from "./StatFields";
 import { playerLabel, statMarks, type NumberSheet, type StatRow } from "./types";
+import { VoiceBar, useVoiceEntry } from "./VoiceEntry";
 
 export function StatPad({
   engine,
@@ -87,6 +88,9 @@ export function StatPad({
   const [dest, setDest] = useState<{ x: number; y: number } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [entryClipId, setEntryClipId] = useState<string | null>(null);
+  // An entry first logged on the line keeps the moment it was seen when it
+  // is edited here; the pad itself times entries off the video instead.
+  const [entrySeenAt, setEntrySeenAt] = useState<number | null>(null);
   // The moment this entry was opened, off the transport's own clock. Null
   // until the first real interaction stamps it — see the file note above.
   const [stampMs, setStampMs] = useState<number | null>(null);
@@ -96,7 +100,10 @@ export function StatPad({
   const meta = STAT_TYPE_META[statType];
   const named = playerAllowed(statType, detail);
   const ready = detailReady(statType, detail);
-  const patch = (p: Partial<StatDetail>) => setDetail((d) => ({ ...d, ...p }));
+  const patch = (p: Partial<StatDetail>) => {
+    voice.pin(p);
+    setDetail((d) => ({ ...d, ...p }));
+  };
   const halvesMarked = markers.throwIn != null;
 
   /**
@@ -131,6 +138,7 @@ export function StatPad({
     setDest(null);
     setEditingId(null);
     setEntryClipId(null);
+    setEntrySeenAt(null);
     setStampMs(null);
     setError(null);
   };
@@ -142,6 +150,20 @@ export function StatPad({
     if (STAT_TYPE_META[next].points === 0) setOrigin(null);
     stampIfFresh();
   };
+
+  // Opening the mic is the moment the coach saw it, so it stamps the time the
+  // way switching type or placing a point does.
+  const voice = useVoiceEntry({
+    statType,
+    detail,
+    chooseType,
+    setDetail,
+    onStart: stampIfFresh,
+    onRetake: () => {
+      setOrigin(null);
+      setDest(null);
+    },
+  });
 
   /** Number keys pick the stat type, exactly as the full stat sheet does. */
   useEffect(() => {
@@ -214,6 +236,7 @@ export function StatPad({
 
   const submit = () => {
     if (!ready || pending) return;
+    voice.stop();
     // A tally logged without ever placing a point or switching type (the
     // default tab, hit straight away) still deserves a real timestamp.
     const atMs = stampMs ?? engine.snapshot.positionMs;
@@ -227,6 +250,7 @@ export function StatPad({
       clipId: entryClipId,
       videoId,
       atMs,
+      seenAt: entrySeenAt,
     };
 
     startTransition(async () => {
@@ -239,6 +263,7 @@ export function StatPad({
           setRows((prev) => [...prev, saved]);
         }
         resetEntry();
+        voice.reset();
       } catch (err) {
         setError((err as Error).message || "That entry could not be saved.");
       }
@@ -250,6 +275,7 @@ export function StatPad({
     setStatType(row.statType);
     setDetail(detailFromRow(row));
     setEntryClipId(row.clipId);
+    setEntrySeenAt(row.seenAt);
     setStampMs(row.atMs);
     setOrigin(row.originX != null && row.originY != null ? { x: row.originX, y: row.originY } : null);
     setDest(row.destX != null && row.destY != null ? { x: row.destX, y: row.destY } : null);
@@ -326,6 +352,8 @@ export function StatPad({
       </div>
 
       <div className="mt-4 space-y-4">
+        <VoiceBar voice={voice} onDiscard={resetEntry} />
+
         <StatFields
           statType={statType}
           detail={detail}
@@ -379,7 +407,13 @@ export function StatPad({
             {editingId ? "Save changes" : `Log ${meta.label.toLowerCase()}`}
           </button>
           {editingId && (
-            <button onClick={resetEntry} className="btn-ghost text-xs">
+            <button
+              onClick={() => {
+                resetEntry();
+                voice.reset();
+              }}
+              className="btn-ghost text-xs"
+            >
               Cancel
               <span className="kbd">Esc</span>
             </button>

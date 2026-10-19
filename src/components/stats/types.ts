@@ -42,8 +42,10 @@ export type StatRow = {
   clipId: string | null;
   videoId: string | null;
   atMs: number | null;
+  /** Real-world time it was seen, set by the logging form. See the schema. */
+  seenAt: number | null;
   createdAt: number;
-  /** Game clock, filled in by the report page from the video's markers. */
+  /** Game clock, filled in by the report page from the markers or the whistles. */
   gameMs?: number | null;
 };
 

@@ -3,6 +3,7 @@ import { asc, eq, isNull, or } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { eventTypes, matches, users, videoMarkers, videos } from "@/lib/db/schema";
 import { loadNumberSheet, loadStatRows } from "@/lib/queries/stats";
+import { whistlesOf } from "@/lib/hurling/stats";
 import { requireUser } from "@/lib/auth/guard";
 import { store } from "@/lib/storage";
 import { codecWarning } from "@/lib/media/probe";
@@ -77,6 +78,7 @@ export default async function ReviewPage({
         competition: match?.competition ?? null,
         playedOn: match?.playedOn ?? "",
         halfLengthMin: match?.halfLengthMin ?? 30,
+        whistles: match ? whistlesOf(match) : {},
       }}
       eventTypes={events}
       squad={squad}

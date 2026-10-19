@@ -645,20 +645,93 @@ export function normaliseEntry(draft: StatDraft): NormalisedStat {
  * An entry logged live against the footage carries a file position; once the
  * video's throw-in and half-time are marked, that converts to game time —
  * worked out when the report is read, not stored, so marking the halves later
- * fixes every entry at once. An entry typed up from the notebook has only the
- * half the coach picked, and no clock at all.
+ * fixes every entry at once.
+ *
+ * An entry logged on the line with no footage carries the real-world moment
+ * it was seen instead, and the match's whistles are real-world times too, so
+ * the same conversion applies to them unchanged. The footage wins where both
+ * exist: a file position was read off the play itself.
+ *
+ * An entry typed up from the notebook has only the half the coach picked,
+ * and no clock at all.
  */
 export function statTiming(
-  row: { half?: number | null; atMs?: number | null },
+  row: { half?: number | null; atMs?: number | null; seenAt?: number | null },
   markers: Markers | undefined,
   halfLengthMin = 30,
+  whistles?: Markers,
 ): { half: Half | null; gameMs: number | null } {
   const stored = row.half === 1 || row.half === 2 ? row.half : null;
   if (markers && row.atMs != null) {
     const t = toGameTime(row.atMs, markers, halfLengthMin);
     if (t.half) return { half: t.half, gameMs: t.gameMs };
   }
+  if (whistles?.throwIn != null && row.seenAt != null) {
+    const t = liveGameTime(row.seenAt, whistles, halfLengthMin);
+    if (t?.half) return { half: t.half, gameMs: t.gameMs };
+  }
   return { half: stored, gameMs: null };
+}
+
+/**
+ * However long stoppage time runs, a half is over well before this. Past it,
+ * with nobody having tapped the next whistle, an entry was typed up after the
+ * game rather than seen during it, and has no place on the clock.
+ */
+export const STOPPAGE_ALLOWANCE_MS = 20 * 60_000;
+
+/** The match's whistle times, in the shape the game clock reads. */
+export function whistlesOf(match: {
+  throwInAt: number | null;
+  halfTimeAt: number | null;
+  secondHalfAt: number | null;
+  fullTimeAt: number | null;
+}): Markers {
+  return {
+    throwIn: match.throwInAt,
+    halfTime: match.halfTimeAt,
+    secondHalf: match.secondHalfAt,
+    fullTime: match.fullTimeAt,
+  };
+}
+
+/**
+ * The game clock at a real-world moment, from the match's whistles. Null
+ * before throw-in is tapped, and for a moment too long after the last
+ * whistle to be in play (see above). The logging screens use this for the
+ * running clock, the report for each entry.
+ */
+export function liveGameTime(at: number, whistles: Markers, halfLengthMin = 30) {
+  if (whistles.throwIn == null) return null;
+  const t = toGameTime(at, whistles, halfLengthMin);
+  if (t.half && t.halfMs > halfLengthMin * 60_000 + STOPPAGE_ALLOWANCE_MS) return null;
+  return t;
+}
+
+/**
+ * Where in a video a stat seen on the line happened.
+ *
+ * The match's whistles turn the moment it was seen into a half and a time
+ * within it; the video's own throw-in and second-half markers turn that into
+ * a file position. Footage rarely starts on the whistle, and a camera
+ * stopped at half time leaves a gap no real-world clock knows about, so each
+ * half is measured from its own marker rather than from the start of the
+ * file. Null until the half's marker is set on the video, and for anything
+ * seen during the interval or past the end of the file.
+ */
+export function footageMomentOf(
+  seenAt: number,
+  whistles: Markers,
+  videoMarkers: Markers,
+  halfLengthMin = 30,
+  durationMs = Infinity,
+): number | null {
+  const t = liveGameTime(seenAt, whistles, halfLengthMin);
+  if (!t?.half) return null;
+  const start = t.half === 1 ? videoMarkers.throwIn : videoMarkers.secondHalf;
+  if (start == null) return null;
+  const at = start + t.halfMs;
+  return at <= durationMs ? at : null;
 }
 
 /** The game minute a coach would name: 26:30 on the clock is the 27th. */
