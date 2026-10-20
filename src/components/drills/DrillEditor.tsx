@@ -20,6 +20,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
 import { PITCH_FILL, PitchMarkings, VIEW_W } from "@/components/pitch/PitchMarkings";
+import type { GameCode } from "@/lib/hurling/codes";
 import { deleteDrill, duplicateDrill, saveDrill } from "@/lib/actions/drills";
 import {
   BALL_KINDS,
@@ -69,11 +70,14 @@ const SAVE_AFTER_MS = 900;
 export function DrillEditor({
   id,
   teamName,
+  code,
   initial,
 }: {
   id: string;
   /** Printed in the corner of an exported video. */
   teamName: string;
+  /** The club's game, so a football board shows the two-point arc. */
+  code: GameCode;
   initial: { title: string; notes: string; data: DrillData };
 }) {
   const uid = useId().replace(/:/g, "");
@@ -402,7 +406,7 @@ export function DrillEditor({
             {/* `data-export` marks what an exported video draws once as its
                 background: the pitch and the kit, which never move. */}
             <g data-export="">
-              <PitchMarkings />
+              <PitchMarkings code={code} />
             </g>
 
             {/* Kit under everyone: the pitch the drill is played on. */}

@@ -11,6 +11,7 @@
  * colour-blind reader and the dressing-room photocopier.
  */
 import { PITCH_FILL, PitchMarkings, VIEW_W, pitchViewHeight } from "@/components/pitch/PitchMarkings";
+import type { GameCode } from "@/lib/hurling/codes";
 import { DEFAULT_PITCH } from "@/lib/hurling/pitch";
 import { GOAL_WIDTHS_M, type BallKind, type DrillData, type DrillKit, type DrillPiece, type DrillSide, type Point } from "@/lib/hurling/drill";
 
@@ -299,7 +300,18 @@ export function KitHitArea({ item }: { item: DrillKit }) {
  * route each takes through every step drawn behind them. What a coach would
  * sketch on the back of a team sheet, and what the list page shows.
  */
-export function DrillDiagram({ data, uid, className }: { data: DrillData; uid: string; className?: string }) {
+export function DrillDiagram({
+  data,
+  uid,
+  code,
+  className,
+}: {
+  data: DrillData;
+  uid: string;
+  /** The club's game, so a football diagram shows the two-point arc. */
+  code: GameCode;
+  className?: string;
+}) {
   const first = data.steps[0].at;
   return (
     <svg
@@ -316,7 +328,7 @@ export function DrillDiagram({ data, uid, className }: { data: DrillData; uid: s
       aria-label="Drill diagram"
     >
       <DrillMarkers uid={uid} />
-      <PitchMarkings />
+      <PitchMarkings code={code} />
       {data.kit.map((k) => (
         <KitMark key={k.id} item={k} />
       ))}

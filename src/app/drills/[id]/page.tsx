@@ -24,6 +24,7 @@ export default async function DrillPage({ params }: { params: Promise<{ id: stri
         key={drill.id}
         id={drill.id}
         teamName={user.teamName}
+        code={user.teamCode}
         initial={{ title: drill.title, notes: drill.notes, data: parseDrill(JSON.parse(drill.data)) }}
       />
     </>
