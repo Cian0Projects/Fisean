@@ -9,12 +9,12 @@ import {
   halfTimeScore,
   scorers,
   deliveryTally,
-  describeStat,
+  describeStat as describeFor,
   effectiveOutcome,
   gameMinute,
   matchResult,
   jerseyNumber,
-  normaliseEntry,
+  normaliseEntry as normaliseFor,
   oppositionRuns,
   percentOf,
   playerStatLines,
@@ -28,10 +28,16 @@ import {
   footageMomentOf,
   liveGameTime,
   statTiming,
+  statVocabulary,
   stepToStat,
   summariseShooting,
   summariseStats,
 } from "../src/lib/hurling/stats.ts";
+
+// Most of the rules are the same in every code, so they are tested in
+// hurling's words; the tests at the end say the other codes'.
+const normaliseEntry = (draft, code = "hurling") => normaliseFor(draft, code);
+const describeStat = (entry, code = "hurling") => describeFor(entry, code);
 
 const shot = (shotResult, playerNumber = null) => ({
   statType: "shot",
@@ -80,7 +86,7 @@ test("percentages round to whole numbers", () => {
 
 test("shots are counted by result", () => {
   const rows = [shot("goal"), shot("point"), shot("point"), shot("wide"), { statType: "tackle", outcome: null }];
-  assert.deepEqual(countShots(rows), { goals: 1, points: 2, missed: 1 });
+  assert.deepEqual(countShots(rows), { goals: 1, points: 2, twoPointers: 0, missed: 1 });
 });
 
 test("a result needs their shots before it claims a margin", () => {
@@ -680,4 +686,96 @@ test("a half-time score is only given when every score has a half", () => {
   assert.deepEqual(halfTimeScore([shot(1, "point"), shot(2, "wide")]).them, null);
   assert.equal(halfTimeScore([shot(1, "point"), shot(null, "point")]), null);
   assert.equal(halfTimeScore([]), null);
+});
+
+
+/* ------------------------------------------------------- the four codes */
+
+test("a football sheet says kick-out and 45 where hurling says poc amach and 65", () => {
+  const football = statVocabulary("football");
+  assert.equal(football.meta.puckout.label, "Kick-out");
+  assert.equal(football.meta.puckout.plural, "Kick-outs");
+  assert.equal(football.shotResultLabels.sixty_five, "Won a 45");
+  assert.equal(football.shotKindLabels.free, "Free or 45");
+  assert.equal(football.attemptSourceLabels.puckout, "Kick-out");
+  assert.match(football.meta.delivery.hint, /inside our 45/);
+
+  const hurling = statVocabulary("hurling");
+  assert.equal(hurling.meta.puckout.label, "Poc amach");
+  assert.equal(hurling.shotResultLabels.sixty_five, "Won a 65");
+  assert.match(hurling.meta.delivery.hint, /inside our 65/);
+});
+
+test("camogie keeps the poc amach but gives a 45, and ladies football says what football says", () => {
+  const camogie = statVocabulary("camogie");
+  assert.equal(camogie.meta.puckout.label, "Poc amach");
+  assert.equal(camogie.shotResultLabels.sixty_five, "Won a 45");
+  assert.deepEqual(statVocabulary("ladies_football").terms, statVocabulary("football").terms);
+});
+
+test("no football word ever reaches a hurling sheet, nor a hurling word a football one", () => {
+  // Everything a screen can show: the labels of the results actually offered.
+  const words = (code) => {
+    const v = statVocabulary(code);
+    const offered = v.shotResults.map((r) => v.shotResultLabels[r]);
+    return JSON.stringify([v.meta, v.terms.restart, v.shotKindLabels, v.attemptSourceLabels, offered]);
+  };
+  for (const code of ["hurling", "camogie"]) assert.doesNotMatch(words(code), /kick-out|Two-pointer"/i);
+  for (const code of ["football", "ladies_football"]) assert.doesNotMatch(words(code), /poc amach|65/i);
+});
+
+test("each entry is described in its own code's words", () => {
+  assert.equal(describeStat(puckout("opposition", "positive"), "football"), "Their kick-out, we won it");
+  assert.equal(describeStat(puckout("us", "negative"), "ladies_football"), "Our kick-out, lost");
+  assert.equal(
+    describeStat({ ...puckout("us", "positive"), puckoutLength: "short", pastSixtyFive: true }, "football"),
+    "Our short kick-out, won and worked past our 45",
+  );
+  assert.equal(describeStat(shot("sixty_five"), "football"), "Shot put out for a 45");
+  assert.equal(describeStat(shot("sixty_five"), "camogie"), "Shot put out for a 45");
+  assert.equal(describeStat(shot("sixty_five"), "hurling"), "Shot put out for a 65");
+  assert.equal(describeStat(shot("two_pointer"), "football"), "Two-pointer");
+  assert.equal(describeStat({ ...shot("two_pointer"), side: "opposition" }, "football"), "Their two-pointer");
+});
+
+test("only a code with the arc can log a two-pointer", () => {
+  assert.ok(statVocabulary("football").shotResults.includes("two_pointer"));
+  assert.ok(statVocabulary("ladies_football").shotResults.includes("two_pointer"));
+  assert.ok(!statVocabulary("hurling").shotResults.includes("two_pointer"));
+  assert.ok(!statVocabulary("camogie").shotResults.includes("two_pointer"));
+
+  const row = normaliseEntry({ statType: "shot", shotResult: "two_pointer" }, "football");
+  assert.equal(row.outcome, "positive");
+  assert.throws(
+    () => normaliseEntry({ statType: "shot", shotResult: "two_pointer" }, "hurling"),
+    /only scored in football/,
+  );
+  assert.throws(() => normaliseEntry({ statType: "puckout", outcome: "positive" }, "football"), /Whose kick-out/);
+});
+
+test("a two-pointer is one score worth two", () => {
+  // 0-2 and two two-pointers is 0-6: four scores from five shots.
+  const rows = [shot("point"), shot("point"), shot("two_pointer"), shot("two_pointer"), shot("wide")];
+  assert.deepEqual(countShots(rows), { goals: 0, points: 2, twoPointers: 2, missed: 1 });
+  const e = shootingEfficiency(countShots(rows));
+  assert.equal(e.scored, 4);
+  assert.equal(e.total, 5);
+  assert.deepEqual(e.score, { cul: 0, cuilin: 6 });
+  assert.equal(e.notation, "0-6 from 5 shots");
+  assert.deepEqual(matchResult(rows).us, { cul: 0, cuilin: 6 });
+});
+
+test("a two-pointer counts at face value for its scorer, frees and all", () => {
+  const scorer = (shotResult, shotKind = "play") => ({
+    statType: "shot",
+    outcome: null,
+    shotResult,
+    shotKind,
+    playerNumber: 14,
+  });
+  const [line] = scorers([scorer("two_pointer", "free"), scorer("point")]);
+  assert.equal(formatScorerTally(line), "0-3 (0-2f)");
+  const player = playerStatLines([scorer("two_pointer"), scorer("wide")]).get(14);
+  assert.equal(player.twoPointers, 1);
+  assert.equal(player.missed, 1);
 });

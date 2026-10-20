@@ -15,7 +15,14 @@
  * roll-ups — so the report, the logging form and the database column enums
  * all read from one definition. The arithmetic is unit tested in
  * tests/stats.test.mjs.
+ *
+ * The sheet is the same for all four codes; only the words differ. A restart
+ * is stored as `puckout` and the end-line free as `sixty_five` whichever game
+ * logged them, and `statVocabulary(code)` says them as that code does: a
+ * kick-out and a 45 for football. The one rule that differs is the
+ * two-pointer, which only a code with the arc can log.
  */
+import { termsFor, type CodeTerms, type GameCode } from "./codes";
 import {
   GOAL_VALUE,
   formatScore,
@@ -54,21 +61,27 @@ export const SIDES = ["us", "opposition"] as const;
 export type Side = (typeof SIDES)[number];
 
 /**
- * Whose poc amach it was. Who won it is the outcome — a separate axis, so a
- * coach picks from two short lists rather than one list of four combinations.
+ * Whose restart it was, a poc amach or a kick-out. Who won it is the outcome,
+ * a separate axis, so a coach picks from two short lists rather than one list
+ * of four combinations.
  */
 export const PUCKOUT_SIDES = SIDES;
 export type PuckoutSide = Side;
 
 /**
- * Every way a score attempt can end. A cúl and a cúilín are scores; a wide, a
- * save and a ball dropped short into the keeper's hand are chances gone. A
- * ball dropped short that we kept, or one put out for a 65, is neither yet —
- * the attack is still alive, so it reads as unclear rather than as a miss.
+ * Every way a score attempt can end. A cúl, a cúilín and a two-pointer are
+ * scores; a wide, a save and a ball dropped short into the keeper's hand are
+ * chances gone. A ball dropped short that we kept, or one put out for a 65 or
+ * a 45, is neither yet — the attack is still alive, so it reads as unclear
+ * rather than as a miss.
+ *
+ * `sixty_five` is the end-line free in every code: hurling's 65, the 45 for
+ * everyone else. Only the label changes.
  */
 export const SHOT_RESULTS = [
   "goal",
   "point",
+  "two_pointer",
   "wide",
   "saved",
   "lost",
@@ -77,7 +90,7 @@ export const SHOT_RESULTS = [
 ] as const;
 export type ShotResult = (typeof SHOT_RESULTS)[number];
 
-/** From play, or a placed ball — a scorable free or a 65. */
+/** From play, or a placed ball: a scorable free, a 65 or a 45. */
 export const SHOT_KINDS = ["play", "free"] as const;
 export type ShotKind = (typeof SHOT_KINDS)[number];
 
@@ -142,85 +155,132 @@ export type StatTypeMeta = {
   hint: string;
 };
 
-export const STAT_TYPE_META: Record<StatType, StatTypeMeta> = {
-  tackle: {
-    label: "Tackle",
-    plural: "Tackles",
-    points: 1,
-    outcomes: [],
-    hotkey: "1",
-    hint: "Where it was made. Flag it when one of the front eight made it.",
-  },
-  delivery: {
-    label: "Delivery",
-    plural: "Deliveries",
-    points: 2,
-    outcomes: ["positive", "negative"],
-    hotkey: "2",
-    hint: "From inside our 65 to beyond theirs. Click where it was struck from, then where it landed.",
-  },
-  turnover: {
-    label: "Turnover",
-    plural: "Turnovers",
-    points: 1,
-    outcomes: ["positive", "negative"],
-    hotkey: "3",
-    hint: "Possession won or lost, and how: a turnover, a 60/40 ball, an unforced loss. Flag the ones we scored from.",
-  },
-  shot: {
-    label: "Shot",
-    plural: "Shots",
-    points: 1,
-    outcomes: [],
-    hotkey: "4",
-    hint: "Either team's, from where it was struck. From play or a placed ball.",
-  },
-  free_conceded: {
-    label: "Free conceded",
-    plural: "Frees conceded",
-    points: 1,
-    outcomes: [],
-    hotkey: "5",
-    hint: "Always against us. Where it was given is what matters.",
-  },
-  puckout: {
-    label: "Poc amach",
-    plural: "Poc amach",
-    points: 1,
-    outcomes: ["positive", "negative", "unclear"],
-    hotkey: "6",
-    hint: "Whose poc amach it was, how far it went, then who won the break.",
-  },
-  free_won: {
-    label: "Free won",
-    plural: "Frees won",
-    points: 1,
-    outcomes: [],
-    hotkey: "7",
-    hint: "Where we were fouled.",
-  },
+/** "Poc amach" stays as written mid-sentence; "Kick-out" drops its capital. */
+function lower(term: string): string {
+  return term.charAt(0).toLowerCase() + term.slice(1);
+}
+
+function statTypeMeta(t: CodeTerms): Record<StatType, StatTypeMeta> {
+  return {
+    tackle: {
+      label: "Tackle",
+      plural: "Tackles",
+      points: 1,
+      outcomes: [],
+      hotkey: "1",
+      hint: "Where it was made. Flag it when one of the front eight made it.",
+    },
+    delivery: {
+      label: "Delivery",
+      plural: "Deliveries",
+      points: 2,
+      outcomes: ["positive", "negative"],
+      hotkey: "2",
+      hint: `From inside our ${t.line} to beyond theirs. Click where it was struck from, then where it landed.`,
+    },
+    turnover: {
+      label: "Turnover",
+      plural: "Turnovers",
+      points: 1,
+      outcomes: ["positive", "negative"],
+      hotkey: "3",
+      hint: "Possession won or lost, and how: a turnover, a 60/40 ball, an unforced loss. Flag the ones we scored from.",
+    },
+    shot: {
+      label: "Shot",
+      plural: "Shots",
+      points: 1,
+      outcomes: [],
+      hotkey: "4",
+      hint: "Either team's, from where it was struck. From play or a placed ball.",
+    },
+    free_conceded: {
+      label: "Free conceded",
+      plural: "Frees conceded",
+      points: 1,
+      outcomes: [],
+      hotkey: "5",
+      hint: "Always against us. Where it was given is what matters.",
+    },
+    puckout: {
+      label: t.restart,
+      plural: t.restarts,
+      points: 1,
+      outcomes: ["positive", "negative", "unclear"],
+      hotkey: "6",
+      hint: `Whose ${lower(t.restart)} it was, how far it went, then who won the break.`,
+    },
+    free_won: {
+      label: "Free won",
+      plural: "Frees won",
+      points: 1,
+      outcomes: [],
+      hotkey: "7",
+      hint: "Where we were fouled.",
+    },
+  };
+}
+
+/**
+ * Everything the sheet says, in one code's words. The logging form, the
+ * report and the timeline lanes each take one of these for the club's
+ * `teams.code`, so no screen can say "poc amach" to a football club.
+ */
+export type StatVocabulary = {
+  code: GameCode;
+  terms: CodeTerms;
+  meta: Record<StatType, StatTypeMeta>;
+  /** The results a shot can be logged with: the two-pointer only where there is an arc. */
+  shotResults: readonly ShotResult[];
+  shotResultLabels: Record<ShotResult, string>;
+  shotKindLabels: Record<ShotKind, string>;
+  attemptSourceLabels: Record<AttemptSource, string>;
 };
 
-export const SHOT_RESULT_LABELS: Record<ShotResult, string> = {
-  goal: "Cúl",
-  point: "Cúilín",
-  wide: "Wide",
-  saved: "Saved",
-  lost: "Possession lost",
-  retained: "Possession retained",
-  sixty_five: "Won a 65",
-};
+const VOCABULARIES = new Map<GameCode, StatVocabulary>();
 
-export const SHOT_KIND_LABELS: Record<ShotKind, string> = {
-  play: "From play",
-  free: "Free or 65",
-};
+export function statVocabulary(code: GameCode): StatVocabulary {
+  const cached = VOCABULARIES.get(code);
+  if (cached) return cached;
+  const t = termsFor(code);
+  const vocabulary: StatVocabulary = {
+    code,
+    terms: t,
+    meta: statTypeMeta(t),
+    shotResults: SHOT_RESULTS.filter((r) => r !== "two_pointer" || t.twoPointArc),
+    shotResultLabels: {
+      goal: "Cúl",
+      point: "Cúilín",
+      two_pointer: "Two-pointer",
+      wide: "Wide",
+      saved: "Saved",
+      lost: "Possession lost",
+      retained: "Possession retained",
+      sixty_five: `Won a ${t.endLineFree}`,
+    },
+    shotKindLabels: {
+      play: "From play",
+      free: `Free or ${t.endLineFree}`,
+    },
+    attemptSourceLabels: {
+      puckout: t.restart,
+      turnover: "Turnover",
+      other: "Other",
+    },
+  };
+  VOCABULARIES.set(code, vocabulary);
+  return vocabulary;
+}
 
-export const ATTEMPT_SOURCE_LABELS: Record<AttemptSource, string> = {
-  puckout: "Poc amach",
-  turnover: "Turnover",
-  other: "Other",
-};
+/** What a stat type asks for, which is the same in every code. Its words are in `statVocabulary`. */
+export type StatTypeShape = Pick<StatTypeMeta, "points" | "outcomes" | "hotkey">;
+
+export const STAT_TYPE_SHAPE = Object.fromEntries(
+  STAT_TYPES.map((type) => {
+    const { points, outcomes, hotkey } = statVocabulary("hurling").meta[type];
+    return [type, { points, outcomes, hotkey }];
+  }),
+) as Record<StatType, StatTypeShape>;
 
 export const PUCKOUT_LENGTH_LABELS: Record<PuckoutLength, string> = {
   short: "Short",
@@ -244,7 +304,15 @@ export const SIDE_LABELS: Record<Side, string> = {
 export const PUCKOUT_SIDE_LABELS = SIDE_LABELS;
 
 export function isScore(result: ShotResult | null | undefined): boolean {
-  return result === "goal" || result === "point";
+  return result === "goal" || result === "point" || result === "two_pointer";
+}
+
+/** What a scoring result is worth, in points. Zero for anything that did not score. */
+export function resultValue(result: ShotResult | null | undefined): number {
+  if (result === "goal") return GOAL_VALUE;
+  if (result === "two_pointer") return 2;
+  if (result === "point") return 1;
+  return 0;
 }
 
 /** Legacy rows predate the side column, and every one of them was ours. */
@@ -340,6 +408,7 @@ export function puckoutWinner(outcome: StatOutcome | null): PuckoutWinner {
 const SHOT_RESULT_OUTCOME: Record<ShotResult, StatOutcome> = {
   goal: "positive",
   point: "positive",
+  two_pointer: "positive",
   wide: "negative",
   saved: "negative",
   lost: "negative",
@@ -413,7 +482,7 @@ export function possessionLabel(kind: PossessionKind | null | undefined, won: bo
   return `${POSSESSION_KIND_LABELS[k]} ${won ? "won" : "lost"}`;
 }
 
-function shotPhrase(entry: StatEntry): string {
+function shotPhrase(entry: StatEntry, t: CodeTerms): string {
   const free = entry.shotKind === "free";
   const what = free ? "Free" : "Shot";
   switch (entry.shotResult) {
@@ -421,6 +490,8 @@ function shotPhrase(entry: StatEntry): string {
       return free ? "Cúl from a free" : "Cúl";
     case "point":
       return free ? "Cúilín from a free" : "Cúilín";
+    case "two_pointer":
+      return free ? "Two-pointer from a free" : "Two-pointer";
     case "wide":
       return `${what} wide`;
     case "saved":
@@ -430,7 +501,7 @@ function shotPhrase(entry: StatEntry): string {
     case "retained":
       return `${what} dropped short, possession retained`;
     case "sixty_five":
-      return `${what} put out for a 65`;
+      return `${what} put out for a ${t.endLineFree}`;
     default:
       return what;
   }
@@ -438,11 +509,13 @@ function shotPhrase(entry: StatEntry): string {
 
 /**
  * One entry, said the way a coach would say it: "Our poc amach, lost",
- * "Turnover won, we scored from it". Written out rather than assembled from
- * fragments joined by dots, because this is the line somebody reads when they
- * are checking whether they typed the right thing.
+ * "Their kick-out, we won it", "Turnover won, we scored from it". Written out
+ * rather than assembled from fragments joined by dots, because this is the
+ * line somebody reads when they are checking whether they typed the right
+ * thing.
  */
-export function describeStat(entry: StatEntry): string {
+export function describeStat(entry: StatEntry, code: GameCode): string {
+  const t = termsFor(code);
   switch (entry.statType) {
     case "tackle":
       return entry.frontEight ? "Front eight tackle" : "Tackle";
@@ -454,7 +527,7 @@ export function describeStat(entry: StatEntry): string {
       return "Free won";
 
     case "shot": {
-      const phrase = shotPhrase(entry);
+      const phrase = shotPhrase(entry, t);
       if (shotSide(entry) === "us") return phrase;
       return `Their ${phrase.charAt(0).toLowerCase()}${phrase.slice(1)}`;
     }
@@ -469,14 +542,15 @@ export function describeStat(entry: StatEntry): string {
 
     case "puckout": {
       const length = entry.puckoutLength ? `${PUCKOUT_LENGTH_LABELS[entry.puckoutLength].toLowerCase()} ` : "";
-      const whose = entry.puckoutTakenBy === "opposition" ? `Their ${length}poc amach` : `Our ${length}poc amach`;
+      const restart = lower(t.restart);
+      const whose = entry.puckoutTakenBy === "opposition" ? `Their ${length}${restart}` : `Our ${length}${restart}`;
       if (entry.outcome === "unclear") return `${whose}, broke unclear`;
       if (entry.puckoutTakenBy === "opposition") {
         return entry.outcome === "positive" ? `${whose}, we won it` : `${whose}, they won it`;
       }
       if (entry.outcome !== "positive") return `${whose}, lost`;
-      if (entry.pastSixtyFive === true) return `${whose}, won and worked past our 65`;
-      if (entry.pastSixtyFive === false) return `${whose}, won but held inside our 65`;
+      if (entry.pastSixtyFive === true) return `${whose}, won and worked past our ${t.line}`;
+      if (entry.pastSixtyFive === false) return `${whose}, won but held inside our ${t.line}`;
       return `${whose}, won`;
     }
   }
@@ -529,11 +603,15 @@ export function jerseyNumber(value: unknown): number | null {
  * lost one to a player is blame, not analysis. Their shots name nobody either:
  * the panel list is ours. The server action calls this before writing,
  * because a server action is reachable by POST whatever the form does.
+ *
+ * The code is the club's, read on the server: it words the refusals, and it
+ * is what keeps a two-pointer off a sheet whose game has no arc.
  */
-export function normaliseEntry(draft: StatDraft): NormalisedStat {
+export function normaliseEntry(draft: StatDraft, code: GameCode): NormalisedStat {
   const statType = draft.statType;
   if (!STAT_TYPES.includes(statType)) throw new Error("That is not a stat we log.");
-  const meta = STAT_TYPE_META[statType];
+  const vocabulary = statVocabulary(code);
+  const meta = vocabulary.meta[statType];
 
   const origin = meta.points >= 1 ? normalisePoint(draft.originX, draft.originY) : null;
   const dest = meta.points === 2 ? normalisePoint(draft.destX, draft.destY) : null;
@@ -580,8 +658,14 @@ export function normaliseEntry(draft: StatDraft): NormalisedStat {
       break;
 
     case "shot":
-      shotResult = oneOf(SHOT_RESULTS, draft.shotResult);
-      if (!shotResult) throw new Error("What came of it: a cúl, a cúilín or a wide, or something else?");
+      shotResult = oneOf(vocabulary.shotResults, draft.shotResult);
+      if (!shotResult) {
+        throw new Error(
+          draft.shotResult === "two_pointer"
+            ? "A two-pointer is only scored in football, from outside the arc."
+            : "What came of it: a cúl, a cúilín or a wide, or something else?",
+        );
+      }
       side = draft.side == null ? "us" : oneOf(SIDES, draft.side);
       if (!side) throw new Error("Whose shot was it?");
       shotKind = draft.shotKind == null ? "play" : oneOf(SHOT_KINDS, draft.shotKind);
@@ -597,10 +681,11 @@ export function normaliseEntry(draft: StatDraft): NormalisedStat {
 
     case "puckout":
       puckoutTakenBy = oneOf(PUCKOUT_SIDES, draft.puckoutTakenBy);
-      if (!puckoutTakenBy) throw new Error("Whose poc amach was it?");
+      if (!puckoutTakenBy) throw new Error(`Whose ${lower(vocabulary.terms.restart)} was it?`);
       puckoutLength = draft.puckoutLength == null ? null : oneOf(PUCKOUT_LENGTHS, draft.puckoutLength);
       // Only ours, only short, only won: the question is whether a short one
-      // we held on to was worked out past our own 65 or died in our half.
+      // we held on to was worked out past our own 65 (or 45, in football) or
+      // died in our half.
       if (puckoutTakenBy === "us" && puckoutLength === "short" && outcome === "positive") {
         pastSixtyFive = Boolean(draft.pastSixtyFive);
       }
@@ -844,20 +929,26 @@ export function percentOf(part: number, whole: number): number {
   return whole === 0 ? 0 : Math.round((part / whole) * 100);
 }
 
-/** Every attempt that was not a cúl or a cúilín is `missed`, whatever became of it. */
-export type ShotCounts = { goals: number; points: number; missed: number };
+/**
+ * Every attempt that did not score is `missed`, whatever became of it.
+ * `twoPointers` is counted apart from `points` because it is one score worth
+ * two: "9 of 14" counts it once, the scoreline counts it twice.
+ */
+export type ShotCounts = { goals: number; points: number; twoPointers: number; missed: number };
 
 function countShotRows(rows: readonly StatEntry[]): ShotCounts {
   let goals = 0;
   let points = 0;
+  let twoPointers = 0;
   let missed = 0;
   for (const r of rows) {
     if (r.statType !== "shot" || !r.shotResult) continue;
     if (r.shotResult === "goal") goals += 1;
     else if (r.shotResult === "point") points += 1;
+    else if (r.shotResult === "two_pointer") twoPointers += 1;
     else missed += 1;
   }
-  return { goals, points, missed };
+  return { goals, points, twoPointers, missed };
 }
 
 /** One side's attempts, ours unless told otherwise. */
@@ -883,14 +974,19 @@ export type Efficiency = {
  *
  * Derived, never logged, so there is no efficiency field to drift out of step
  * with the shots it came from. The scoreline runs through `tallyScore` like
- * every other score in the app, so a cúl is worth three here too.
+ * every other score in the app, so a cúl is worth three here too, and a
+ * two-pointer two.
  */
-export function shootingEfficiency(counts: ShotCounts): Efficiency {
+export function shootingEfficiency(
+  counts: Pick<ShotCounts, "goals" | "points" | "missed"> & { twoPointers?: number },
+): Efficiency {
+  const twoPointers = counts.twoPointers ?? 0;
   const score = tallyScore([
     ...Array.from({ length: counts.goals }, () => ({ scoreValue: GOAL_VALUE })),
     ...Array.from({ length: counts.points }, () => ({ scoreValue: 1 })),
+    ...Array.from({ length: twoPointers }, () => ({ scoreValue: 2 })),
   ]);
-  const scored = counts.goals + counts.points;
+  const scored = counts.goals + counts.points + twoPointers;
   const total = scored + counts.missed;
   const percent = percentOf(scored, total);
 
@@ -918,8 +1014,9 @@ export type MatchResult = { us: Score; them: Score | null; margin: number | null
 export function matchResult(rows: readonly StatEntry[]): MatchResult | null {
   const ours = countShots(rows, "us");
   const theirs = countShots(rows, "opposition");
-  const theirAttempts = theirs.goals + theirs.points + theirs.missed;
-  if (ours.goals + ours.points + ours.missed + theirAttempts === 0) return null;
+  const attempts = (c: ShotCounts) => c.goals + c.points + c.twoPointers + c.missed;
+  const theirAttempts = attempts(theirs);
+  if (attempts(ours) + theirAttempts === 0) return null;
 
   const us = shootingEfficiency(ours).score;
   const them = theirAttempts > 0 ? shootingEfficiency(theirs).score : null;
@@ -942,16 +1039,19 @@ export function scorers(rows: readonly StatEntry[], side: Side = "us"): ScorerLi
   const byNumber = new Map<number | null, ScorerLine>();
   for (const r of rows) {
     if (r.statType !== "shot" || shotSide(r) !== side) continue;
-    if (r.shotResult !== "goal" && r.shotResult !== "point") continue;
+    if (!isScore(r.shotResult)) continue;
     const key = r.playerNumber ?? null;
     const line = byNumber.get(key) ?? {
       playerNumber: key,
       score: { cul: 0, cuilin: 0 },
       fromFrees: { cul: 0, cuilin: 0 },
     };
+    // A two-pointer goes in the points column at its face value, the way a
+    // football programme prints it: two of them and a point is 0-5.
     const part = r.shotResult === "goal" ? "cul" : "cuilin";
-    line.score[part] += 1;
-    if (r.shotKind === "free") line.fromFrees[part] += 1;
+    const worth = r.shotResult === "goal" ? 1 : resultValue(r.shotResult);
+    line.score[part] += worth;
+    if (r.shotKind === "free") line.fromFrees[part] += worth;
     byNumber.set(key, line);
   }
   // Top scorer first, as a report lists them; the unnamed scores go last.
@@ -981,9 +1081,7 @@ export function formatScorerTally(line: ScorerLine): string {
  * score is worse than none — and theirs only when their shots were logged.
  */
 export function halfTimeScore(rows: readonly StatEntry[]): { us: Score; them: Score | null } | null {
-  const scoring = rows.filter(
-    (r) => r.statType === "shot" && (r.shotResult === "goal" || r.shotResult === "point"),
-  );
+  const scoring = rows.filter((r) => r.statType === "shot" && isScore(r.shotResult));
   if (scoring.length === 0 || scoring.some((r) => r.half == null)) return null;
   const firstHalf = rows.filter((r) => r.half === 1);
   const theirsLogged = rows.some((r) => r.statType === "shot" && shotSide(r) === "opposition");
@@ -1213,7 +1311,8 @@ export type PlayerStatLine = {
   turnoversLedToScore: number;
   goals: number;
   points: number;
-  /** Attempts that did not score — wide, saved, dropped short, out for a 65. */
+  twoPointers: number;
+  /** Attempts that did not score — wide, saved, dropped short, out for a 65 or a 45. */
   missed: number;
   freesConceded: number;
   freesWon: number;
@@ -1234,6 +1333,7 @@ export function emptyStatLine(playerNumber: number): PlayerStatLine {
     turnoversLedToScore: 0,
     goals: 0,
     points: 0,
+    twoPointers: 0,
     missed: 0,
     freesConceded: 0,
     freesWon: 0,
@@ -1275,6 +1375,7 @@ export function playerStatLines(rows: readonly StatEntry[]): Map<number, PlayerS
       case "shot":
         if (r.shotResult === "goal") line.goals += 1;
         else if (r.shotResult === "point") line.points += 1;
+        else if (r.shotResult === "two_pointer") line.twoPointers += 1;
         else if (r.shotResult) line.missed += 1;
         break;
       case "free_conceded":
@@ -1298,7 +1399,12 @@ export function playerStatLines(rows: readonly StatEntry[]): Map<number, PlayerS
 
 /** A player's shooting, in the same two forms as the team's. */
 export function lineShooting(line: PlayerStatLine): Efficiency {
-  return shootingEfficiency({ goals: line.goals, points: line.points, missed: line.missed });
+  return shootingEfficiency({
+    goals: line.goals,
+    points: line.points,
+    twoPointers: line.twoPointers,
+    missed: line.missed,
+  });
 }
 
 /* ------------------------------------------- one section, player by player */

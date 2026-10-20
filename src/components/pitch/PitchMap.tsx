@@ -26,6 +26,7 @@
  */
 import { useId } from "react";
 import { DEFAULT_PITCH, clampToPitch, type PitchSize } from "@/lib/hurling/pitch";
+import type { GameCode } from "@/lib/hurling/codes";
 import { PITCH_FILL, PitchMarkings, VIEW_W, pitchViewHeight } from "./PitchMarkings";
 
 /** Filled is for us, a ring is against us, a dashed ring is unclear. */
@@ -63,6 +64,7 @@ export function PitchMap({
   className,
   decorative = false,
   turned = false,
+  code,
 }: {
   marks: PitchMark[];
   size?: PitchSize;
@@ -75,6 +77,8 @@ export function PitchMap({
   decorative?: boolean;
   /** Seen from the other side: our end on the right. See the file note. */
   turned?: boolean;
+  /** The club's code, for the markings only its game has: football's arc. */
+  code?: GameCode;
 }) {
   const uid = useId().replace(/:/g, "");
   const H = pitchViewHeight(size);
@@ -136,7 +140,7 @@ export function PitchMap({
         ))}
       </defs>
 
-      <PitchMarkings size={size} decorative={decorative} />
+      <PitchMarkings size={size} decorative={decorative} code={code} />
 
       <g
         fill="var(--color-ink-faint)"

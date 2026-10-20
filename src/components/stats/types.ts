@@ -16,6 +16,7 @@ import {
   type StatOutcome,
   type StatType,
 } from "@/lib/hurling/stats";
+import type { GameCode } from "@/lib/hurling/codes";
 
 export type StatRow = {
   id: string;
@@ -91,6 +92,7 @@ export function playerLabel(number: number | null | undefined, sheet: NumberShee
 export function statMark(
   row: StatRow,
   sheet: NumberSheet,
+  code: GameCode,
   options: { muted?: boolean; selected?: boolean } = {},
 ): PitchMark | null {
   if (row.originX == null || row.originY == null) return null;
@@ -110,7 +112,7 @@ export function statMark(
     // the footage's halves are marked, because a guessed minute is worse
     // than none.
     note: row.gameMs != null ? `${gameMinute(row.gameMs)}′` : null,
-    title: [describeStat(row), who].filter(Boolean).join(", "),
+    title: [describeStat(row, code), who].filter(Boolean).join(", "),
     muted: options.muted,
     selected: options.selected,
   };
@@ -120,11 +122,12 @@ export function statMark(
 export function statMarks(
   rows: StatRow[],
   sheet: NumberSheet,
+  code: GameCode,
   options: { muted?: boolean; selectedId?: string | null } = {},
 ): PitchMark[] {
   return rows
     .map((r) =>
-      statMark(r, sheet, {
+      statMark(r, sheet, code, {
         muted: options.muted,
         selected: options.selectedId === r.id,
       }),

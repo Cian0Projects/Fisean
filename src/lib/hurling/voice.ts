@@ -133,12 +133,14 @@ const PHRASES: [string[], Meaning][] = [
   // "cool" is how the engine most often writes cúl.
   [["goal", "cul", "cool", "green flag", "net", "back of the net", "major"], { t: "result", v: "goal" }],
   [["point", "points", "over", "over the bar", "white flag", "cuilin"], { t: "result", v: "point" }],
+  // Football's score from outside the arc. "Two" arrives as a digit.
+  [["2 pointer", "2 pointers", "2 point", "2 points", "2 point score", "outside the arc", "from outside the arc"], { t: "result", v: "two_pointer" }],
   [["wide", "went wide", "missed", "miss"], { t: "result", v: "wide" }],
   [["saved", "save", "keeper saved"], { t: "result", v: "saved" }],
   [["65", "45", "won a 65", "won a 45", "out for a 65", "out for a 45"], { t: "result", v: "sixty_five" }],
 
   /* ---------------------------------------------------- how it was taken */
-  [["free", "from a free", "off a free", "placed", "placed ball", "penalty", "sideline", "sideline cut", ...fromA(["65", "45"])], { t: "kind", v: "free" }],
+  [["free", "from a free", "off a free", "placed", "placed ball", "penalty", "sideline", "sideline cut", "sideline kick", ...fromA(["65", "45"])], { t: "kind", v: "free" }],
   [["from play", "play", "open play"], { t: "kind", v: "play" }],
   [fromA(RESTART), { t: "source", v: "puckout" }],
   [fromA(["turnover", "turn over"]), { t: "source", v: "turnover" }],
@@ -166,7 +168,8 @@ const PHRASES: [string[], Meaning][] = [
   [["scored", "we scored", "scored from it", "scored off it", "score from it", "led to a score", "led to a point", "led to a goal"], { t: "scored" }],
   [["front 8"], { t: "front" }],
   [["scorable", "scoreable", "in range", "within range", "kickable", "pointable"], { t: "scorable" }],
-  [["past the 65", "past our 65", "past 65", "out past the 65", "worked out", "worked it out"], { t: "past65" }],
+  // A football code measures the same thing by its own 45.
+  [["past the 65", "past our 65", "past 65", "out past the 65", "past the 45", "past our 45", "past 45", "out past the 45", "worked out", "worked it out"], { t: "past65" }],
   [["first half", "1st half"], { t: "half", v: 1 }],
   [["second half", "2nd half"], { t: "half", v: 2 }],
 

@@ -74,6 +74,7 @@ export default async function LogMatchStatsPage({
           venue: match.venue,
           playedOn: match.playedOn,
         }}
+        code={user.teamCode}
         whistles={whistlesOf(match)}
         halfLengthMin={match.halfLengthMin}
         numbers={numbers}

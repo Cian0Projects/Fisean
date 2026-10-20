@@ -7,6 +7,7 @@ import { clips, matchStats, matches, videos } from "@/lib/db/schema";
 import { assertSameTeam, requireCoach } from "@/lib/auth/guard";
 import { normaliseEntry, whistlesOf, type StatDraft } from "@/lib/hurling/stats";
 import type { Markers } from "@/lib/hurling/notation";
+import type { GameCode } from "@/lib/hurling/codes";
 import type { StatRow } from "@/components/stats/types";
 
 export type StatInput = StatDraft & {
@@ -29,10 +30,10 @@ type StatValues = Omit<SavedStat, "id" | "createdAt" | "gameMs">;
  * server action is reachable by POST whatever the form does, so they are
  * applied here rather than trusted from the client.
  */
-function normalise(input: StatInput | Omit<StatInput, "matchId">): StatValues {
+function normalise(input: StatInput | Omit<StatInput, "matchId">, code: GameCode): StatValues {
   const videoId = input.videoId?.trim() || null;
   return {
-    ...normaliseEntry(input),
+    ...normaliseEntry(input, code),
     clipId: input.clipId?.trim() || null,
     videoId,
     // A timestamp only means anything alongside the video it was read from.
@@ -103,7 +104,7 @@ export async function logMatchStat(input: StatInput): Promise<SavedStat> {
   if (!match) throw new Error("That match no longer exists.");
   assertSameTeam(user, match);
 
-  const values = normalise(input);
+  const values = normalise(input, user.teamCode);
   await assertReferencesAreOurs(user, values);
 
   const [row] = await db
@@ -136,7 +137,7 @@ export async function updateMatchStat(
   if (!existing) throw new Error("That entry no longer exists.");
   assertSameTeam(user, existing);
 
-  const values = normalise(input);
+  const values = normalise(input, user.teamCode);
   await assertReferencesAreOurs(user, values);
 
   const [row] = await db

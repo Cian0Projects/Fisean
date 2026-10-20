@@ -17,6 +17,7 @@ import {
 } from "@/lib/db/schema";
 import { freshJoinCode } from "@/lib/db/clubs";
 import { badgeProblem } from "@/lib/media/badge";
+import { isGameCode, type GameCode } from "@/lib/hurling/codes";
 import { looksLikeEmail, normaliseEmail } from "@/lib/auth/email-code";
 import {
   assertSameTeam,
@@ -315,6 +316,23 @@ export async function removeClubBadge(): Promise<void> {
     .set({ badge: null, badgeUpdatedAt: null })
     .where(eq(teams.id, admin.teamId));
   revalidatePath("/", "layout");
+}
+
+/* ------------------------------------------------------------------- game */
+
+/**
+ * Change the game the club plays. Nothing stored has to change with it: the
+ * stat sheet and the tags keep the same values in every code and only read
+ * differently, so a club set up as the wrong code, or one that picked the
+ * default by mistake, is put right here without losing a clip or a stat.
+ */
+export async function setClubCode(code: string): Promise<{ code: GameCode } | { error: string }> {
+  const admin = await requireAdmin();
+  if (!isGameCode(code)) return { error: "Choose one of the four games." };
+  await db.update(teams).set({ code }).where(eq(teams.id, admin.teamId));
+  // Every page that logs, tags or draws the pitch reads the code.
+  revalidatePath("/", "layout");
+  return { code };
 }
 
 /** Rotate the join code — for when it has been shared beyond the panel. */

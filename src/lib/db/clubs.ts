@@ -12,7 +12,7 @@
 import { eq, isNull } from "drizzle-orm";
 import { db } from "./client";
 import { eventTypes, teams, users } from "./schema";
-import { HURLING_EVENTS } from "../hurling/events";
+import { BUILT_IN_EVENTS } from "../hurling/events";
 import type { GameCode } from "../hurling/codes";
 import { generateJoinCode } from "../auth/password";
 import { looksLikeEmail, normaliseEmail } from "../auth/email-code";
@@ -22,8 +22,10 @@ export class ClubSetupError extends Error {}
 
 /**
  * Write the built-in event types once, with a NULL team id, so every club
- * shares them. Teams add their own rows beside these without a migration.
- * Returns how many were missing; 0 on every run after the first.
+ * shares them whatever its code (`tagsForCode` picks out each code's own).
+ * Teams add their own rows beside these without a migration. Returns how
+ * many were missing; 0 on every run after the first, until a new one is
+ * added to the list.
  */
 export async function seedTaxonomy(): Promise<number> {
   const existing = await db
@@ -32,7 +34,7 @@ export async function seedTaxonomy(): Promise<number> {
     .where(isNull(eventTypes.teamId));
   const have = new Set(existing.map((e) => e.slug));
 
-  const missing = HURLING_EVENTS.filter((e) => !have.has(e.slug));
+  const missing = BUILT_IN_EVENTS.filter((e) => !have.has(e.slug));
   if (!missing.length) return 0;
 
   await db.insert(eventTypes).values(
@@ -45,7 +47,7 @@ export async function seedTaxonomy(): Promise<number> {
       colour: e.colour,
       scoreValue: e.scoreValue ?? 0,
       hotkey: e.hotkey ?? null,
-      sortOrder: HURLING_EVENTS.indexOf(e),
+      sortOrder: BUILT_IN_EVENTS.indexOf(e),
     })),
   );
   return missing.length;

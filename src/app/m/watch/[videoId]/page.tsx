@@ -7,6 +7,7 @@ import { store } from "@/lib/storage";
 import { codecWarning } from "@/lib/media/probe";
 import { loadVisibleClips } from "@/lib/queries/clips";
 import { PhoneWatch } from "@/components/mobile/PhoneWatch";
+import { tagsForCode } from "@/lib/hurling/events";
 
 /**
  * Watching and clipping on a phone.
@@ -33,7 +34,7 @@ export default async function PhoneWatchPage({
     ? await db.select().from(matches).where(eq(matches.id, video.matchId)).limit(1)
     : [null];
 
-  const [events, squad, markerRows, initialClips, media] = await Promise.all([
+  const [allEvents, squad, markerRows, initialClips, media] = await Promise.all([
     db
       .select()
       .from(eventTypes)
@@ -76,7 +77,9 @@ export default async function PhoneWatchPage({
         playedOn: match?.playedOn ?? "",
         halfLengthMin: match?.halfLengthMin ?? 30,
       }}
-      eventTypes={events}
+      eventTypes={tagsForCode(allEvents, user.teamCode, {
+        onClips: initialClips.flatMap((c) => c.eventTypeIds),
+      })}
       squad={squad}
       initialClips={initialClips}
       markerRows={markerRows}

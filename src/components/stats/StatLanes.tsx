@@ -20,10 +20,11 @@
 import { useEffect, useRef } from "react";
 import type { PlayerEngine } from "@/components/player/engine";
 import { formatClock } from "@/lib/hurling/notation";
+import type { GameCode } from "@/lib/hurling/codes";
 import {
   STAT_TYPES,
   STAT_TYPE_COLOURS,
-  STAT_TYPE_META,
+  statVocabulary,
   describeStat,
   statColour,
   type StatType,
@@ -47,11 +48,14 @@ export function StatLanes({
   onFocusType,
   onSelectStat,
   gutterPx,
+  code,
 }: {
   engine: PlayerEngine;
   durationMs: number;
   rows: StatRow[];
   sheet: NumberSheet;
+  /** The club's code, for what each lane and mark is called. */
+  code: GameCode;
   focusType: StatType;
   onFocusType: (type: StatType) => void;
   onSelectStat: (row: StatRow) => void;
@@ -81,7 +85,7 @@ export function StatLanes({
     <div className="relative shrink-0 pr-3 pb-2" style={{ paddingLeft: 12 }}>
       <div className="overflow-y-auto" style={{ maxHeight: LANE_H * LANES_IN_VIEW }}>
         {STAT_TYPES.map((type) => {
-          const meta = STAT_TYPE_META[type];
+          const meta = statVocabulary(code).meta[type];
           const colour = STAT_TYPE_COLOURS[type];
           const here = type === focusType;
           const mine = rows.filter((r) => r.statType === type && r.atMs != null);
@@ -130,7 +134,7 @@ export function StatLanes({
                       key={r.id}
                       title={[
                         formatClock(r.atMs!),
-                        describeStat(r),
+                        describeStat(r, code),
                         r.playerNumber != null ? playerLabel(r.playerNumber, sheet) : null,
                       ]
                         .filter(Boolean)

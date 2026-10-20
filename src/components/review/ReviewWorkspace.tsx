@@ -50,6 +50,7 @@ import { StatPad } from "@/components/stats/StatPad";
 import { StatLanes } from "@/components/stats/StatLanes";
 import { numberSheet, type SheetEntry, type StatRow } from "@/components/stats/types";
 import { STAT_LEAD_IN_MS, footageMomentOf, type StatType } from "@/lib/hurling/stats";
+import type { GameCode } from "@/lib/hurling/codes";
 import { ClipList } from "./ClipList";
 import { ClipInspector } from "./ClipInspector";
 import {
@@ -81,7 +82,10 @@ const LANE_GUTTER_PX = 120;
 type Props = {
   video: VideoInfo;
   match: MatchInfo;
+  /** Already fitted to the club's code where they were loaded (`tagsForCode`). */
   eventTypes: EventTypeRow[];
+  /** The club's code, for the stat sheet's words. */
+  code: GameCode;
   squad: SquadMember[];
   initialClips: ClipRow[];
   markerRows: { kind: string; atMs: number }[];
@@ -95,6 +99,7 @@ export function ReviewWorkspace({
   video,
   match,
   eventTypes,
+  code,
   squad,
   initialClips,
   markerRows,
@@ -729,6 +734,7 @@ export function ReviewWorkspace({
               onFocusType={setStatType}
               onSelectStat={jumpToStat}
               gutterPx={LANE_GUTTER_PX}
+              code={code}
             />
           )}
 
@@ -801,6 +807,7 @@ export function ReviewWorkspace({
               engine={engine}
               matchId={match.id}
               videoId={video.id}
+              code={code}
               sheet={statSheet}
               rows={placedStatRows}
               setRows={setStatRows}

@@ -12,6 +12,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { and, eq, gt, lt } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { sessions, users, teams, type Role } from "@/lib/db/schema";
+import type { GameCode } from "@/lib/hurling/codes";
 import { appSecret } from "./secret";
 
 const COOKIE = "fisean_session";
@@ -30,6 +31,8 @@ export type SessionUser = {
   role: Role;
   position: number | null;
   teamName: string;
+  /** Which game the club plays, for every word and rule that differs by code. */
+  teamCode: GameCode;
   /** When the club badge last changed, or null for a club without one. */
   badgeVersion: number | null;
 };
@@ -101,6 +104,7 @@ export async function currentUser(): Promise<SessionUser | null> {
       role: users.role,
       position: users.position,
       teamName: teams.name,
+      teamCode: teams.code,
       badgeVersion: teams.badgeUpdatedAt,
     })
     .from(sessions)

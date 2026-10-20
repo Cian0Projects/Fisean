@@ -58,6 +58,7 @@ export default async function AdminPage() {
         viewer={{ id: user.id, role: user.role }}
         joinCode={team?.joinCode ?? ""}
         teamName={team?.name ?? ""}
+        code={team?.code ?? user.teamCode}
         badgeVersion={team?.badgeUpdatedAt ?? null}
         members={members}
         matches={matchRows.map((m) => ({

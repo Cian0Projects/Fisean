@@ -28,7 +28,8 @@ import { VIEW_W, pitchViewHeight } from "@/components/pitch/PitchMarkings";
 import { deleteMatchStat, logMatchStat, updateMatchStat } from "@/lib/actions/stats";
 import {
   STAT_TYPES,
-  STAT_TYPE_META,
+  STAT_TYPE_SHAPE,
+  statVocabulary,
   describeStat,
   effectiveOutcome,
   liveGameTime,
@@ -59,6 +60,7 @@ import {
 } from "./types";
 import { matchDateLong } from "@/lib/format";
 import { formatClock, type Markers } from "@/lib/hurling/notation";
+import type { GameCode } from "@/lib/hurling/codes";
 import { MatchClock, useMatchClock } from "./MatchClock";
 import { VoiceBar, useVoiceEntry } from "./VoiceEntry";
 
@@ -66,6 +68,7 @@ type ClipOption = { id: string; label: string };
 
 export function StatLogger({
   match,
+  code,
   numbers,
   initialRows,
   clips,
@@ -73,6 +76,8 @@ export function StatLogger({
   halfLengthMin,
 }: {
   match: StatMatchInfo;
+  /** The club's code: it words the sheet, and decides whether a two-pointer can be logged. */
+  code: GameCode;
   /** The match's whistles as they stood when the page loaded. */
   whistles: Markers;
   halfLengthMin: number;
@@ -104,7 +109,8 @@ export function StatLogger({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const meta = STAT_TYPE_META[statType];
+  const vocabulary = statVocabulary(code);
+  const meta = vocabulary.meta[statType];
   const sheet = useMemo(() => numberSheet(numbers), [numbers]);
   const named = playerAllowed(statType, detail);
   const ready = detailReady(statType, detail);
@@ -129,7 +135,7 @@ export function StatLogger({
     setStatType(next);
     setDetail(detailForType);
     setDest(null);
-    if (STAT_TYPE_META[next].points === 0) setOrigin(null);
+    if (STAT_TYPE_SHAPE[next].points === 0) setOrigin(null);
   };
 
   /**
@@ -176,7 +182,7 @@ export function StatLogger({
         resetEntry();
         return;
       }
-      const found = STAT_TYPES.find((t) => STAT_TYPE_META[t].hotkey === e.key);
+      const found = STAT_TYPES.find((t) => STAT_TYPE_SHAPE[t].hotkey === e.key);
       if (found) {
         e.preventDefault();
         chooseType(found);
@@ -211,6 +217,7 @@ export function StatLogger({
     const existing = statMarks(
       rows.filter((r) => r.statType === statType && r.id !== editingId),
       sheet,
+      code,
       { muted: true },
     );
     if (!origin) return existing;
@@ -234,7 +241,7 @@ export function StatLogger({
         selected: true,
       },
     ];
-  }, [rows, statType, editingId, sheet, origin, dest, detail, named]);
+  }, [rows, statType, editingId, sheet, code, origin, dest, detail, named]);
 
   /* ---------------------------------------------------------- submitting */
 
@@ -362,7 +369,7 @@ export function StatLogger({
                   : "Tap the pitch, or leave it unplaced"}
             </span>
           </div>
-          <PitchMap marks={marks} onPlace={placePoint} turned={turned} />
+          <PitchMap marks={marks} onPlace={placePoint} turned={turned} code={code} />
           <div className="mt-1.5 flex min-h-7 flex-wrap items-center justify-between gap-2">
             <p className="text-[13px]" style={{ color: "var(--color-ink-dim)" }}>
               {meta.hint}
@@ -390,7 +397,7 @@ export function StatLogger({
               Each button only as wide as its name, so they share rows. */}
           <div className="flex flex-wrap gap-1.5">
             {STAT_TYPES.map((t) => {
-              const m = STAT_TYPE_META[t];
+              const m = vocabulary.meta[t];
               const here = t === statType;
               return (
                 <button
@@ -429,6 +436,7 @@ export function StatLogger({
               onto its own row. */}
           <div className="mt-3 flex flex-wrap items-start gap-x-7 gap-y-3 *:max-w-full *:min-w-0">
             <StatFields
+              vocabulary={vocabulary}
               statType={statType}
               detail={detail}
               onChange={patch}
@@ -556,7 +564,7 @@ export function StatLogger({
                     }}
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="text-[14px]">{describeStat(r)}</div>
+                    <div className="text-[14px]">{describeStat(r, code)}</div>
                     <div className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
                       {playerLabel(r.playerNumber, sheet)}
                       {half && `, ${half === 1 ? "1st" : "2nd"} half`}

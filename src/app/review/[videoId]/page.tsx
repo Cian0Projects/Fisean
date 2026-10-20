@@ -9,6 +9,7 @@ import { store } from "@/lib/storage";
 import { codecWarning } from "@/lib/media/probe";
 import { ReviewWorkspace } from "@/components/review/ReviewWorkspace";
 import { loadVisibleClips } from "@/lib/queries/clips";
+import { tagsForCode } from "@/lib/hurling/events";
 
 export default async function ReviewPage({
   params,
@@ -26,8 +27,7 @@ export default async function ReviewPage({
     ? await db.select().from(matches).where(eq(matches.id, video.matchId)).limit(1)
     : [null];
 
-  // Built-in taxonomy plus anything this squad has added of its own.
-  const events = await db
+  const allEvents = await db
     .select()
     .from(eventTypes)
     .where(or(isNull(eventTypes.teamId), eq(eventTypes.teamId, user.teamId)))
@@ -45,6 +45,13 @@ export default async function ReviewPage({
     .orderBy(asc(users.displayName));
 
   const initialClips = await loadVisibleClips(videoId, user);
+
+  // Built-in taxonomy, fitted to the club's code, plus anything this squad
+  // has added of its own, plus any tag these clips carry from before the
+  // club changed its game.
+  const events = tagsForCode(allEvents, user.teamCode, {
+    onClips: initialClips.flatMap((c) => c.eventTypeIds),
+  });
 
   const markerRows = await db
     .select({ kind: videoMarkers.kind, atMs: videoMarkers.atMs })
@@ -81,6 +88,7 @@ export default async function ReviewPage({
         whistles: match ? whistlesOf(match) : {},
       }}
       eventTypes={events}
+      code={user.teamCode}
       squad={squad}
       initialClips={initialClips}
       markerRows={markerRows}

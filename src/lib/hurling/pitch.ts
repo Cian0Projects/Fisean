@@ -30,8 +30,10 @@ export const PITCH_LIMITS = {
 } as const;
 
 /**
- * Distances from an end line, in metres, of every line a hurling pitch is
- * marked with. The 65 is hurling's own — football marks a 45 instead.
+ * Distances from an end line, in metres, of every line a GAA pitch is marked
+ * with, whichever code is played on it. The 65 is where hurling's end-line
+ * free is taken; every other code takes a 45. Football's two-point arc is a
+ * circle rather than a line, and is drawn from `TWO_POINT_ARC_M` in codes.ts.
  */
 export const LINE_DISTANCES_M = [13, 20, 45, 65] as const;
 export type LineDistance = (typeof LINE_DISTANCES_M)[number];

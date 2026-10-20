@@ -51,6 +51,7 @@ export default async function MatchStatsPage({
       <Nav user={user} />
       <StatReport
         teamName={team?.name ?? "Us"}
+        code={user.teamCode}
         match={{
           id: match.id,
           opponent: match.opponent,

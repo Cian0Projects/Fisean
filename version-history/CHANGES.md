@@ -16,6 +16,31 @@ is used, how it is deployed).
 
 -->
 
+## Every code in its own words: kick-outs, 45s and the two-pointer
+*2026-10-19*
+
+Ardawn is for all four codes, but its stat sheet and built-in tags still
+spoke hurling to everyone: a football club logged a "poc amach", won a "65"
+and was offered a hook. Everything that differs now follows `teams.code`,
+which the session carries as `teamCode`. The words come from `termsFor` in
+`codes.ts` and `statVocabulary` in `stats.ts`, so football and ladies
+football say kick-out, 45 and sideline kick; camogie keeps the poc amach but
+gives a 45; hurling is unchanged. The stored values stay the same in every
+code (`puckout`, `sixty_five`), so nothing was migrated and the roll-ups read
+every sheet alike. The tags are one shared set, fitted to each club where
+they are loaded by `tagsForCode`: hurling's stick skills are not offered in
+football, and football gets a mark and a kick pass. Both football codes get
+the two-pointer (the LGFA adopted the arc in April 2026). It is a shot result
+on the sheet and a tag worth two on hotkey 8, it counts once in "9 of 14" and
+twice in the scoreline, and the 40 m arc is drawn on their pitch maps.
+Built-in tags added to the list are now written into an existing database at
+startup, so clubs that signed up earlier get the new ones on the next deploy.
+The game was only ever chosen on the sign-up form, and every club set up
+before that form asked was hurling by default, so the squad page now has a
+"The game" choice for the admin (`setClubCode`). Because nothing stored
+depends on the code, changing it loses nothing; a clip tagged with something
+the new code does not offer keeps that tag, without its hotkey.
+
 ## Privacy page, data agreement, and deleting a club
 *2026-10-19*
 

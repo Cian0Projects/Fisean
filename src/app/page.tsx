@@ -16,6 +16,7 @@ import { currentUser } from "@/lib/auth/session";
 import { requireUser } from "@/lib/auth/guard";
 import { Nav } from "@/components/ui/Nav";
 import { formatClock, formatScore } from "@/lib/hurling/notation";
+import type { GameCode } from "@/lib/hurling/codes";
 import {
   matchResult,
   shotSide,
@@ -584,6 +585,7 @@ async function Dashboard() {
             ours={latestStats.length ? summariseShooting(latestStats, "us") : null}
             theirs={latestStats.length ? summariseShooting(latestStats, "opposition") : null}
             shotMarks={shotMarks(latestStats)}
+            code={user.teamCode}
             statCount={latestStats.length}
             isCoach={isCoach}
           />
@@ -809,6 +811,7 @@ function LeadMatch({
   ours,
   theirs,
   shotMarks,
+  code,
   statCount,
   isCoach,
 }: {
@@ -823,6 +826,7 @@ function LeadMatch({
   ours: SideShooting | null;
   theirs: SideShooting | null;
   shotMarks: PitchMark[];
+  code: GameCode;
   statCount: number;
   isCoach: boolean;
 }) {
@@ -913,6 +917,7 @@ function LeadMatch({
             ours={ours}
             theirs={theirs}
             shotMarks={shotMarks}
+            code={code}
             isCoach={isCoach}
           />
         </div>
@@ -957,6 +962,7 @@ function ShootingPanel({
   ours,
   theirs,
   shotMarks,
+  code,
   isCoach,
 }: {
   matchId: string;
@@ -964,6 +970,8 @@ function ShootingPanel({
   ours: SideShooting | null;
   theirs: SideShooting | null;
   shotMarks: PitchMark[];
+  /** The club's code, so a football shot map shows its arc. */
+  code: GameCode;
   isCoach: boolean;
 }) {
   const logged = ours !== null && ours.overall.total > 0;
@@ -995,7 +1003,7 @@ function ShootingPanel({
           )}
           {shotMarks.length > 0 && (
             <figure className="m-0 mt-5">
-              <PitchMap marks={shotMarks} caption="Our shots" />
+              <PitchMap marks={shotMarks} caption="Our shots" code={code} />
               <figcaption className="caption mt-1.5">
                 Where our shots came from. Filled ones scored.
               </figcaption>

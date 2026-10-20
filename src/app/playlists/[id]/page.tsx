@@ -15,7 +15,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { store } from "@/lib/storage";
 import { PlaylistPlayer, type PlaylistClip } from "@/components/playlists/PlaylistPlayer";
 import { eventLabelOf } from "@/components/review/types";
-import { tagTone } from "@/lib/hurling/events";
+import { tagTone, tagsForCode } from "@/lib/hurling/events";
 
 export default async function PlaylistPage({
   params,
@@ -64,7 +64,9 @@ export default async function PlaylistPage({
         .limit(1)
     : [];
 
-  const eventById = new Map(events.map((e) => [e.id, e]));
+  // Only naming tags already on clips, so none is dropped; each is just said
+  // the way the club's code says it.
+  const eventById = new Map(tagsForCode(events, user.teamCode, { keepUnoffered: true }).map((e) => [e.id, e]));
   const media = await store();
 
   const playlistClips: PlaylistClip[] = items.map((i) => ({

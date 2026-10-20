@@ -1,5 +1,5 @@
 /**
- * The lines on a hurling pitch, drawn from src/lib/hurling/pitch.ts.
+ * The lines on a GAA pitch, drawn from src/lib/hurling/pitch.ts.
  *
  * Kept out of PitchMap's client module, with no hooks, so a server component
  * can draw a pitch too: a constant imported from a "use client" file arrives
@@ -14,6 +14,7 @@ import {
   lineFractions,
   type PitchSize,
 } from "@/lib/hurling/pitch";
+import { TWO_POINT_ARC_M, termsFor, type GameCode } from "@/lib/hurling/codes";
 
 /** The drawing happens in these units; the browser scales them to the box. */
 export const VIEW_W = 1000;
@@ -28,7 +29,8 @@ export function pitchViewHeight(size: PitchSize = DEFAULT_PITCH): number {
 
 /**
  * The lines on the grass and nothing else: mowing bands, the 13, 20, 45 and
- * 65 at both ends, the rectangles, the goals and the distance figures. Shared
+ * 65 at both ends, the rectangles, the goals and the distance figures, and
+ * football's two-point arc when the code has one. Shared
  * by the stat maps here and the drill board, so there is one drawing of a
  * pitch in the app. Draw it inside an SVG whose viewBox is
  * `0 0 VIEW_W pitchViewHeight(size)`.
@@ -36,9 +38,12 @@ export function pitchViewHeight(size: PitchSize = DEFAULT_PITCH): number {
 export function PitchMarkings({
   size = DEFAULT_PITCH,
   decorative = false,
+  code,
 }: {
   size?: PitchSize;
   decorative?: boolean;
+  /** Draws the 40 m arc for a code that scores two from outside it. */
+  code?: GameCode;
 }) {
   const H = pitchViewHeight(size);
   const { own, opp } = lineFractions(size);
@@ -49,6 +54,11 @@ export function PitchMarkings({
   const smallW = (SMALL_RECTANGLE.depthM / size.lengthM) * VIEW_W;
   const largeH = (LARGE_RECTANGLE.widthM / size.widthM) * H;
   const largeW = (LARGE_RECTANGLE.depthM / size.lengthM) * VIEW_W;
+  // The arc is a circle about the centre of each goal line, so it meets the
+  // end line 40 m either side of the posts, inside a pitch at least 80 m wide.
+  const arcRx = (TWO_POINT_ARC_M / size.lengthM) * VIEW_W;
+  const arcRy = (TWO_POINT_ARC_M / size.widthM) * H;
+  const arc = code ? termsFor(code).twoPointArc : false;
 
   return (
     <g pointerEvents="none">
@@ -71,7 +81,8 @@ export function PitchMarkings({
         <rect x={1} y={1} width={VIEW_W - 2} height={H - 2} strokeWidth={2.5} />
         <line x1={VIEW_W / 2} y1={0} x2={VIEW_W / 2} y2={H} />
 
-        {/* 13, 20, 45 and 65 at both ends. The 65 is hurling's own line. */}
+        {/* 13, 20, 45 and 65 at both ends. Every GAA pitch is marked with all
+            four, whichever code is played on it. */}
         {LINE_DISTANCES_M.map((d) => (
           <g key={d}>
             <line x1={own[d] * VIEW_W} y1={0} x2={own[d] * VIEW_W} y2={H} />
@@ -84,6 +95,13 @@ export function PitchMarkings({
         <rect x={VIEW_W - smallW} y={(H - smallH) / 2} width={smallW} height={smallH} />
         <rect x={0} y={(H - largeH) / 2} width={largeW} height={largeH} />
         <rect x={VIEW_W - largeW} y={(H - largeH) / 2} width={largeW} height={largeH} />
+
+        {arc && (
+          <>
+            <path d={`M 0 ${H / 2 - arcRy} A ${arcRx} ${arcRy} 0 0 1 0 ${H / 2 + arcRy}`} />
+            <path d={`M ${VIEW_W} ${H / 2 - arcRy} A ${arcRx} ${arcRy} 0 0 0 ${VIEW_W} ${H / 2 + arcRy}`} />
+          </>
+        )}
       </g>
 
       {/* The goals: the one piece of the marking drawn at full strength. */}

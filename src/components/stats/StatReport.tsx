@@ -11,13 +11,11 @@ import {
 } from "./types";
 import {
   ATTEMPT_SOURCES,
-  ATTEMPT_SOURCE_LABELS,
   NEUTRAL_COLOUR,
   OUTCOME_COLOURS,
   PUCKOUT_LENGTHS,
   PUCKOUT_LENGTH_LABELS,
-  SHOT_KIND_LABELS,
-  SHOT_RESULT_LABELS,
+  countShots,
   deliveryTally,
   effectiveOutcome,
   emptyStatLine,
@@ -30,6 +28,8 @@ import {
   possessionTally,
   puckoutBreakdown,
   scorers,
+  shootingEfficiency,
+  statVocabulary,
   summariseShooting,
   summariseStats,
   type PlayerTally,
@@ -37,7 +37,9 @@ import {
   type ShotResult,
   type SideShooting,
   type StatOutcome,
+  type StatVocabulary,
 } from "@/lib/hurling/stats";
+import type { GameCode } from "@/lib/hurling/codes";
 import { formatClock, formatScore } from "@/lib/hurling/notation";
 import { positionByNumber } from "@/lib/hurling/positions";
 import { matchDateLong } from "@/lib/format";
@@ -49,7 +51,7 @@ import { Meter, ShootingFigure } from "./ShootingFigure";
  *
  * Laid out under the headings a club analyst's summary already uses, in the
  * same order — the scoreline, score opportunities for both teams, the spells
- * where they got on top, poc amach, delivery, possessions won and lost,
+ * where they got on top, restarts, delivery, possessions won and lost,
  * discipline — so a dressing room that knows that sheet can read this one
  * without being taught it. Every section that happened somewhere on the
  * pitch has a map for each half, because a pattern that only shows up after
@@ -64,18 +66,23 @@ import { Meter, ShootingFigure } from "./ShootingFigure";
  */
 export function StatReport({
   teamName,
+  code,
   match,
   rows,
   numbers,
   canLog,
 }: {
   teamName: string;
+  /** The club's code: every heading and label is said its way. */
+  code: GameCode;
   match: StatMatchInfo;
   rows: StatRow[];
   /** Who wore what in this match. Entries are logged by number; this names them. */
   numbers: SheetEntry[];
   canLog: boolean;
 }) {
+  const vocabulary = statVocabulary(code);
+  const { terms } = vocabulary;
   const players = numberSheet(numbers);
   const summary = summariseStats(rows);
   const ours = summariseShooting(rows, "us");
@@ -146,7 +153,7 @@ export function StatReport({
                 No shots logged yet, so there is no score to give.
               </p>
             )}
-            <ScorersLine rows={rows} players={players} teamName={teamName} />
+            <ScorersLine rows={rows} players={players} teamName={teamName} vocabulary={vocabulary} />
           </section>
 
           {/* ---------------------------------------------- score opportunities */}
@@ -157,13 +164,14 @@ export function StatReport({
             legend={<Legend />}
           >
             <div className="grid gap-10 lg:grid-cols-2">
-              <ShootingColumn name={teamName} s={ours} ours rows={ourShots} players={players} />
+              <ShootingColumn name={teamName} s={ours} ours rows={ourShots} players={players} vocabulary={vocabulary} />
               <ShootingColumn
                 name={match.opponent}
                 s={theirs}
                 ours={false}
                 rows={theirShots}
                 players={players}
+                vocabulary={vocabulary}
                 empty="Log their shots with “Theirs” picked and they appear here."
               />
             </div>
@@ -174,13 +182,13 @@ export function StatReport({
             title="Consecutive opposition score attempts"
             note={`Spells where ${match.opponent} had four or more attempts in a row without a reply from us.`}
           >
-            <OppositionRuns rows={rows} theirsLogged={theirsLogged} />
+            <OppositionRuns rows={rows} theirsLogged={theirsLogged} vocabulary={vocabulary} />
           </Section>
 
-          {/* -------------------------------------------------------- poc amach */}
+          {/* -------------------------------------------- poc amach or kick-outs */}
           <Section
-            title="Poc amach"
-            note="Each side's own restarts, read from the side taking them. A short one of ours only counts as retained once it is worked out past our 65."
+            title={terms.restarts}
+            note={`Each side's own restarts, read from the side taking them. A short one of ours only counts as retained once it is worked out past our ${terms.line}.`}
             legend={<Legend />}
           >
             <div className="grid gap-10 lg:grid-cols-2">
@@ -190,6 +198,7 @@ export function StatReport({
                 ours
                 rows={of("puckout").filter((r) => r.puckoutTakenBy === "us")}
                 players={players}
+                vocabulary={vocabulary}
               />
               <PuckoutColumn
                 name={match.opponent}
@@ -198,6 +207,7 @@ export function StatReport({
                 rows={of("puckout").filter((r) => r.puckoutTakenBy === "opposition")}
                 players={players}
                 weWon={summary.theirPuckouts.won}
+                vocabulary={vocabulary}
               />
             </div>
           </Section>
@@ -205,7 +215,7 @@ export function StatReport({
           {/* --------------------------------------------------------- delivery */}
           <Section
             title="Delivery"
-            note="From inside our 65 to beyond theirs. Each arrow runs from where it was struck to where it landed; a lost one is dashed."
+            note={`From inside our ${terms.line} to beyond theirs. Each arrow runs from where it was struck to where it landed; a lost one is dashed.`}
             legend={<Legend />}
           >
             <Lead
@@ -217,7 +227,7 @@ export function StatReport({
             >
               {deliverySentence(summary.deliveries)}
             </Lead>
-            <HalfMaps rows={of("delivery")} players={players} />
+            <HalfMaps rows={of("delivery")} players={players} code={code} />
             <PivotTable
               tally={deliveryTally(rows)}
               players={players}
@@ -239,7 +249,7 @@ export function StatReport({
             >
               {possessionSentence(summary)}
             </Lead>
-            <HalfMaps rows={of("tackle", "turnover")} players={players} />
+            <HalfMaps rows={of("tackle", "turnover")} players={players} code={code} />
             <PivotTable tally={possessionTally(rows)} players={players} />
           </Section>
 
@@ -250,15 +260,15 @@ export function StatReport({
             legend={<Legend />}
           >
             <Lead>{disciplineSentence(summary)}</Lead>
-            <HalfMaps rows={of("free_conceded", "free_won")} players={players} />
+            <HalfMaps rows={of("free_conceded", "free_won")} players={players} code={code} />
           </Section>
 
           {/* -------------------------------------------------- player by player */}
           <Section
             title="Player by player"
-            note="A poc amach is credited to whoever won it. Entries logged without a name still count in the totals above, and subs with nothing logged are left off."
+            note={`A ${terms.restart.toLowerCase()} is credited to whoever won it. Entries logged without a name still count in the totals above, and subs with nothing logged are left off.`}
           >
-            <PlayerTable rows={rows} players={players} />
+            <PlayerTable rows={rows} players={players} vocabulary={vocabulary} />
           </Section>
         </>
       )}
@@ -276,10 +286,12 @@ function ScorersLine({
   rows,
   players,
   teamName,
+  vocabulary,
 }: {
   rows: StatRow[];
   players: NumberSheet;
   teamName: string;
+  vocabulary: StatVocabulary;
 }) {
   const lines = scorers(rows);
   if (lines.length === 0) return null;
@@ -296,7 +308,7 @@ function ScorersLine({
       <h2 className="section-head title text-[16px]">Scorers for {teamName}</h2>
       <p className="measure mt-2 text-[17px] leading-relaxed">{named.join(", ")}.</p>
       <p className="caption mt-2">
-        Counted from the shots on this sheet. An f marks scores from frees and 65s.
+        Counted from the shots on this sheet. An f marks scores from frees and {vocabulary.terms.endLineFree}s.
       </p>
     </div>
   );
@@ -348,6 +360,8 @@ function disciplineSentence(s: ReturnType<typeof summariseStats>): string {
 const RESULT_ROWS: { result: ShotResult; always: boolean }[] = [
   { result: "goal", always: true },
   { result: "point", always: true },
+  // Only offered where the code has the arc, and shown there even at nought.
+  { result: "two_pointer", always: true },
   { result: "wide", always: true },
   { result: "saved", always: true },
   { result: "lost", always: true },
@@ -372,6 +386,7 @@ function ShootingColumn({
   rows,
   players,
   empty,
+  vocabulary,
 }: {
   name: string;
   s: SideShooting;
@@ -379,6 +394,7 @@ function ShootingColumn({
   rows: StatRow[];
   players: NumberSheet;
   empty?: string;
+  vocabulary: StatVocabulary;
 }) {
   if (rows.length === 0) {
     return (
@@ -392,8 +408,10 @@ function ShootingColumn({
   }
 
   const resultRows = (results: Record<ShotResult, number>) =>
-    RESULT_ROWS.filter((r) => r.always || results[r.result] > 0).map((r) => ({
-      label: SHOT_RESULT_LABELS[r.result],
+    RESULT_ROWS.filter(
+      (r) => vocabulary.shotResults.includes(r.result) && (r.always || results[r.result] > 0),
+    ).map((r) => ({
+      label: vocabulary.shotResultLabels[r.result],
       value: results[r.result],
       tone: resultTone(r.result, ours),
     }));
@@ -401,7 +419,7 @@ function ShootingColumn({
   const sourceRows = [...ATTEMPT_SOURCES, "unrecorded" as const]
     .filter((k) => k !== "unrecorded" || s.sources.unrecorded.attempts > 0)
     .map((k) => ({
-      label: k === "unrecorded" ? "Not logged" : ATTEMPT_SOURCE_LABELS[k],
+      label: k === "unrecorded" ? "Not logged" : vocabulary.attemptSourceLabels[k],
       value: s.sources[k].attempts,
       detail: `${s.sources[k].scored} scored`,
     }));
@@ -416,19 +434,27 @@ function ShootingColumn({
       </div>
 
       <div className="mt-6 grid gap-5 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
-        <Counts title={SHOT_KIND_LABELS.play} rows={resultRows(s.playResults)} />
-        <Counts title="Scorable free or 65" rows={resultRows(s.placedResults)} />
+        <Counts title={vocabulary.shotKindLabels.play} rows={resultRows(s.playResults)} />
+        <Counts title={`Scorable free or ${vocabulary.terms.endLineFree}`} rows={resultRows(s.placedResults)} />
         <Counts title="Attempt came from" rows={sourceRows} />
       </div>
 
       <div className="mt-6">
-        <HalfMaps rows={rows} players={players} stacked />
+        <HalfMaps rows={rows} players={players} code={vocabulary.code} stacked />
       </div>
     </div>
   );
 }
 
-function OppositionRuns({ rows, theirsLogged }: { rows: StatRow[]; theirsLogged: boolean }) {
+function OppositionRuns({
+  rows,
+  theirsLogged,
+  vocabulary,
+}: {
+  rows: StatRow[];
+  theirsLogged: boolean;
+  vocabulary: StatVocabulary;
+}) {
   if (!theirsLogged) {
     return (
       <p className="text-[14px]" style={{ color: "var(--color-ink-faint)" }}>
@@ -462,13 +488,12 @@ function OppositionRuns({ rows, theirsLogged }: { rows: StatRow[]; theirsLogged:
           </tr>
         </thead>
         {runs.map((run, i) => {
-          const scored = run.filter((r) => r.shotResult === "goal" || r.shotResult === "point");
-          const goals = scored.filter((r) => r.shotResult === "goal").length;
+          const score = shootingEfficiency(countShots(run, "opposition")).score;
           return (
             <tbody key={run[0].id}>
               <tr>
                 <td colSpan={span} className="px-2 pt-4 pb-1 text-[13px]" style={{ color: "var(--color-ink-dim)" }}>
-                  Spell {i + 1}: {run.length} attempts, {formatScore({ cul: goals, cuilin: scored.length - goals })} from them
+                  Spell {i + 1}: {run.length} attempts, {formatScore(score)} from them
                 </td>
               </tr>
               {run.map((r) => {
@@ -479,12 +504,12 @@ function OppositionRuns({ rows, theirsLogged }: { rows: StatRow[]; theirsLogged:
                       <td className="tabular px-2 py-1.5">{r.gameMs != null ? formatClock(r.gameMs) : <Dash />}</td>
                     )}
                     {halved && <td className="tabular px-2 py-1.5">{r.half ?? <Dash />}</td>}
-                    <td className="px-2 py-1.5">{SHOT_KIND_LABELS[r.shotKind ?? "play"]}</td>
+                    <td className="px-2 py-1.5">{vocabulary.shotKindLabels[r.shotKind ?? "play"]}</td>
                     <td
                       className="px-2 py-1.5"
                       style={{ color: outcome ? toneInk(outcome) : undefined }}
                     >
-                      {r.shotResult ? SHOT_RESULT_LABELS[r.shotResult] : <Dash />}
+                      {r.shotResult ? vocabulary.shotResultLabels[r.shotResult] : <Dash />}
                     </td>
                   </tr>
                 );
@@ -504,6 +529,7 @@ function PuckoutColumn({
   rows,
   players,
   weWon,
+  vocabulary,
 }: {
   name: string;
   b: PuckoutBreakdown;
@@ -512,13 +538,15 @@ function PuckoutColumn({
   players: NumberSheet;
   /** Theirs only: how many of their restarts we broke. */
   weWon?: number;
+  vocabulary: StatVocabulary;
 }) {
+  const { line: ourLine, restarts } = vocabulary.terms;
   if (b.taken === 0) {
     return (
       <div>
         <h3 className="title text-[16px]">{name}</h3>
         <p className="mt-2 text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
-          No poc amach logged.
+          No {restarts.toLowerCase()} logged.
         </p>
       </div>
     );
@@ -534,8 +562,8 @@ function PuckoutColumn({
     const out: CountRow[] = [{ label: `${label} won`, value: line.kept, tone: kept }];
     // The short ones we won, split by whether they did their job.
     if (ours && length === "short" && (b.shortPastSixtyFive > 0 || b.shortHeldInside > 0)) {
-      out.push({ label: "Past our 65", value: b.shortPastSixtyFive, tone: "positive", indent: true });
-      out.push({ label: "Held inside our 65", value: b.shortHeldInside, tone: "negative", indent: true });
+      out.push({ label: `Past our ${ourLine}`, value: b.shortPastSixtyFive, tone: "positive", indent: true });
+      out.push({ label: `Held inside our ${ourLine}`, value: b.shortHeldInside, tone: "negative", indent: true });
     }
     // A short one is rarely lost outright, so that row only appears when it was.
     if (line.lost > 0 || length !== "short") out.push({ label: `${label} lost`, value: line.lost, tone: lost });
@@ -583,11 +611,11 @@ function PuckoutColumn({
       </div>
 
       <div className="mt-6 sm:w-2/3 lg:w-full xl:w-2/3">
-        <Counts title={`${name} poc amach`} rows={lengthRows} />
+        <Counts title={`${name} ${restarts.toLowerCase()}`} rows={lengthRows} />
       </div>
 
       <div className="mt-6">
-        <HalfMaps rows={rows} players={players} stacked />
+        <HalfMaps rows={rows} players={players} code={vocabulary.code} stacked />
       </div>
     </div>
   );
@@ -598,7 +626,15 @@ function PuckoutColumn({
  * logged that nobody has been put to yet — those still count, and showing
  * them is what prompts someone to fill the sheet in.
  */
-function PlayerTable({ rows, players }: { rows: StatRow[]; players: NumberSheet }) {
+function PlayerTable({
+  rows,
+  players,
+  vocabulary,
+}: {
+  rows: StatRow[];
+  players: NumberSheet;
+  vocabulary: StatVocabulary;
+}) {
   const lines = playerStatLines(rows);
   // The fifteen always, and a sub only if they did something: a programme
   // lists the subs who came on, not the whole bench.
@@ -621,7 +657,7 @@ function PlayerTable({ rows, players }: { rows: StatRow[]; players: NumberSheet 
             <Th>Efficiency</Th>
             <Th>Frees won</Th>
             <Th>Frees given</Th>
-            <Th>Poc amach</Th>
+            <Th>{vocabulary.terms.restarts}</Th>
           </tr>
         </thead>
         <tbody>
@@ -734,10 +770,12 @@ function Lead({
 function HalfMaps({
   rows,
   players,
+  code,
   stacked = false,
 }: {
   rows: StatRow[];
   players: NumberSheet;
+  code: GameCode;
   stacked?: boolean;
 }) {
   if (rows.length === 0) {
@@ -761,7 +799,7 @@ function HalfMaps({
   return (
     <div className={`grid gap-6 ${stacked ? "" : "md:grid-cols-2"}`}>
       {groups.map((g) => {
-        const marks = statMarks(g.rows, players);
+        const marks = statMarks(g.rows, players, code);
         return (
           <figure key={g.title} className="m-0">
             <figcaption className="mb-2 flex items-baseline justify-between gap-2">
@@ -772,7 +810,7 @@ function HalfMaps({
                   : `${marks.length} of ${g.rows.length} placed`}
               </span>
             </figcaption>
-            <PitchMap marks={marks} />
+            <PitchMap marks={marks} code={code} />
           </figure>
         );
       })}

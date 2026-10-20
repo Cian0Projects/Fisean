@@ -165,11 +165,19 @@ Gaelic football. A club says which it plays when it signs up
 ([`src/lib/hurling/codes.ts`](src/lib/hurling/codes.ts)), so whatever differs
 between them follows the club rather than assuming one code. Footage, clips,
 playlists, the game clock, positions and the pitch are common to all four.
-Today the code picks the ball a new drill starts with. The built-in tag set
-and stat sheet were written for hurling first, so the puck-out, the 65 and
-the sideline cut are hurling's; the kick-out, the 45 and football's two-point
-arc are the next to follow the club's code. The folder is still called
-`hurling/` because that is where the domain logic began.
+
+What differs is said each code's way. Football and ladies football log
+kick-outs, 45s and sideline kicks; camogie keeps the poc amach and gives a
+45; hurling has its 65 and sideline cut. The words live in one place
+(`termsFor` in `codes.ts`, `statVocabulary` in `stats.ts`), and the values
+stored underneath are the same in every code, so a sheet means the same to
+the arithmetic whichever game logged it. Both footballs score a two-pointer
+from outside the 40 m arc: it is a shot result on the stat sheet and a tag
+worth two, and the arc is drawn on their pitch maps. The built-in tags are
+one shared set, fitted to the club when they are loaded: a football club is
+not offered a hook or a jab lift, and gets a mark and a kick pass instead.
+The code also picks the ball a new drill starts with. The folder is still
+called `hurling/` because that is where the domain logic began.
 
 The event taxonomy lives in the database, not in component code, so a club can
 add the events it actually tracks without a migration. The built-in set is in
@@ -191,7 +199,9 @@ timestamp in the interface switches to game time — "2nd 35:00" rather than
 **Pitch.** Event positions are stored as normalised 0–1 coordinates, not
 metres, because a GAA pitch is not a fixed size (130–145 m × 80–90 m). Line
 positions for the 13, 20, 45 and 65 are computed from whatever the match
-records. The 65 is hurling's own — football marks a 45.
+records. Every GAA pitch is marked with all four lines, whichever code is
+played on it; the 65 is where hurling's end-line free is taken, and every
+other code takes a 45.
 
 **Positions.** The full 1–15 numbering and its six lines, so clips can be
 filtered by line: "everything the half backs were involved in".

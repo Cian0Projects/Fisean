@@ -29,9 +29,11 @@ import { PitchMap, type PitchMark } from "@/components/pitch/PitchMap";
 import { ChevronIcon } from "@/components/ui/Icon";
 import { deleteMatchStat, logMatchStat, updateMatchStat } from "@/lib/actions/stats";
 import { formatClock, toGameTime, type Markers } from "@/lib/hurling/notation";
+import type { GameCode } from "@/lib/hurling/codes";
 import {
   STAT_TYPES,
-  STAT_TYPE_META,
+  STAT_TYPE_SHAPE,
+  statVocabulary,
   describeStat,
   effectiveOutcome,
   statColour,
@@ -58,6 +60,7 @@ export function StatPad({
   engine,
   matchId,
   videoId,
+  code,
   sheet,
   rows,
   setRows,
@@ -70,6 +73,8 @@ export function StatPad({
   engine: PlayerEngine;
   matchId: string;
   videoId: string;
+  /** The club's code, for its words and its scores. */
+  code: GameCode;
   /** Who wore what in this match, so far. */
   sheet: NumberSheet;
   /** Held by the workspace, because the timeline draws them too. */
@@ -97,7 +102,8 @@ export function StatPad({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const meta = STAT_TYPE_META[statType];
+  const vocabulary = statVocabulary(code);
+  const meta = vocabulary.meta[statType];
   const named = playerAllowed(statType, detail);
   const ready = detailReady(statType, detail);
   const patch = (p: Partial<StatDetail>) => {
@@ -147,7 +153,7 @@ export function StatPad({
     setStatType(next);
     setDetail(detailForType);
     setDest(null);
-    if (STAT_TYPE_META[next].points === 0) setOrigin(null);
+    if (STAT_TYPE_SHAPE[next].points === 0) setOrigin(null);
     stampIfFresh();
   };
 
@@ -181,7 +187,7 @@ export function StatPad({
         resetEntry();
         return;
       }
-      const found = STAT_TYPES.find((t) => STAT_TYPE_META[t].hotkey === e.key);
+      const found = STAT_TYPES.find((t) => STAT_TYPE_SHAPE[t].hotkey === e.key);
       if (found) {
         e.preventDefault();
         chooseType(found);
@@ -211,6 +217,7 @@ export function StatPad({
     const existing = statMarks(
       rows.filter((r) => r.statType === statType && r.id !== editingId),
       sheet,
+      code,
       { muted: true },
     );
     if (!origin) return existing;
@@ -232,7 +239,7 @@ export function StatPad({
         selected: true,
       },
     ];
-  }, [rows, statType, editingId, sheet, origin, dest, detail, named]);
+  }, [rows, statType, editingId, sheet, code, origin, dest, detail, named]);
 
   const submit = () => {
     if (!ready || pending) return;
@@ -300,7 +307,7 @@ export function StatPad({
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3">
       <div className="flex flex-wrap gap-1 border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
         {STAT_TYPES.map((t) => {
-          const m = STAT_TYPE_META[t];
+          const m = vocabulary.meta[t];
           const here = t === statType;
           return (
             <button
@@ -355,6 +362,7 @@ export function StatPad({
         <VoiceBar voice={voice} onDiscard={resetEntry} />
 
         <StatFields
+          vocabulary={vocabulary}
           statType={statType}
           detail={detail}
           onChange={patch}
@@ -379,7 +387,7 @@ export function StatPad({
                     : "Click to place"}
               </span>
             </div>
-            <PitchMap marks={marks} onPlace={placePoint} />
+            <PitchMap marks={marks} onPlace={placePoint} code={code} />
           </div>
         )}
 
@@ -459,7 +467,7 @@ export function StatPad({
                     title={r.atMs != null ? "Watch this back" : "Logged without footage open"}
                     className="min-w-0 flex-1 text-left disabled:cursor-default"
                   >
-                    <div className="text-[13px]">{describeStat(r)}</div>
+                    <div className="text-[13px]">{describeStat(r, code)}</div>
                     <div className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
                       {playerLabel(r.playerNumber, sheet)}
                       {r.atMs != null && `, ${formatClock(r.atMs)}`}

@@ -8,9 +8,11 @@ import {
   deleteVideo,
   removeMember,
   rotateJoinCode,
+  setClubCode,
   setMemberEmail,
   setMemberRole,
 } from "@/lib/actions/admin";
+import { GAME_CODES, GAME_LABELS, isGameCode, type GameCode } from "@/lib/hurling/codes";
 import { formatClock } from "@/lib/hurling/notation";
 import { codecWarning } from "@/lib/media/probe";
 import { matchDate, fileSize } from "@/lib/format";
@@ -55,13 +57,14 @@ type Video = {
  * each name flagged player, coach or admin, and the admin alone deciding
  * which. Numbers and positions stay off it on purpose. They change game to
  * game, so each match keeps its own number sheet. The club's matches and
- * footage sit in a rail beside it. A coach has no panel to manage, so
- * matches take the main column instead.
+ * footage sit in a rail beside it, under the game the club plays. A coach
+ * has no panel to manage, so matches take the main column instead.
  */
 export function AdminPanels({
   viewer,
   joinCode,
   teamName,
+  code,
   badgeVersion,
   members,
   matches,
@@ -71,6 +74,7 @@ export function AdminPanels({
   viewer: { id: string; role: Role };
   joinCode: string;
   teamName: string;
+  code: GameCode;
   badgeVersion: number | null;
   members: Member[];
   matches: Match[];
@@ -93,7 +97,7 @@ export function AdminPanels({
             <div>
               <h1 className="display text-[clamp(2.75rem,6vw,4.5rem)]">{teamName}</h1>
               <p className="mt-4 text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
-                {count(members.length, "person", "people")} on the panel,{" "}
+                {GAME_LABELS[code]}. {count(members.length, "person", "people")} on the panel,{" "}
                 {count(matches.length, "match", "matches")},{" "}
                 {count(videos.length, "file", "files")} of footage.
               </p>
@@ -112,6 +116,7 @@ export function AdminPanels({
           </div>
 
           <aside className="space-y-14">
+            {isAdmin && <GameChoice initial={code} />}
             {isAdmin && <Matches matches={matches} videos={videos} canDelete />}
             <Footage videos={videos} imports={imports} canDelete={isAdmin} />
             {isAdmin && <CloseClub teamName={teamName} />}
@@ -196,6 +201,64 @@ function TeamCode({ initial }: { initial: string }) {
         Players type this once at /join. Rotating it does not sign anyone out.
       </p>
     </div>
+  );
+}
+
+/**
+ * The game the club plays, chosen at sign-up and changeable here. It saves
+ * as soon as it is picked, because nothing is lost by it: the same clips and
+ * stats simply read in the new code's words, and picking the old game again
+ * puts everything back as it was.
+ */
+function GameChoice({ initial }: { initial: GameCode }) {
+  const [code, setCode] = useState(initial);
+  const [note, setNote] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function choose(next: string) {
+    if (!isGameCode(next) || next === code) return;
+    const previous = code;
+    setCode(next);
+    setNote(null);
+    startTransition(async () => {
+      const result = await setClubCode(next);
+      if ("error" in result) {
+        setCode(previous);
+        setNote(result.error);
+      } else {
+        setNote("Saved. The stat sheet and the tags have changed to match.");
+      }
+    });
+  }
+
+  return (
+    <section>
+      <SectionHead
+        title="The game"
+        note="Sets the words on the stat sheet and the tags: kick-out or poc amach, 45 or 65, and whether football's two-point arc is drawn. Every clip and stat is kept when it changes. A dual club sets up each team on its own."
+      />
+      <label htmlFor="club-code" className="sr-only">
+        The game this team plays
+      </label>
+      <select
+        id="club-code"
+        value={code}
+        disabled={pending}
+        onChange={(e) => choose(e.target.value)}
+        className="field"
+      >
+        {GAME_CODES.map((c) => (
+          <option key={c} value={c}>
+            {GAME_LABELS[c]}
+          </option>
+        ))}
+      </select>
+      {(pending || note) && (
+        <p className="caption mt-2" role="status">
+          {pending ? "Saving…" : note}
+        </p>
+      )}
+    </section>
   );
 }
 

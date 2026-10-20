@@ -5,24 +5,26 @@
  *
  * The standalone sheet (StatLogger) and the live pad in the review workspace
  * (StatPad) differ in everything around the form — clock, layout, clip
- * picker — but must ask exactly the same things of a shot or a poc amach, or
+ * picker — but must ask exactly the same things of a shot or a restart, or
  * the two would log different sheets. So the fields live here once, driven
  * by one `StatDetail` value, and each form keeps only its own frame.
  *
  * Every follow-up question appears only once the answer before it makes it
- * meaningful: "worked past our 65" only for our short poc amach that we won,
+ * meaningful: "worked past our 65" only for our short restart that we won,
  * "unforced" only for a ball we lost. A coach never sees a field that cannot
  * apply, which is most of what keeps a nine-column row quick to log.
+ *
+ * Every word that differs by code (poc amach or kick-out, 65 or 45, the
+ * two-pointer) comes from the club's `statVocabulary`, never from here.
  *
  * Players are logged by the number on their back, typed. From the line a
  * number is what you can actually see, and two keystrokes beat finding a name
  * in a list of thirty. The match's number sheet puts names to them, whenever
  * someone gets round to it.
  */
-import type { StatDraft } from "@/lib/hurling/stats";
+import type { StatDraft, StatVocabulary } from "@/lib/hurling/stats";
 import {
   ATTEMPT_SOURCES,
-  ATTEMPT_SOURCE_LABELS,
   MAX_JERSEY,
   OUTCOME_COLOURS,
   POSSESSION_KINDS,
@@ -30,10 +32,7 @@ import {
   PUCKOUT_LENGTHS,
   PUCKOUT_LENGTH_LABELS,
   SHOT_KINDS,
-  SHOT_KIND_LABELS,
-  SHOT_RESULTS,
-  SHOT_RESULT_LABELS,
-  STAT_TYPE_META,
+  STAT_TYPE_SHAPE,
   effectiveOutcome,
   outcomeLabel,
   puckoutOutcome,
@@ -129,7 +128,7 @@ export function detailFromRow(row: StatRow): StatDetail {
 }
 
 /**
- * Whether a player can be named at all. A poc amach names its receiver, so
+ * Whether a player can be named at all. A restart names its receiver, so
  * only one we won; their shot names nobody, because the panel list is ours.
  */
 export function playerAllowed(type: StatType, d: StatDetail): boolean {
@@ -147,8 +146,8 @@ export function typedNumber(value: string): number | null {
 const numberOk = (value: string) => value.trim() === "" || typedNumber(value) !== null;
 
 export function detailReady(type: StatType, d: StatDetail): boolean {
-  const meta = STAT_TYPE_META[type];
-  if (meta.outcomes.length > 0 && d.outcome === null) return false;
+  const shape = STAT_TYPE_SHAPE[type];
+  if (shape.outcomes.length > 0 && d.outcome === null) return false;
   if (type === "shot" && d.shotResult === null) return false;
   if (playerAllowed(type, d) && !numberOk(d.playerNumber)) return false;
   if (type === "delivery" && !numberOk(d.targetNumber)) return false;
@@ -192,6 +191,7 @@ const PLAYER_LABELS: Partial<Record<StatType, string>> = {
 };
 
 export function StatFields({
+  vocabulary,
   statType,
   detail,
   onChange,
@@ -199,6 +199,8 @@ export function StatFields({
   idPrefix,
   halfNote,
 }: {
+  /** The club's words for this sheet. */
+  vocabulary: StatVocabulary;
   statType: StatType;
   detail: StatDetail;
   onChange: (patch: Partial<StatDetail>) => void;
@@ -209,7 +211,9 @@ export function StatFields({
   /** Said under the half picker, e.g. that the video's markers set it. */
   halfNote?: string;
 }) {
-  const meta = STAT_TYPE_META[statType];
+  const meta = vocabulary.meta[statType];
+  const { terms } = vocabulary;
+  const restart = terms.restart.charAt(0).toLowerCase() + terms.restart.slice(1);
   const d = detail;
   const named = playerAllowed(statType, d);
 
@@ -239,17 +243,17 @@ export function StatFields({
           />
           <Choice
             label="From"
-            options={SHOT_KINDS.map((k) => ({ value: k, label: SHOT_KIND_LABELS[k] }))}
+            options={SHOT_KINDS.map((k) => ({ value: k, label: vocabulary.shotKindLabels[k] }))}
             value={d.shotKind}
             onChange={(v) => onChange({ shotKind: v as ShotKind })}
           />
           <Choice
             label="Result"
-            options={SHOT_RESULTS.map((r) => {
+            options={vocabulary.shotResults.map((r) => {
               const outcome = effectiveOutcome({ statType: "shot", outcome: null, shotResult: r, side: d.side });
               return {
                 value: r,
-                label: SHOT_RESULT_LABELS[r],
+                label: vocabulary.shotResultLabels[r],
                 colour: outcome ? OUTCOME_COLOURS[outcome] : undefined,
               };
             })}
@@ -258,7 +262,7 @@ export function StatFields({
           />
           <Choice
             label="Came from"
-            options={ATTEMPT_SOURCES.map((s) => ({ value: s, label: ATTEMPT_SOURCE_LABELS[s] }))}
+            options={ATTEMPT_SOURCES.map((s) => ({ value: s, label: vocabulary.attemptSourceLabels[s] }))}
             value={d.attemptSource}
             onChange={(v) => onChange({ attemptSource: v as AttemptSource })}
             clearable
@@ -270,7 +274,7 @@ export function StatFields({
       {statType === "puckout" && (
         <>
           <Choice
-            label="Whose poc amach"
+            label={`Whose ${restart}`}
             options={[
               { value: "us", label: "Ours" },
               { value: "opposition", label: "Theirs" },
@@ -300,7 +304,7 @@ export function StatFields({
             <Check
               checked={d.pastSixtyFive}
               onChange={(v) => onChange({ pastSixtyFive: v })}
-              label="Worked out past our 65"
+              label={`Worked out past our ${terms.line}`}
             />
           )}
         </>
@@ -378,7 +382,7 @@ export function StatFields({
       )}
       {!named && statType === "puckout" && (
         <p className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-          A poc amach names the receiver, so only one we won takes a player.
+          A {restart} names the receiver, so only one we won takes a player.
         </p>
       )}
     </>

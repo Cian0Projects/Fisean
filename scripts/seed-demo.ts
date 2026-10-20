@@ -30,7 +30,7 @@ import {
   videos,
 } from "../src/lib/db/schema";
 import { generateJoinCode } from "../src/lib/auth/password";
-import { HURLING_EVENTS } from "../src/lib/hurling/events";
+import { BUILT_IN_EVENTS } from "../src/lib/hurling/events";
 
 /**
  * Demo addresses end in .test, a domain reserved never to exist, and
@@ -110,7 +110,7 @@ async function main() {
 
   // Taxonomy first — clips reference it.
   await db.insert(eventTypes).values(
-    HURLING_EVENTS.map((e, i) => ({
+    BUILT_IN_EVENTS.map((e, i) => ({
       teamId: null,
       slug: e.slug,
       labelEn: e.labelEn,
