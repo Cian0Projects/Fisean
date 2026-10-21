@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Answer, PublicShell } from "@/components/home/PublicShell";
+import { socialFor } from "@/lib/seo";
 
 /*
  * The data processing agreement between a club and Ardawn: the contract
@@ -22,9 +23,14 @@ import { Answer, PublicShell } from "@/components/home/PublicShell";
  * agreement, which clause 12 says clubs hear about 30 days ahead.
  */
 
+const TITLE = "Data agreement: Ardawn";
+const DESCRIPTION = "The data processing agreement between a club and Ardawn, under the GDPR.";
+
 export const metadata: Metadata = {
-  title: "Data agreement: Ardawn",
-  description: "The data processing agreement between a club and Ardawn, under the GDPR.",
+  alternates: { canonical: "/privacy/agreement" },
+  title: TITLE,
+  description: DESCRIPTION,
+  ...socialFor(TITLE, DESCRIPTION),
 };
 
 export const viewport: Viewport = { themeColor: "#ffffff" };

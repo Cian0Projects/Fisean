@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { SITE } from "@/lib/seo";
 
 /*
  * The public pages only: the ones a stranger can read without signing in.
@@ -8,8 +9,6 @@ import type { MetadataRoute } from "next";
  * No lastModified: a date that is always "now" teaches Google to ignore the
  * field. Add real dates here if these pages start changing often.
  */
-const SITE = "https://ardawnsport.ie";
-
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     { url: `${SITE}/`, priority: 1 },

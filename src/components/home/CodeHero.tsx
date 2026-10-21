@@ -95,9 +95,6 @@ export function CodeHero() {
             <span className="wordmark text-[25px] leading-none">Ardawn</span>
           </Link>
           <nav className="flex items-center gap-2 sm:gap-5" aria-label="Main navigation">
-            <a href="#see-it" className="hidden text-[13px] font-semibold text-ink-dim hover:text-ink sm:inline">
-              See it live
-            </a>
             <a href="#how-it-works" className="hidden text-[13px] font-semibold text-ink-dim hover:text-ink sm:inline">
               How it works
             </a>
@@ -125,8 +122,8 @@ export function CodeHero() {
             <a href="/start" className="btn-brand px-6 py-3.5 text-[15px]">
               Set up your club
             </a>
-            <a href="#see-it" className="btn-outline px-6 py-3.5 text-[15px]">
-              See it working
+            <a href="#how-it-works" className="btn-outline px-6 py-3.5 text-[15px]">
+              See how it works
             </a>
           </div>
         </div>

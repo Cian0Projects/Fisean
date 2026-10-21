@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Barlow_Condensed, Chivo } from "next/font/google";
+import { SITE, SITE_DESCRIPTION, SITE_TITLE, socialFor } from "@/lib/seo";
 import "./globals.css";
 
 /**
@@ -34,12 +35,23 @@ const barlowCondensed = Barlow_Condensed({
   variable: "--font-display",
 });
 
+/*
+ * What search results and shared links show for any page that does not set
+ * its own. The title and description lead with what people type into a
+ * search box (GAA, video review, the four codes) rather than with a slogan.
+ * Canonical URLs are set page by page, never here: a canonical on the root
+ * layout would tell Google every page is the home page.
+ *
+ * The share image is app/opengraph-image.tsx, picked up by Next without being
+ * named here.
+ */
 export const metadata: Metadata = {
-  title: "Ardawn: GAA video review",
-  description:
-    "Clip, tag and share GAA match footage. Built for teams.",
+  metadataBase: new URL(SITE),
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
   applicationName: "Ardawn",
   appleWebApp: { capable: true, statusBarStyle: "black", title: "Ardawn" },
+  ...socialFor(SITE_TITLE, SITE_DESCRIPTION),
 };
 
 /* The browser's own bar matches the graphite every screen is set on. */
@@ -53,7 +65,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${chivo.variable} ${barlowCondensed.variable}`}>
+    <html lang="en-IE" className={`${chivo.variable} ${barlowCondensed.variable}`}>
       <body>{children}</body>
     </html>
   );

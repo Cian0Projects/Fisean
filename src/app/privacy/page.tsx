@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Answer, PublicShell } from "@/components/home/PublicShell";
+import { socialFor } from "@/lib/seo";
 
 /*
  * The page a club committee is sent to before it agrees to put footage of
@@ -27,9 +28,15 @@ import { Answer, PublicShell } from "@/components/home/PublicShell";
  * If any of those change, this page changes with them.
  */
 
+const TITLE = "Privacy and footage: Ardawn";
+const DESCRIPTION =
+  "Where a club's footage is stored, who can see it, and what happens when someone leaves the panel.";
+
 export const metadata: Metadata = {
-  title: "Privacy and footage: Ardawn",
-  description: "Where a club's footage is stored, who can see it, and what happens when someone leaves the panel.",
+  alternates: { canonical: "/privacy" },
+  title: TITLE,
+  description: DESCRIPTION,
+  ...socialFor(TITLE, DESCRIPTION),
 };
 
 export const viewport: Viewport = { themeColor: "#ffffff" };

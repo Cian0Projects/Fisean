@@ -29,7 +29,10 @@ export function Gate({
         <div>
           <div className="flex items-center gap-4">
             <Mark className="h-[clamp(2.75rem,9vw,4rem)]" />
-            <h1 className="wordmark text-[clamp(3rem,10vw,4.5rem)] leading-none">Ardawn</h1>
+            {/* The page's own title is the h1 below: for a search engine, and
+                for a screen reader, "Set up your club" says what this page
+                is where "Ardawn" alone does not. */}
+            <p className="wordmark text-[clamp(3rem,10vw,4.5rem)] leading-none">Ardawn</p>
           </div>
           <div
             className="mt-4 h-px w-24"
@@ -49,7 +52,7 @@ export function Gate({
             borderBottom: "1px solid var(--color-line)",
           }}
         >
-          <h2 className="title mb-5 text-lg">{title}</h2>
+          <h1 className="title mb-5 text-lg">{title}</h1>
           {children}
           <div className="mt-5 text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
             {footer}

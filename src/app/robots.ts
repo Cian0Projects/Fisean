@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { SITE } from "@/lib/seo";
 
 /*
  * Crawlers may read the public pages and nothing behind a login: those
@@ -26,6 +27,6 @@ export default function robots(): MetadataRoute.Robots {
         "/unsubscribe",
       ],
     },
-    sitemap: "https://ardawnsport.ie/sitemap.xml",
+    sitemap: `${SITE}/sitemap.xml`,
   };
 }

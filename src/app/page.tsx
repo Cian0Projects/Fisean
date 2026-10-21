@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
@@ -35,10 +36,11 @@ import { PitchMap, type PitchMark } from "@/components/pitch/PitchMap";
 import { ResultBox, verdict, verdictColour } from "@/components/matches/ResultBox";
 import { RevealOnScroll } from "@/components/home/RevealOnScroll";
 import { CodeHero } from "@/components/home/CodeHero";
-import { PromoVideo } from "@/components/home/PromoVideo";
+import { homeJsonLd, jsonLdScript } from "@/lib/seo";
 
-/** The landscape film of the app in use live, by tap and by voice. Null until it is cut. */
-const IN_USE_VIDEO: string | null = null;
+/* Title and description come from the root layout; only the canonical is the
+   home page's own, so a link carrying ?utm_source= still counts for "/". */
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 export default async function Home() {
   const user = await currentUser();
@@ -61,6 +63,10 @@ function PublicHomepage() {
   return (
     <div className="dark-room">
       <main className="min-h-screen overflow-x-clip bg-stage text-ink">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(homeJsonLd()) }}
+        />
         <RevealOnScroll />
         <CodeHero />
 
@@ -73,43 +79,6 @@ function PublicHomepage() {
             <Feature name="Stats">Log the stat sheet and see it on a pitch map.</Feature>
             <Feature name="Drills">Draw a drill, play it back and share it as a video.</Feature>
           </dl>
-        </section>
-
-        {/* The film of the app in use during a match: stats logged as the
-            play happens, by tap and by voice. It is landscape, so it gets the
-            full width of the page under a short title, and three beats below
-            say what it shows before anyone presses play. Until the film exists
-            the frame shows a placeholder; set IN_USE_VIDEO to its path in
-            /public (16:9, muted, under about 10 MB) and it plays in place. */}
-        <section id="see-it" className="border-y border-line bg-surface scroll-mt-4" aria-labelledby="see-it-title">
-          <div className="sheet py-16 sm:py-24">
-            <div data-reveal="" className="max-w-3xl">
-              <h2 id="see-it-title" className="headline text-[clamp(2.7rem,5vw,4.4rem)]">
-                Log the match as it happens.
-              </h2>
-              <p className="measure mt-6 text-[17px] leading-relaxed text-ink-dim sm:text-[19px]">
-                Watch a match and log stats live from the sideline, tapped in or simply said out loud.
-              </p>
-            </div>
-
-            <div data-reveal="" data-from="zoom" className="promo-frame mt-10 w-full sm:mt-14">
-              {IN_USE_VIDEO ? (
-                <PromoVideo src={IN_USE_VIDEO} />
-              ) : (
-                <div className="grid aspect-video w-full place-items-center bg-stage p-6">
-                  <p className="rounded border border-dashed border-ink-faint px-5 py-3 text-center text-[14px] text-ink-dim">
-                    Film of the app in use live: Tbc
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <dl data-reveal="" className="mt-10 grid border-t-[3px] border-rule sm:mt-14 sm:grid-cols-3">
-              <Feature name="In real time">Log each stat as the play happens, on a phone or laptop.</Feature>
-              <Feature name="By voice">Say the stat and the form fills in. You place it and press log.</Feature>
-              <Feature name="At the whistle">The stat sheet and pitch map are ready when the match ends.</Feature>
-            </dl>
-          </div>
         </section>
 
         <section className="sheet pb-8 pt-14 sm:pb-12 sm:pt-20" id="how-it-works">
@@ -194,19 +163,6 @@ function PublicHomepage() {
                 A spoken stat and the four fields it fills in: shot, ours, score, player 12.
               </figcaption>
             </figure>
-          </div>
-        </section>
-
-        <section className="border-y border-line bg-surface">
-          <div className="sheet py-16 sm:py-20">
-            <h2 className="headline max-w-2xl text-[clamp(2.7rem,5vw,4.4rem)]">
-              Sunday&apos;s match, ready for Tuesday.
-            </h2>
-            <dl className="mt-10 border-t-[3px] border-rule">
-              <WeekRow when="Sunday evening">Upload the match, or bring it in from Veo, Pixellot or Hudl.</WeekRow>
-              <WeekRow when="Monday">Clip it and log the stats.</WeekRow>
-              <WeekRow when="Before training">The panel watches their clips on their phones.</WeekRow>
-            </dl>
           </div>
         </section>
 
@@ -325,15 +281,6 @@ function Feature({ name, children }: { name: string; children: React.ReactNode }
     <div className="border-b border-line py-5 sm:pr-8 lg:border-b-0">
       <dt className="headline text-[27px]">{name}</dt>
       <dd className="mt-1.5 text-[15px] leading-relaxed text-ink-dim">{children}</dd>
-    </div>
-  );
-}
-
-function WeekRow({ when, children }: { when: string; children: React.ReactNode }) {
-  return (
-    <div className="grid gap-2 border-b border-line py-6 sm:grid-cols-[14rem_1fr] sm:gap-8">
-      <dt className="headline text-[25px]">{when}</dt>
-      <dd className="measure text-[15px] leading-relaxed text-ink-dim sm:text-[16px]">{children}</dd>
     </div>
   );
 }
