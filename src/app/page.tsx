@@ -106,7 +106,7 @@ function PublicHomepage() {
             <ScreenRow
               name="Drills"
               title="Draw the drills."
-              image="/home/drill.jpg"
+              image="/home/drill-dark.jpg"
               alt="The drill board: three attackers and two defenders on a pitch, with steps, playback speed and an export button below."
             >
               Plan a drill on the pitch, play it back, and send it to the panel as a video.
