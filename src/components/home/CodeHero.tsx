@@ -129,7 +129,7 @@ export function CodeHero() {
         </div>
 
         <div className="promo-frame">
-          <PromoVideo src="/Ardawn_Promo_v2.mp4" />
+          <PromoVideo src="/Ardawn_Promo_v3.mp4" />
         </div>
       </div>
     </section>
