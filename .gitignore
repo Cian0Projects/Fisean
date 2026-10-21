@@ -21,5 +21,6 @@ Thumbs.db
 .claude/
 .impeccable/
 brag-output/
+brag-output-*/
 skills-lock.json
 .vscode/

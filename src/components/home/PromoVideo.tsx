@@ -9,7 +9,16 @@ import { useRef, useState } from "react";
  * not a player. A click (or Enter/Space, since it is a button) pauses it, and a
  * play mark shows only while paused, so nothing sits over the footage as it runs.
  */
-export function PromoVideo({ src, poster }: { src: string; poster?: string }) {
+export function PromoVideo({
+  src,
+  poster,
+  ratio = "aspect-video",
+}: {
+  src: string;
+  poster?: string;
+  /** A Tailwind aspect class, for footage that is not 16:9 (a phone film is 9:16). */
+  ratio?: string;
+}) {
   const ref = useRef<HTMLVideoElement>(null);
   const [paused, setPaused] = useState(false);
 
@@ -29,7 +38,7 @@ export function PromoVideo({ src, poster }: { src: string; poster?: string }) {
     >
       <video
         ref={ref}
-        className="block aspect-video h-auto w-full object-contain"
+        className={`block ${ratio} h-auto w-full object-cover`}
         src={src}
         poster={poster}
         autoPlay

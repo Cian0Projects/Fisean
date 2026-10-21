@@ -16,6 +16,31 @@ is used, how it is deployed).
 
 -->
 
+## New code photographs, and hurling joins the run
+*2026-10-21*
+
+The home page's code photographs are replaced for camogie, Gaelic football and ladies football, and hurling has its own at last, so all four codes now play in the run behind the hero. The two nearly square photographs (camogie, ladies football) carry their own crop point in `CodeHero.tsx`, because the shared one would cut the players' heads off in a wide frame.
+
+## A landscape film of live logging on the home page
+*2026-10-21*
+
+The portrait frame for a film of a player on their phone is gone, and so is the list beside it. In its place is a full width 16:9 frame under the title "Log the match as it happens", for a film of the app used live during a match, by tap and by voice. Three beats under the frame say what it shows: in real time, by voice, and the stat sheet ready at the whistle. The frame shows a placeholder until `IN_USE_VIDEO` in `page.tsx` is set.
+
+## Logging by voice on the home page
+*2026-10-20*
+
+The home page has a section for logging by voice: a spoken stat ("shot, ours, score, number 12") beside the four fields it fills in. It is sold for speed during a live match and for fewer slips than typing fields, and it says what the feature does today: the form fills in, and the coach still places the stat and presses log.
+
+## The promo film leads the home page
+*2026-10-20*
+
+The home page now opens on words on the left and the promo film on the right, instead of the film playing behind the headline. The four code photographs stay behind both, dimmed under one flat wash and dissolving slowly every seven seconds, so they set the scene without competing with the film. The code tabs are gone, and hurling is left out of the run until it has a photograph. The old "See it in a coach's hands" placeholder became a portrait frame for a film of a player using the app on their phone, with words beside it: the match, their clips, the stats and the drills, with nothing to install. Managers are not shown, because they log the stats after the match, from the footage. The frame shows a placeholder until `IN_USE_VIDEO` in `page.tsx` is set.
+
+## A home page that opens on all four codes
+*2026-10-19*
+
+The public home page is now a dark room that opens on a full-screen photograph, with the header, headline and buttons laid over it. Four equal tabs (hurling, camogie, Gaelic football, ladies football) run along the bottom, and the active tab's hairline fills in the logo green as the timer for the slideshow, so no code reads as the main one. Slides dissolve into each other and the showing photo pushes in slowly; a visitor who prefers reduced motion gets neither and changes slide by choosing a tab. The promo video moved to its own section below, and grows in as it is scrolled to. Hurling has no photograph yet, so its slide is a labelled placeholder (never a camogie picture standing in for it) and the slideshow opens on the first code that does have one. The pitch with the 13, 20, 45 and 65 lines behind the old hero is gone.
+
 ## Every code in its own words: kick-outs, 45s and the two-pointer
 *2026-10-19*
 

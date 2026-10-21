@@ -1,0 +1,2542 @@
+{
+ "url": "http://localhost:3000",
+ "at": "2026-10-20T22:19:37.671Z",
+ "allow": [],
+ "viewports": [
+  {
+   "width": 1440,
+   "height": 900,
+   "load": "load",
+   "screens": 7,
+   "filled": [
+    0.29,
+    0.66,
+    0.45,
+    0.54,
+    0.57,
+    0.64,
+    0.48
+   ],
+   "motion": {
+    "elements": 15,
+    "css": 2,
+    "transitions": 12,
+    "scripted": 1,
+    "videos": 1,
+    "playingVideos": 1
+   },
+   "metrics": {
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "page": {
+     "height": 5563,
+     "screens": 6.2,
+     "words": 405,
+     "img": 6,
+     "video": 1,
+     "canvas": 0,
+     "svg": 1,
+     "sections": 8,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 7,
+     "videoCount": 1,
+     "uiPictures": 0,
+     "pictureSamples": [
+      "image?url=%2Fhome%2Fcodes%2Fcamogie.webp&w=1920&",
+      "image?url=%2Fhome%2Fcodes%2Ffootball.webp&w=1920",
+      "image?url=%2Fhome%2Fcodes%2Fladies-football.webp",
+      "image?url=%2Fhome%2Fclipping.jpg&w=1080&q=75",
+      "image?url=%2Fhome%2Fstats.jpg&w=1080&q=75",
+      "image?url=%2Fhome%2Fdrill.jpg&w=1080&q=75"
+     ],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "Every match, ready to watch back.",
+     "words": 6,
+     "chars": 33,
+     "lines": 2,
+     "size": 77.8,
+     "vw": 5.4,
+     "font": "Barlow Condensed",
+     "weight": 700,
+     "tracking": 0,
+     "leading": 0.92,
+     "upper": false,
+     "italic": false,
+     "mono": false,
+     "align": "left",
+     "position": "left",
+     "widthRatio": 0.4,
+     "top": 290,
+     "tag": "h1",
+     "kind": "heading"
+    },
+    "h1": {
+     "text": "Every match, ready to watch back.",
+     "words": 6,
+     "lines": 2,
+     "size": 77.8,
+     "font": "Barlow Condensed"
+    },
+    "headings": [
+     {
+      "text": "Every match, ready to watch back.",
+      "words": 6,
+      "chars": 33,
+      "lines": 2,
+      "size": 77.8,
+      "vw": 5.4,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.4,
+      "top": 290,
+      "tag": "h1",
+      "kind": "heading"
+     },
+     {
+      "text": "All of it, on your phone.",
+      "words": 6,
+      "chars": 25,
+      "lines": 1,
+      "size": 70.4,
+      "vw": 4.9,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "right",
+      "widthRatio": 0.47,
+      "top": 1259,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Clip the match.",
+      "words": 3,
+      "chars": 15,
+      "lines": 1,
+      "size": 54.4,
+      "vw": 3.8,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.34,
+      "top": 2268,
+      "tag": "h3",
+      "kind": "heading"
+     },
+     {
+      "text": "Keep the stats.",
+      "words": 3,
+      "chars": 15,
+      "lines": 1,
+      "size": 54.4,
+      "vw": 3.8,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "right",
+      "widthRatio": 0.34,
+      "top": 2836,
+      "tag": "h3",
+      "kind": "heading"
+     },
+     {
+      "text": "Draw the drills.",
+      "words": 3,
+      "chars": 16,
+      "lines": 1,
+      "size": 54.4,
+      "vw": 3.8,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.34,
+      "top": 3403,
+      "tag": "h3",
+      "kind": "heading"
+     },
+     {
+      "text": "Say the stat. The form fills in.",
+      "words": 7,
+      "chars": 32,
+      "lines": 2,
+      "size": 70.4,
+      "vw": 4.9,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.39,
+      "top": 3880,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "“Shot, ours, score, number 12.”",
+      "words": 5,
+      "chars": 31,
+      "lines": 1,
+      "size": 54.4,
+      "vw": 3.8,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "right",
+      "widthRatio": 0.43,
+      "top": 3948,
+      "tag": "blockquote",
+      "kind": "statement"
+     },
+     {
+      "text": "Sunday's match, ready for Tuesday.",
+      "words": 5,
+      "chars": 34,
+      "lines": 2,
+      "size": 70.4,
+      "vw": 4.9,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.47,
+      "top": 4305,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Questions clubs ask",
+      "words": 3,
+      "chars": 19,
+      "lines": 2,
+      "size": 70.4,
+      "vw": 4.9,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.29,
+      "top": 4864,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Bring your next match in.",
+      "words": 5,
+      "chars": 25,
+      "lines": 2,
+      "size": 70.4,
+      "vw": 4.9,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.4,
+      "top": 5278,
+      "tag": "h2",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 10,
+     "maxLines": 2,
+     "over2Lines": 0,
+     "statements": 1,
+     "centered": 0,
+     "medianWords": 5,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Chivo",
+       "share": 0.85,
+       "mono": false
+      },
+      {
+       "family": "Barlow Condensed",
+       "share": 0.15,
+       "mono": false
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      22,
+      25,
+      27,
+      54,
+      70,
+      78
+     ],
+     "sizeCount": 13,
+     "notLoaded": [],
+     "body": {
+      "font": "Chivo",
+      "size": 19,
+      "leading": 1.63,
+      "weight": 400,
+      "tracking": 0,
+      "contrast": 16
+     },
+     "measureChars": 60,
+     "max": {
+      "size": 77.8,
+      "vw": 5.4,
+      "font": "Barlow Condensed",
+      "text": "Every match, ready to watch back."
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 0.04,
+     "smallText": 0
+    },
+    "eyebrows": [
+     {
+      "text": "Clipping",
+      "above": "Clip the match.",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 13,
+      "top": 2240
+     },
+     {
+      "text": "Stats",
+      "above": "Keep the stats.",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 13,
+      "top": 2808
+     },
+     {
+      "text": "Drills",
+      "above": "Draw the drills.",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 13,
+      "top": 3376
+     },
+     {
+      "text": "Listening",
+      "above": "“Shot, ours, score, number 12.”",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 14,
+      "top": 3911
+     }
+    ],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#111317",
+     "bodyBgHsl": {
+      "h": 220,
+      "s": 0.15,
+      "l": 0.08
+     },
+     "dark": true,
+     "sectionBgs": [
+      {
+       "color": "#111317",
+       "top": 0,
+       "hsl": {
+        "h": 220,
+        "s": 0.15,
+        "l": 0.08
+       }
+      },
+      {
+       "color": "#171a1f",
+       "top": 1103,
+       "hsl": {
+        "h": 218,
+        "s": 0.15,
+        "l": 0.11
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#a6acb8",
+       "share": 0.48
+      },
+      {
+       "color": "#eceef2",
+       "share": 0.48
+      },
+      {
+       "color": "#848b98",
+       "share": 0.03
+      },
+      {
+       "color": "#0a0f0d",
+       "share": 0.01
+      }
+     ],
+     "button": {
+      "bg": "#35c46b",
+      "hsl": {
+       "h": 143,
+       "s": 0.57,
+       "l": 0.49
+      },
+      "fg": "#0a0f0d"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 4,
+     "inHero": 3,
+     "radius": 2,
+     "height": 53,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Sign in",
+      "Set up your club",
+      "See it working"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 2,
+     "shadowOverlay": 0,
+     "shadowSamples": [
+      "div.promo-frame → rgba(0, 0, 0, 0.75) 0px 40px 120px -24px",
+      "div.promo-frame.mx-auto → rgba(0, 0, 0, 0.75) 0px 40px 120px -24px"
+     ],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 19,
+     "hairlineSamples": [
+      "header.code-hero-top 1440px",
+      "section#see-it.border-y.border-line 1440px",
+      "div.grid.gap-2 672px",
+      "div.grid.gap-2 672px",
+      "div.grid.gap-2 672px"
+     ],
+     "outlinedBoxes": 6,
+     "dashed": 1,
+     "blurred": 0,
+     "roundedBoxes": 0,
+     "boxRadius": 0,
+     "squareMedia": 7,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [
+     {
+      "type": "img",
+      "ratio": 1
+     },
+     {
+      "type": "img",
+      "ratio": 1
+     },
+     {
+      "type": "img",
+      "ratio": 1
+     },
+     {
+      "type": "video",
+      "ratio": 0.21
+     }
+    ],
+    "nav": {
+     "links": 5,
+     "fixed": false,
+     "height": 71,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": [
+     "chivo",
+     "barlow condensed",
+     "__nextjs-geist"
+    ]
+   },
+   "layout": {
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "pageH": 5563,
+    "margins": {
+     "left": 56,
+     "right": 56
+    },
+    "sections": [],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "Every match, ready to watch back.",
+      "size": 78,
+      "top": 290,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 56,
+      "n": 12
+     },
+     {
+      "x": 552,
+      "n": 2
+     },
+     {
+      "x": 712,
+      "n": 2
+     },
+     {
+      "x": 898,
+      "n": 2
+     }
+    ],
+    "leftBlocks": 18,
+    "bodySize": 15,
+    "stage": false,
+    "explains": true,
+    "slivers": [],
+    "voidShare": 0,
+    "voidBox": null
+   },
+   "app": null,
+   "consoleErrors": []
+  },
+  {
+   "width": 768,
+   "height": 1024,
+   "load": "load",
+   "screens": 7,
+   "filled": [
+    0.51,
+    0.46,
+    0.69,
+    0.66,
+    0.44,
+    0.73,
+    0.57
+   ],
+   "motion": {
+    "elements": 15,
+    "css": 2,
+    "transitions": 12,
+    "scripted": 1,
+    "videos": 1,
+    "playingVideos": 1
+   },
+   "metrics": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "page": {
+     "height": 6734,
+     "screens": 6.6,
+     "words": 405,
+     "img": 6,
+     "video": 1,
+     "canvas": 0,
+     "svg": 1,
+     "sections": 8,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 7,
+     "videoCount": 1,
+     "uiPictures": 0,
+     "pictureSamples": [
+      "image?url=%2Fhome%2Fcodes%2Fcamogie.webp&w=828&q",
+      "image?url=%2Fhome%2Fcodes%2Ffootball.webp&w=828&",
+      "image?url=%2Fhome%2Fcodes%2Fladies-football.webp",
+      "image?url=%2Fhome%2Fclipping.jpg&w=828&q=75",
+      "image?url=%2Fhome%2Fstats.jpg&w=828&q=75",
+      "image?url=%2Fhome%2Fdrill.jpg&w=828&q=75"
+     ],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "Every match, ready to watch back.",
+     "words": 6,
+     "chars": 33,
+     "lines": 1,
+     "size": 46.4,
+     "vw": 6,
+     "font": "Barlow Condensed",
+     "weight": 700,
+     "tracking": 0,
+     "leading": 0.92,
+     "upper": false,
+     "italic": false,
+     "mono": false,
+     "align": "left",
+     "position": "center",
+     "widthRatio": 0.94,
+     "top": 198,
+     "tag": "h1",
+     "kind": "heading"
+    },
+    "h1": {
+     "text": "Every match, ready to watch back.",
+     "words": 6,
+     "lines": 1,
+     "size": 46.4,
+     "font": "Barlow Condensed"
+    },
+    "headings": [
+     {
+      "text": "Every match, ready to watch back.",
+      "words": 6,
+      "chars": 33,
+      "lines": 1,
+      "size": 46.4,
+      "vw": 6,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.94,
+      "top": 198,
+      "tag": "h1",
+      "kind": "heading"
+     },
+     {
+      "text": "Watch",
+      "words": 1,
+      "chars": 5,
+      "lines": 1,
+      "size": 27,
+      "vw": 3.5,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.43,
+      "top": 1047,
+      "tag": "dt",
+      "kind": "heading"
+     },
+     {
+      "text": "Clip",
+      "words": 1,
+      "chars": 4,
+      "lines": 1,
+      "size": 27,
+      "vw": 3.5,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "right",
+      "widthRatio": 0.43,
+      "top": 1047,
+      "tag": "dt",
+      "kind": "heading"
+     },
+     {
+      "text": "Stats",
+      "words": 1,
+      "chars": 5,
+      "lines": 1,
+      "size": 27,
+      "vw": 3.5,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.43,
+      "top": 1168,
+      "tag": "dt",
+      "kind": "heading"
+     },
+     {
+      "text": "Drills",
+      "words": 1,
+      "chars": 6,
+      "lines": 1,
+      "size": 27,
+      "vw": 3.5,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "right",
+      "widthRatio": 0.43,
+      "top": 1168,
+      "tag": "dt",
+      "kind": "heading"
+     },
+     {
+      "text": "All of it, on your phone.",
+      "words": 6,
+      "chars": 25,
+      "lines": 1,
+      "size": 43.2,
+      "vw": 5.6,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.88,
+      "top": 2032,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Clip the match.",
+      "words": 3,
+      "chars": 15,
+      "lines": 1,
+      "size": 36.8,
+      "vw": 4.8,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.94,
+      "top": 2811,
+      "tag": "h3",
+      "kind": "heading"
+     },
+     {
+      "text": "Keep the stats.",
+      "words": 3,
+      "chars": 15,
+      "lines": 1,
+      "size": 36.8,
+      "vw": 4.8,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.94,
+      "top": 3511,
+      "tag": "h3",
+      "kind": "heading"
+     },
+     {
+      "text": "Draw the drills.",
+      "words": 3,
+      "chars": 16,
+      "lines": 1,
+      "size": 36.8,
+      "vw": 4.8,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.94,
+      "top": 4210,
+      "tag": "h3",
+      "kind": "heading"
+     },
+     {
+      "text": "Say the stat. The form fills in.",
+      "words": 7,
+      "chars": 32,
+      "lines": 1,
+      "size": 43.2,
+      "vw": 5.6,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.75,
+      "top": 4962,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "“Shot, ours, score, number 12.”",
+      "words": 5,
+      "chars": 31,
+      "lines": 1,
+      "size": 33.6,
+      "vw": 4.4,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.85,
+      "top": 5197,
+      "tag": "blockquote",
+      "kind": "statement"
+     },
+     {
+      "text": "Shot",
+      "words": 1,
+      "chars": 4,
+      "lines": 1,
+      "size": 27,
+      "vw": 3.5,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.17,
+      "top": 5309,
+      "tag": "dd",
+      "kind": "statement"
+     },
+     {
+      "text": "Ours",
+      "words": 1,
+      "chars": 4,
+      "lines": 1,
+      "size": 27,
+      "vw": 3.5,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.17,
+      "top": 5309,
+      "tag": "dd",
+      "kind": "statement"
+     },
+     {
+      "text": "Score",
+      "words": 1,
+      "chars": 5,
+      "lines": 1,
+      "size": 27,
+      "vw": 3.5,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "right",
+      "widthRatio": 0.17,
+      "top": 5309,
+      "tag": "dd",
+      "kind": "statement"
+     },
+     {
+      "text": "12",
+      "words": 1,
+      "chars": 2,
+      "lines": 1,
+      "size": 27,
+      "vw": 3.5,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "right",
+      "widthRatio": 0.17,
+      "top": 5309,
+      "tag": "dd",
+      "kind": "statement"
+     },
+     {
+      "text": "Sunday's match, ready for Tuesday.",
+      "words": 5,
+      "chars": 34,
+      "lines": 1,
+      "size": 43.2,
+      "vw": 5.6,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.88,
+      "top": 5535,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Questions clubs ask",
+      "words": 3,
+      "chars": 19,
+      "lines": 1,
+      "size": 43.2,
+      "vw": 5.6,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.94,
+      "top": 6004,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Bring your next match in.",
+      "words": 5,
+      "chars": 25,
+      "lines": 1,
+      "size": 43.2,
+      "vw": 5.6,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.51,
+      "top": 6538,
+      "tag": "h2",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 18,
+     "maxLines": 1,
+     "over2Lines": 0,
+     "statements": 5,
+     "centered": 0,
+     "medianWords": 3,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Chivo",
+       "share": 0.85,
+       "mono": false
+      },
+      {
+       "family": "Barlow Condensed",
+       "share": 0.15,
+       "mono": false
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      22,
+      25,
+      27,
+      34,
+      37,
+      43,
+      46
+     ],
+     "sizeCount": 14,
+     "notLoaded": [],
+     "body": {
+      "font": "Chivo",
+      "size": 19,
+      "leading": 1.63,
+      "weight": 400,
+      "tracking": 0,
+      "contrast": 16
+     },
+     "measureChars": 76,
+     "max": {
+      "size": 46.4,
+      "vw": 6,
+      "font": "Barlow Condensed",
+      "text": "Every match, ready to watch back."
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 0.04,
+     "smallText": 0
+    },
+    "eyebrows": [
+     {
+      "text": "Clipping",
+      "above": "Clip the match.",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 13,
+      "top": 2784
+     },
+     {
+      "text": "Stats",
+      "above": "Keep the stats.",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 13,
+      "top": 3483
+     },
+     {
+      "text": "Drills",
+      "above": "Draw the drills.",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 13,
+      "top": 4183
+     },
+     {
+      "text": "Listening",
+      "above": "“Shot, ours, score, number 12.”",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 14,
+      "top": 5160
+     },
+     {
+      "text": "Stat",
+      "above": "Shot",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 13,
+      "top": 5285
+     },
+     {
+      "text": "Side",
+      "above": "Ours",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 13,
+      "top": 5285
+     },
+     {
+      "text": "Result",
+      "above": "Score",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 13,
+      "top": 5285
+     },
+     {
+      "text": "Player",
+      "above": "12",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 13,
+      "top": 5285
+     }
+    ],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#111317",
+     "bodyBgHsl": {
+      "h": 220,
+      "s": 0.15,
+      "l": 0.08
+     },
+     "dark": true,
+     "sectionBgs": [
+      {
+       "color": "#111317",
+       "top": 0,
+       "hsl": {
+        "h": 220,
+        "s": 0.15,
+        "l": 0.08
+       }
+      },
+      {
+       "color": "#171a1f",
+       "top": 1348,
+       "hsl": {
+        "h": 218,
+        "s": 0.15,
+        "l": 0.11
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#a6acb8",
+       "share": 0.48
+      },
+      {
+       "color": "#eceef2",
+       "share": 0.48
+      },
+      {
+       "color": "#848b98",
+       "share": 0.03
+      },
+      {
+       "color": "#0a0f0d",
+       "share": 0.01
+      }
+     ],
+     "button": {
+      "bg": "#35c46b",
+      "hsl": {
+       "h": 143,
+       "s": 0.57,
+       "l": 0.49
+      },
+      "fg": "#0a0f0d"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 4,
+     "inHero": 3,
+     "radius": 2,
+     "height": 53,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Sign in",
+      "Set up your club",
+      "See it working"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 2,
+     "shadowOverlay": 0,
+     "shadowSamples": [
+      "div.promo-frame → rgba(0, 0, 0, 0.75) 0px 40px 120px -24px",
+      "div.promo-frame.mx-auto → rgba(0, 0, 0, 0.75) 0px 40px 120px -24px"
+     ],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 23,
+     "hairlineSamples": [
+      "header.code-hero-top 768px",
+      "div.border-b.border-line 360px",
+      "div.border-b.border-line 360px",
+      "div.border-b.border-line 360px",
+      "div.border-b.border-line 360px"
+     ],
+     "outlinedBoxes": 6,
+     "dashed": 1,
+     "blurred": 0,
+     "roundedBoxes": 0,
+     "boxRadius": 0,
+     "squareMedia": 7,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [
+     {
+      "type": "img",
+      "ratio": 1
+     },
+     {
+      "type": "img",
+      "ratio": 1
+     },
+     {
+      "type": "img",
+      "ratio": 1
+     },
+     {
+      "type": "video",
+      "ratio": 0.37
+     }
+    ],
+    "nav": {
+     "links": 5,
+     "fixed": false,
+     "height": 71,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": [
+     "chivo",
+     "barlow condensed"
+    ]
+   },
+   "layout": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "pageH": 6734,
+    "margins": {
+     "left": 24,
+     "right": 24
+    },
+    "sections": [],
+    "gaps": [
+     {
+      "top": 1244,
+      "height": 448
+     }
+    ],
+    "h1s": [
+     {
+      "text": "Every match, ready to watch back.",
+      "size": 46,
+      "top": 198,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 24,
+      "n": 18
+     }
+    ],
+    "leftBlocks": 18,
+    "bodySize": 15,
+    "stage": false,
+    "explains": true,
+    "slivers": [],
+    "voidShare": 0,
+    "voidBox": null
+   },
+   "app": null,
+   "consoleErrors": []
+  },
+  {
+   "width": 390,
+   "height": 844,
+   "load": "load",
+   "screens": 8,
+   "filled": [
+    0.48,
+    0.27,
+    0.79,
+    0.58,
+    0.52,
+    0.79,
+    0.76,
+    0.59
+   ],
+   "motion": {
+    "elements": 15,
+    "css": 2,
+    "transitions": 12,
+    "scripted": 1,
+    "videos": 1,
+    "playingVideos": 1
+   },
+   "metrics": {
+    "viewport": {
+     "w": 390,
+     "h": 844
+    },
+    "page": {
+     "height": 6449,
+     "screens": 7.6,
+     "words": 398,
+     "img": 6,
+     "video": 1,
+     "canvas": 0,
+     "svg": 1,
+     "sections": 8,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 7,
+     "videoCount": 1,
+     "uiPictures": 0,
+     "pictureSamples": [
+      "image?url=%2Fhome%2Fcodes%2Fcamogie.webp&w=640&q",
+      "image?url=%2Fhome%2Fcodes%2Ffootball.webp&w=640&",
+      "image?url=%2Fhome%2Fcodes%2Fladies-football.webp",
+      "image?url=%2Fhome%2Fclipping.jpg&w=640&q=75",
+      "image?url=%2Fhome%2Fstats.jpg&w=640&q=75",
+      "image?url=%2Fhome%2Fdrill.jpg&w=640&q=75"
+     ],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "Every match, ready to watch back.",
+     "words": 6,
+     "chars": 33,
+     "lines": 2,
+     "size": 46.4,
+     "vw": 11.9,
+     "font": "Barlow Condensed",
+     "weight": 700,
+     "tracking": 0,
+     "leading": 0.92,
+     "upper": false,
+     "italic": false,
+     "mono": false,
+     "align": "left",
+     "position": "center",
+     "widthRatio": 0.92,
+     "top": 166,
+     "tag": "h1",
+     "kind": "heading"
+    },
+    "h1": {
+     "text": "Every match, ready to watch back.",
+     "words": 6,
+     "lines": 2,
+     "size": 46.4,
+     "font": "Barlow Condensed"
+    },
+    "headings": [
+     {
+      "text": "Ardawn",
+      "words": 1,
+      "chars": 6,
+      "lines": 1,
+      "size": 25,
+      "vw": 6.4,
+      "font": "Chivo",
+      "weight": 900,
+      "tracking": -0.03,
+      "leading": 1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.33,
+      "top": 21,
+      "tag": "a",
+      "kind": "heading"
+     },
+     {
+      "text": "Every match, ready to watch back.",
+      "words": 6,
+      "chars": 33,
+      "lines": 2,
+      "size": 46.4,
+      "vw": 11.9,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 166,
+      "tag": "h1",
+      "kind": "heading"
+     },
+     {
+      "text": "Watch",
+      "words": 1,
+      "chars": 5,
+      "lines": 1,
+      "size": 27,
+      "vw": 6.9,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 867,
+      "tag": "dt",
+      "kind": "heading"
+     },
+     {
+      "text": "Clip",
+      "words": 1,
+      "chars": 4,
+      "lines": 1,
+      "size": 27,
+      "vw": 6.9,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 963,
+      "tag": "dt",
+      "kind": "heading"
+     },
+     {
+      "text": "Stats",
+      "words": 1,
+      "chars": 5,
+      "lines": 1,
+      "size": 27,
+      "vw": 6.9,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 1084,
+      "tag": "dt",
+      "kind": "heading"
+     },
+     {
+      "text": "Drills",
+      "words": 1,
+      "chars": 6,
+      "lines": 1,
+      "size": 27,
+      "vw": 6.9,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 1180,
+      "tag": "dt",
+      "kind": "heading"
+     },
+     {
+      "text": "All of it, on your phone.",
+      "words": 6,
+      "chars": 25,
+      "lines": 2,
+      "size": 43.2,
+      "vw": 11.1,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 1964,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "The match",
+      "words": 2,
+      "chars": 9,
+      "lines": 1,
+      "size": 25,
+      "vw": 6.4,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 2205,
+      "tag": "dt",
+      "kind": "heading"
+     },
+     {
+      "text": "Your clips",
+      "words": 2,
+      "chars": 10,
+      "lines": 1,
+      "size": 25,
+      "vw": 6.4,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 2329,
+      "tag": "dt",
+      "kind": "heading"
+     },
+     {
+      "text": "The stats",
+      "words": 2,
+      "chars": 9,
+      "lines": 1,
+      "size": 25,
+      "vw": 6.4,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 2427,
+      "tag": "dt",
+      "kind": "heading"
+     },
+     {
+      "text": "The drills",
+      "words": 2,
+      "chars": 10,
+      "lines": 1,
+      "size": 25,
+      "vw": 6.4,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 2525,
+      "tag": "dt",
+      "kind": "heading"
+     },
+     {
+      "text": "Clip the match.",
+      "words": 3,
+      "chars": 15,
+      "lines": 1,
+      "size": 36.8,
+      "vw": 9.4,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 2876,
+      "tag": "h3",
+      "kind": "heading"
+     },
+     {
+      "text": "Keep the stats.",
+      "words": 3,
+      "chars": 15,
+      "lines": 1,
+      "size": 36.8,
+      "vw": 9.4,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 3336,
+      "tag": "h3",
+      "kind": "heading"
+     },
+     {
+      "text": "Draw the drills.",
+      "words": 3,
+      "chars": 16,
+      "lines": 1,
+      "size": 36.8,
+      "vw": 9.4,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 3797,
+      "tag": "h3",
+      "kind": "heading"
+     },
+     {
+      "text": "Say the stat. The form fills in.",
+      "words": 7,
+      "chars": 32,
+      "lines": 2,
+      "size": 43.2,
+      "vw": 11.1,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 4277,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "“Shot, ours, score, number 12.”",
+      "words": 5,
+      "chars": 31,
+      "lines": 2,
+      "size": 33.6,
+      "vw": 8.6,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.79,
+      "top": 4593,
+      "tag": "blockquote",
+      "kind": "statement"
+     },
+     {
+      "text": "Shot",
+      "words": 1,
+      "chars": 4,
+      "lines": 1,
+      "size": 27,
+      "vw": 6.9,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.35,
+      "top": 4723,
+      "tag": "dd",
+      "kind": "statement"
+     },
+     {
+      "text": "Ours",
+      "words": 1,
+      "chars": 4,
+      "lines": 1,
+      "size": 27,
+      "vw": 6.9,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "right",
+      "widthRatio": 0.35,
+      "top": 4723,
+      "tag": "dd",
+      "kind": "statement"
+     },
+     {
+      "text": "Score",
+      "words": 1,
+      "chars": 5,
+      "lines": 1,
+      "size": 27,
+      "vw": 6.9,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.35,
+      "top": 4812,
+      "tag": "dd",
+      "kind": "statement"
+     },
+     {
+      "text": "12",
+      "words": 1,
+      "chars": 2,
+      "lines": 1,
+      "size": 27,
+      "vw": 6.9,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "right",
+      "widthRatio": 0.35,
+      "top": 4812,
+      "tag": "dd",
+      "kind": "statement"
+     },
+     {
+      "text": "Sunday's match, ready for Tuesday.",
+      "words": 5,
+      "chars": 34,
+      "lines": 2,
+      "size": 43.2,
+      "vw": 11.1,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 4988,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Sunday evening",
+      "words": 2,
+      "chars": 14,
+      "lines": 1,
+      "size": 25,
+      "vw": 6.4,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 5135,
+      "tag": "dt",
+      "kind": "heading"
+     },
+     {
+      "text": "Monday",
+      "words": 1,
+      "chars": 6,
+      "lines": 1,
+      "size": 25,
+      "vw": 6.4,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 5263,
+      "tag": "dt",
+      "kind": "heading"
+     },
+     {
+      "text": "Before training",
+      "words": 2,
+      "chars": 15,
+      "lines": 1,
+      "size": 25,
+      "vw": 6.4,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 5368,
+      "tag": "dt",
+      "kind": "heading"
+     },
+     {
+      "text": "Questions clubs ask",
+      "words": 3,
+      "chars": 19,
+      "lines": 1,
+      "size": 43.2,
+      "vw": 11.1,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 5577,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "What footage works? +",
+      "words": 4,
+      "chars": 21,
+      "lines": 1,
+      "size": 22,
+      "vw": 5.6,
+      "font": "Chivo",
+      "weight": 400,
+      "tracking": 0,
+      "leading": 1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 5660,
+      "tag": "summary",
+      "kind": "heading"
+     },
+     {
+      "text": "Who can see our footage? +",
+      "words": 6,
+      "chars": 26,
+      "lines": 1,
+      "size": 22,
+      "vw": 5.6,
+      "font": "Chivo",
+      "weight": 400,
+      "tracking": 0,
+      "leading": 1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 5726,
+      "tag": "summary",
+      "kind": "heading"
+     },
+     {
+      "text": "Do players need to install anything? +",
+      "words": 7,
+      "chars": 38,
+      "lines": 1,
+      "size": 22,
+      "vw": 5.6,
+      "font": "Chivo",
+      "weight": 400,
+      "tracking": 0,
+      "leading": 1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 5793,
+      "tag": "summary",
+      "kind": "heading"
+     },
+     {
+      "text": "How do we get started? +",
+      "words": 6,
+      "chars": 24,
+      "lines": 1,
+      "size": 22,
+      "vw": 5.6,
+      "font": "Chivo",
+      "weight": 400,
+      "tracking": 0,
+      "leading": 1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 5859,
+      "tag": "summary",
+      "kind": "heading"
+     },
+     {
+      "text": "Bring your next match in.",
+      "words": 5,
+      "chars": 25,
+      "lines": 2,
+      "size": 43.2,
+      "vw": 11.1,
+      "font": "Barlow Condensed",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 0.92,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 6047,
+      "tag": "h2",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 30,
+     "maxLines": 2,
+     "over2Lines": 0,
+     "statements": 5,
+     "centered": 0,
+     "medianWords": 2,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Chivo",
+       "share": 0.84,
+       "mono": false
+      },
+      {
+       "family": "Barlow Condensed",
+       "share": 0.16,
+       "mono": false
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      22,
+      25,
+      27,
+      34,
+      37,
+      43,
+      46
+     ],
+     "sizeCount": 13,
+     "notLoaded": [],
+     "body": {
+      "font": "Chivo",
+      "size": 17,
+      "leading": 1.63,
+      "weight": 400,
+      "tracking": 0,
+      "contrast": 16
+     },
+     "measureChars": 42,
+     "max": {
+      "size": 46.4,
+      "vw": 11.9,
+      "font": "Barlow Condensed",
+      "text": "Every match, ready to watch back."
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 0.04,
+     "smallText": 0
+    },
+    "eyebrows": [
+     {
+      "text": "Clipping",
+      "above": "Clip the match.",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 13,
+      "top": 2848
+     },
+     {
+      "text": "Stats",
+      "above": "Keep the stats.",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 13,
+      "top": 3309
+     },
+     {
+      "text": "Drills",
+      "above": "Draw the drills.",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 13,
+      "top": 3769
+     },
+     {
+      "text": "Listening",
+      "above": "“Shot, ours, score, number 12.”",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 14,
+      "top": 4556
+     },
+     {
+      "text": "Stat",
+      "above": "Shot",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 13,
+      "top": 4700
+     },
+     {
+      "text": "Side",
+      "above": "Ours",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 13,
+      "top": 4700
+     },
+     {
+      "text": "Result",
+      "above": "Score",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 13,
+      "top": 4789
+     },
+     {
+      "text": "Player",
+      "above": "12",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 13,
+      "top": 4789
+     }
+    ],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#111317",
+     "bodyBgHsl": {
+      "h": 220,
+      "s": 0.15,
+      "l": 0.08
+     },
+     "dark": true,
+     "sectionBgs": [
+      {
+       "color": "#111317",
+       "top": 0,
+       "hsl": {
+        "h": 220,
+        "s": 0.15,
+        "l": 0.08
+       }
+      },
+      {
+       "color": "#171a1f",
+       "top": 1312,
+       "hsl": {
+        "h": 218,
+        "s": 0.15,
+        "l": 0.11
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#eceef2",
+       "share": 0.49
+      },
+      {
+       "color": "#a6acb8",
+       "share": 0.47
+      },
+      {
+       "color": "#848b98",
+       "share": 0.03
+      },
+      {
+       "color": "#0a0f0d",
+       "share": 0.01
+      }
+     ],
+     "button": {
+      "bg": "#35c46b",
+      "hsl": {
+       "h": 143,
+       "s": 0.57,
+       "l": 0.49
+      },
+      "fg": "#0a0f0d"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 4,
+     "inHero": 3,
+     "radius": 2,
+     "height": 53,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Sign in",
+      "Set up your club",
+      "See it working"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 2,
+     "shadowOverlay": 0,
+     "shadowSamples": [
+      "div.promo-frame → rgba(0, 0, 0, 0.75) 0px 40px 120px -24px",
+      "div.promo-frame.mx-auto → rgba(0, 0, 0, 0.75) 0px 40px 120px -24px"
+     ],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 23,
+     "hairlineSamples": [
+      "header.code-hero-top 390px",
+      "div.border-b.border-line 358px",
+      "div.border-b.border-line 358px",
+      "div.border-b.border-line 358px",
+      "div.border-b.border-line 358px"
+     ],
+     "outlinedBoxes": 6,
+     "dashed": 1,
+     "blurred": 0,
+     "roundedBoxes": 0,
+     "boxRadius": 0,
+     "squareMedia": 7,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [
+     {
+      "type": "img",
+      "ratio": 1
+     },
+     {
+      "type": "img",
+      "ratio": 1
+     },
+     {
+      "type": "img",
+      "ratio": 1
+     },
+     {
+      "type": "video",
+      "ratio": 0.22
+     }
+    ],
+    "nav": {
+     "links": 2,
+     "fixed": false,
+     "height": 71,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": [
+     "chivo",
+     "chivo fallback",
+     "barlow condensed"
+    ]
+   },
+   "layout": {
+    "viewport": {
+     "w": 390,
+     "h": 844
+    },
+    "pageH": 6449,
+    "margins": {
+     "left": 16,
+     "right": 16
+    },
+    "sections": [],
+    "gaps": [
+     {
+      "top": 1232,
+      "height": 392
+     },
+     {
+      "top": 1668,
+      "height": 288
+     }
+    ],
+    "h1s": [
+     {
+      "text": "Every match, ready to watch back.",
+      "size": 46,
+      "top": 166,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 16,
+      "n": 18
+     }
+    ],
+    "leftBlocks": 18,
+    "bodySize": 15,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0,
+    "voidBox": null
+   },
+   "app": null,
+   "consoleErrors": []
+  }
+ ],
+ "findings": [
+  {
+   "level": "FAIL",
+   "id": "eyebrow",
+   "width": 1440,
+   "message": "4 eyebrow/kicker label(s) above headings: \"Clipping\" above \"Clip the match.\"; \"Stats\" above \"Keep the stats.\"; \"Drills\" above \"Draw the drills.\"; \"Listening\" above \"“Shot, ours, score, number 12.”\"",
+   "fix": "Delete them. If the label carried real information, fold it into the headline or the supporting sentence.",
+   "alsoAt": [
+    768,
+    390
+   ]
+  },
+  {
+   "level": "FAIL",
+   "id": "shadow",
+   "width": 1440,
+   "message": "2 box-shadow(s) on elements at rest: div.promo-frame → rgba(0, 0, 0, 0.75) 0px 40px 120px -24px | div.promo-frame.mx-auto → rgba(0, 0, 0, 0.75) 0px 40px 120px -24px",
+   "fix": "Remove. Separate surfaces with a tone step or space. Shadows are for things that really float (menus, dialogs, sticky bars).",
+   "alsoAt": [
+    768,
+    390
+   ]
+  },
+  {
+   "level": "FAIL",
+   "id": "hairline",
+   "width": 1440,
+   "message": "19 thin rule(s)/divider line(s): header.code-hero-top 1440px | section#see-it.border-y.border-line 1440px | div.grid.gap-2 672px | div.grid.gap-2 672px",
+   "fix": "Delete. Separate with space, a tone change, or scale. Lines are only for real tables and form fields.",
+   "alsoAt": [
+    768,
+    390
+   ]
+  },
+  {
+   "level": "FAIL",
+   "id": "outlined-box",
+   "width": 1440,
+   "message": "6 boxes drawn with a 1px outline.",
+   "fix": "Define a surface by its fill (one tone step from the page) or leave the content unboxed.",
+   "alsoAt": [
+    768,
+    390
+   ]
+  },
+  {
+   "level": "WARN",
+   "id": "dashed",
+   "width": 1440,
+   "message": "1 dashed/dotted border(s).",
+   "fix": "Remove unless it is a real drop zone.",
+   "alsoAt": [
+    768,
+    390
+   ]
+  },
+  {
+   "level": "WARN",
+   "id": "size-count",
+   "width": 1440,
+   "message": "13 different font sizes (13, 14, 15, 16, 17, 18, 19, 22, 25, 27, 54, 70, 78).",
+   "fix": "A page needs about five: display, heading, lead, body, small.",
+   "alsoAt": [
+    768,
+    390
+   ]
+  },
+  {
+   "level": "WARN",
+   "id": "blank-gap",
+   "width": 768,
+   "message": "A 448px stretch at 1244px holds nothing.",
+   "fix": "Check that it is a deliberate rest (once per page at most); otherwise close it to the normal section gap.",
+   "alsoAt": [
+    390
+   ]
+  }
+ ],
+ "images": [
+  {
+   "viewport": "desktop",
+   "width": 1440,
+   "fold": "C:\\Users\\tadhg\\Documents\\GitHub\\Fisean\\.taste-skill\\inspect\\desktop-fold.jpg",
+   "pages": [
+    "C:\\Users\\tadhg\\Documents\\GitHub\\Fisean\\.taste-skill\\inspect\\desktop-page-01.jpg",
+    "C:\\Users\\tadhg\\Documents\\GitHub\\Fisean\\.taste-skill\\inspect\\desktop-page-02.jpg"
+   ],
+   "film": []
+  },
+  {
+   "viewport": "tablet",
+   "width": 768,
+   "fold": "C:\\Users\\tadhg\\Documents\\GitHub\\Fisean\\.taste-skill\\inspect\\tablet-fold.jpg",
+   "pages": [
+    "C:\\Users\\tadhg\\Documents\\GitHub\\Fisean\\.taste-skill\\inspect\\tablet-page-01.jpg",
+    "C:\\Users\\tadhg\\Documents\\GitHub\\Fisean\\.taste-skill\\inspect\\tablet-page-02.jpg"
+   ],
+   "film": []
+  },
+  {
+   "viewport": "mobile",
+   "width": 390,
+   "fold": "C:\\Users\\tadhg\\Documents\\GitHub\\Fisean\\.taste-skill\\inspect\\mobile-fold.jpg",
+   "pages": [
+    "C:\\Users\\tadhg\\Documents\\GitHub\\Fisean\\.taste-skill\\inspect\\mobile-page-01.jpg"
+   ],
+   "film": []
+  }
+ ]
+}
