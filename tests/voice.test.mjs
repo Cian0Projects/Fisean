@@ -25,6 +25,46 @@ test("shot seven point, in one breath or as the engine hears it", () => {
   }
 });
 
+test("a misheard type is trusted as the first word, and only there", () => {
+  for (const said of ["shop seven", "Shut number 7", "um shout 7", "right, shock seven"]) {
+    const s = parseSpokenStat(said, "tackle");
+    assert.equal(s.statType, "shot", said);
+    assert.equal(s.typeSaid, true, said);
+    assert.equal(s.fields.playerNumber, "7", said);
+  }
+  assert.equal(parseSpokenStat("pocket ours long", "shot").statType, "puckout");
+  assert.equal(parseSpokenStat("tickle 4", "shot").statType, "tackle");
+  // After a "scrap that", the next word is first again.
+  assert.equal(parseSpokenStat("tackle 4 scrap that shop 9", "tackle").statType, "shot");
+  // Later in a sentence it is just a word.
+  assert.equal(parseSpokenStat("delivery 7 to 9 shop", "tackle").statType, "delivery");
+  assert.equal(parseSpokenStat("7 shop", "tackle").statType, "tackle");
+  const firsts = {
+    shot: ["shop 7", "scott 7", "jot 7"],
+    tackle: ["attack 7", "taco 7", "tickle number 7"],
+    delivery: ["past 7 to 9", "livery 7", "bowl in 7"],
+    turnover: ["turn off 7", "turnip 7"],
+    puckout: ["pocket ours", "puck a mock ours", "kick it out ours", "pick out ours"],
+    free_won: ["free one 7", "free win 7", "fold 7"],
+    free_conceded: ["free conceited 7", "free concealed 7"],
+  };
+  for (const [type, phrases] of Object.entries(firsts)) {
+    // Start the form on another type, so only the words can have set it.
+    const current = type === "tackle" ? "shot" : "tackle";
+    for (const said of phrases) assert.equal(parseSpokenStat(said, current).statType, type, said);
+  }
+  // "Free one" is a free won, not a free by number 1.
+  assert.equal(parseSpokenStat("free one 7", "shot").fields.playerNumber, "7");
+  // "Past the 65" is still a poc amach worked out, not a pass.
+  const worked = parseSpokenStat("past the 65", "puckout");
+  assert.equal(worked.statType, "puckout");
+  assert.equal(worked.fields.pastSixtyFive, true);
+  // A word the table already knows keeps its meaning, first or not.
+  const p = parseSpokenStat("short ours won", "puckout");
+  assert.equal(p.statType, "puckout");
+  assert.equal(p.fields.puckoutLength, "short");
+});
+
 test("a result names the type by itself", () => {
   const s = parseSpokenStat("seven wide", "tackle");
   assert.equal(s.statType, "shot");

@@ -16,8 +16,12 @@
  * simply not shown there. All the meaning is in `lib/hurling/voice.ts`, so a
  * paid engine could replace this one without the forms noticing.
  *
- * Two things the engine does that this has to absorb:
+ * Three things the engine does that this has to absorb:
  *
+ * - It takes a moment to open the mic after the tap, and anything said in
+ *   that moment is lost, usually the stat's first and most important word.
+ *   So the button only says "Listening" once audio is actually arriving, and
+ *   says so again whenever a restart briefly closes the mic.
  * - It revises its guesses while someone is still talking. So every change
  *   re-reads the whole of what was heard since the mic opened and lays it
  *   over the form as it stood then, rather than adding words one at a time.
@@ -47,6 +51,8 @@ type Recognition = {
   onresult: ((e: ResultEvent) => void) | null;
   onerror: ((e: { error: string }) => void) | null;
   onend: (() => void) | null;
+  onaudiostart: (() => void) | null;
+  onaudioend: (() => void) | null;
   start(): void;
   abort(): void;
 };
@@ -95,6 +101,8 @@ export function useVoiceEntry({
 }) {
   const supported = useSyncExternalStore(noSubscribe, () => speechEngine() !== null, () => false);
   const [listening, setListening] = useState(false);
+  // The mic is really open, not just asked for.
+  const [hearing, setHearing] = useState(false);
   const [heard, setHeard] = useState("");
   const [caught, setCaught] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -146,6 +154,7 @@ export function useVoiceEntry({
     recognition.current = null;
     r?.abort();
     setListening(false);
+    setHearing(false);
   };
 
   const start = () => {
@@ -193,6 +202,13 @@ export function useVoiceEntry({
       apply(text);
     };
 
+    r.onaudiostart = () => {
+      if (recognition.current === r) setHearing(true);
+    };
+    r.onaudioend = () => {
+      if (recognition.current === r) setHearing(false);
+    };
+
     r.onerror = (e) => {
       // Silence and our own abort are not failures.
       if (e.error === "no-speech" || e.error === "aborted") return;
@@ -238,6 +254,7 @@ export function useVoiceEntry({
   return {
     supported,
     listening,
+    hearing,
     heard,
     caught,
     error,
@@ -264,7 +281,8 @@ export function useVoiceEntry({
  */
 export function VoiceBar({ voice, onDiscard }: { voice: VoiceEntry; onDiscard: () => void }) {
   if (!voice.supported) return null;
-  const { listening, heard, caught, error } = voice;
+  const { listening, hearing, heard, caught, error } = voice;
+  const waiting = listening && !hearing;
 
   return (
     <div className="space-y-1.5">
@@ -276,7 +294,10 @@ export function VoiceBar({ voice, onDiscard }: { voice: VoiceEntry; onDiscard: (
           className="btn-outline inline-flex items-center gap-2 text-sm"
           style={listening ? { borderColor: "var(--color-ink)", color: "var(--color-ink)" } : undefined}
         >
-          {listening ? (
+          {waiting ? (
+            // A hollow dot while the mic opens; it fills once it can hear.
+            <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full border-2" style={{ borderColor: "var(--color-ink)" }} />
+          ) : listening ? (
             <span
               aria-hidden
               className="inline-block h-2.5 w-2.5 rounded-full motion-safe:animate-pulse"
@@ -285,7 +306,7 @@ export function VoiceBar({ voice, onDiscard }: { voice: VoiceEntry; onDiscard: (
           ) : (
             <MicIcon size={14} />
           )}
-          {listening ? "Listening" : "Say it"}
+          {waiting ? "Opening mic" : listening ? "Listening" : "Say it"}
         </button>
         {(listening || heard) && (
           <button
@@ -309,6 +330,10 @@ export function VoiceBar({ voice, onDiscard }: { voice: VoiceEntry; onDiscard: (
         <p className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
           {caught ? "Heard: " : "Didn't catch a stat in that. Say it again, or tap it in. Heard: "}
           <span style={{ color: "var(--color-ink-dim)" }}>{heard}</span>
+        </p>
+      ) : waiting ? (
+        <p className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+          Start speaking when it says Listening, or the first word is lost.
         </p>
       ) : listening ? (
         <p className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>

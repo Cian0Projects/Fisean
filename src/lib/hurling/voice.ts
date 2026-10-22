@@ -107,7 +107,10 @@ function fromA(nouns: string[]): string[] {
 
 // The restart is a puck-out in hurling and camogie, a kick-out in football;
 // people say either, and the engine hears "poc amach" a few different ways.
-const RESTART = ["puckout", "puck out", "puck", "poc amach", "puc amach", "pock amach", "poc", "kickout", "kick out", "restart"];
+const RESTART = [
+  "puckout", "puckouts", "puck out", "puck outs", "puck", "poc amach", "puc amach", "pock amach", "poc",
+  "kickout", "kickouts", "kick out", "kick outs", "restart",
+];
 
 /**
  * The vocabulary. Matched against the normalised text (lower case, accents
@@ -116,7 +119,7 @@ const RESTART = ["puckout", "puck out", "puck", "poc amach", "puc amach", "pock 
 const PHRASES: [string[], Meaning][] = [
   /* -------------------------------------------------------------- types */
   [["tackle", "tackles", "tackled", "tackling"], { t: "type", v: "tackle" }],
-  [["delivery", "deliveries", "deliver", "delivered", "pass", "passed", "ball in", "long ball", "kick pass"], { t: "type", v: "delivery" }],
+  [["delivery", "deliveries", "deliver", "delivered", "pass", "passes", "passed", "passing", "delivering", "ball in", "long ball", "kick pass"], { t: "type", v: "delivery" }],
   [["turnover", "turnovers", "turn over", "turned over"], { t: "type", v: "turnover" }],
   [["shot", "shots", "shoot", "shooting", "attempt", "effort"], { t: "type", v: "shot" }],
   [RESTART, { t: "type", v: "puckout" }],
@@ -125,7 +128,7 @@ const PHRASES: [string[], Meaning][] = [
     { t: "type", v: "free_won" },
   ],
   [
-    ["free conceded", "conceded a free", "conceded free", "free against", "free against us", "free to them", "free for them", "gave away a free", "gave a free"],
+    ["free conceded", "free conceding", "free concede", "conceded a free", "conceded free", "free against", "free against us", "free to them", "free for them", "gave away a free", "gave a free"],
     { t: "type", v: "free_conceded" },
   ],
 
@@ -199,6 +202,57 @@ const TENS: Record<string, number> = {
  */
 const SOUNDS_LIKE: Record<string, number> = { for: 4, fore: 4, to: 2, too: 2, ate: 8, won: 1, tree: 3 };
 
+/**
+ * What the engine writes for a stat type it misheard. The type is the first
+ * word out, and the first word is the one the engine hears worst: it has no
+ * sentence yet to guess from, and the start of it is often clipped while the
+ * mic opens. So these count only at the start of a stat (or straight after a
+ * "scrap that"), before anything else has been understood. Anywhere later in a
+ * sentence they are ordinary words and drop out.
+ *
+ * Only words the engine actually writes belong here (it spells real words,
+ * never "tackel"), written as they arrive after normalising, so "free one" is
+ * "free 1". A word the phrase table already knows keeps that meaning: "short"
+ * stays a poc amach's length and "found" an outcome, never a shot or a foul.
+ * Everyday openers ("so", "sure", "what") are left out on purpose; "sure he
+ * lost it" must not become a shot.
+ */
+const LEADING_SOUNDS_LIKE: [string[], StatType][] = [
+  [
+    [
+      "shop", "shops", "shut", "shout", "shouts", "shock", "shocks", "shocked", "chop", "chops",
+      "shoe", "shoes", "shod", "shaw", "shaun", "scott", "scot", "shoots", "jot",
+    ],
+    "shot",
+  ],
+  [["tickle", "tickles", "taco", "tacos", "tack", "tacked", "cackle", "attack", "attacked", "tackler"], "tackle"],
+  [
+    [
+      "livery", "the livery", "delhi", "deli", "liver", "the liver",
+      // "Pass" alone is short, and comes back as anything ending in an s.
+      "past", "pasta", "parse", "bass", "pause", "paws", "pasts", "kick past", "fall in", "bowl in", "bowling",
+    ],
+    "delivery",
+  ],
+  [["turn of", "turn off", "turnoff", "turner", "turners", "turnip", "term over"], "turnover"],
+  [
+    [
+      "pocket", "pockets", "pack out", "back out", "pick out", "park out", "poke out", "pock out", "pucked out",
+      "puck it", "pack it", "puck a mock", "pock a mock", "puck a mac", "puck amok", "poke a mock", "pucker mock",
+      "kick it", "kicked out", "kit out", "kick it out",
+    ],
+    "puckout",
+  ],
+  // "Free won" comes back as "free one" more often than not. That costs a
+  // keeper's free opening with "free, one": say "shot one" for those.
+  [["free 1", "free win", "free run", "free wan", "fold", "folded", "foaled", "fowled", "foiled", "fool"], "free_won"],
+  [["free conceited", "free concealed", "free considered", "free can seeded"], "free_conceded"],
+];
+const LEADING = new Map<string, Meaning>(
+  LEADING_SOUNDS_LIKE.flatMap(([said, v]) => said.map((s): [string, Meaning] => [s, { t: "type", v }])),
+);
+const LEADING_LONGEST = Math.max(...[...LEADING.keys()].map((k) => k.split(" ").length));
+
 /** Lower case, accents off, punctuation gone, number words as digits. */
 export function normaliseSpeech(text: string): string[] {
   const words = text
@@ -232,23 +286,40 @@ export function normaliseSpeech(text: string): string[] {
   return out;
 }
 
-/** Every phrase understood, in the order said. Unknown words drop out. */
+/**
+ * Every phrase understood, in the order said. Unknown words drop out, but a
+ * filler at the start ("um", "right") does not stop the next word counting as
+ * the first.
+ */
 function meanings(words: string[]): Meaning[] {
   const out: Meaning[] = [];
+  let leading = true;
   let i = 0;
-  while (i < words.length) {
-    let matched = false;
-    for (let len = Math.min(LONGEST, words.length - i); len > 0; len--) {
-      const m = TABLE.get(words.slice(i, i + len).join(" "));
-      if (m) {
-        out.push(m);
-        i += len;
-        matched = true;
-        break;
-      }
+  type Hit = { m: Meaning; len: number } | null;
+  const longestAt = (table: ReadonlyMap<string, Meaning>, longest: number): Hit => {
+    for (let len = Math.min(longest, words.length - i); len > 0; len--) {
+      const m = table.get(words.slice(i, i + len).join(" "));
+      if (m) return { m, len };
     }
-    if (matched) continue;
-    if (/^\d+$/.test(words[i])) out.push({ t: "number", v: Number(words[i]) });
+    return null;
+  };
+  while (i < words.length) {
+    // At the start, a sound-alike is tried beside the table and the longer
+    // match wins, so "free one" is a free won rather than "free" then a 1.
+    // On a tie the table wins.
+    const known = longestAt(TABLE, LONGEST);
+    const alike: Hit = leading ? longestAt(LEADING, LEADING_LONGEST) : null;
+    const hit: Hit = alike && (!known || alike.len > known.len) ? alike : known;
+    if (hit) {
+      out.push(hit.m);
+      i += hit.len;
+      leading = hit.m.t === "cancel";
+      continue;
+    }
+    if (/^\d+$/.test(words[i])) {
+      out.push({ t: "number", v: Number(words[i]) });
+      leading = false;
+    }
     i++;
   }
   return out;
