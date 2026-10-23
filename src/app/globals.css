@@ -659,6 +659,22 @@
     border: 1px solid var(--color-line-strong);
     background: #111317;
     box-shadow: 0 40px 120px -24px rgb(0 0 0 / 0.75);
+    transition:
+      transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      box-shadow 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  /*
+   * On a mouse, the promo leans forward a little when pointed at, which is when
+   * its full screen button appears. Only on wide screens with hover: on a phone
+   * it already fills the width, and a tap would leave it stuck enlarged. The 4%
+   * fits inside the 4rem gap beside it, so it never covers the headline.
+   */
+  @media (hover: hover) and (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
+    .promo-frame:hover,
+    .promo-frame:focus-within {
+      transform: scale(1.04);
+      box-shadow: 0 56px 140px -24px rgb(0 0 0 / 0.85);
+    }
   }
 
   /*
