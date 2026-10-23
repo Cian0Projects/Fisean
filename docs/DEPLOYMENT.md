@@ -307,7 +307,7 @@ somewhere else.
 
 `npm run backup` (`scripts/backup.ts`) takes a snapshot with SQLite's own
 backup API, which is safe against the live database, keeps 30 days of them in
-`/srv/fisean/backups`, and sends the same snapshot to the bucket as
+`/srv/fisean/app/data/backups`, and sends the same snapshot to the bucket as
 `backups/fisean-<date>.db`. The bucket's lifecycle rule (step 1) keeps those
 for 90 days.
 
@@ -325,7 +325,7 @@ On the local driver there is no bucket to send it to, so pull the backups to
 your own machine as well:
 
 ```bash
-rsync -az fisean@<ip>:/srv/fisean/backups/ ./backups/
+rsync -az fisean@<ip>:/srv/fisean/app/data/backups/ ./backups/
 ```
 
 **To restore**, stop the app, put the copy in place of the live file, and
@@ -333,7 +333,7 @@ start it again:
 
 ```bash
 systemctl stop fisean
-cp /srv/fisean/backups/fisean-<date>.db /srv/fisean/app/data/fisean.db
+cp /srv/fisean/app/data/backups/fisean-<date>.db /srv/fisean/app/data/fisean.db
 rm -f /srv/fisean/app/data/fisean.db-wal /srv/fisean/app/data/fisean.db-shm
 chown fisean:fisean /srv/fisean/app/data/fisean.db
 systemctl start fisean

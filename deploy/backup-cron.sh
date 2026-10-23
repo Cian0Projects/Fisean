@@ -7,4 +7,6 @@
 # copy of the database is never on this one disk.
 
 set -e
-sudo -u fisean -H bash -c "cd /srv/fisean/app && BACKUP_DIR=/srv/fisean/backups npm run --silent backup"
+# No BACKUP_DIR here: the script's default (data/backups in the app folder)
+# is also where npm run preflight looks, so the two cannot disagree.
+sudo -u fisean -H bash -c "cd /srv/fisean/app && npm run --silent backup"
