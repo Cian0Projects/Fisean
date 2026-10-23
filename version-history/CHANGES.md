@@ -16,6 +16,37 @@ is used, how it is deployed).
 
 -->
 
+## Backups leave the server, and a preflight before the first club
+*2026-10-23*
+
+The nightly database backup used to stay on the same disk as the database, so
+losing the server would have lost every club's clips, tags and stats even
+though the footage was safe in R2. `npm run backup` now sends each snapshot to
+the bucket under `backups/` as well as keeping 30 days locally, and the cron
+job that runs it lives in the repo (`deploy/backup-cron.sh`), so `update.sh`
+installs it on servers set up before it existed. `npm run preflight` checks a
+server is fit for real clubs: footage in R2 and not on local disk, an EU
+bucket, a live test upload, the CORS rule, email really sending, the sign-up
+code, the storage cap and a recent backup in both places. `/api/health`
+answers only when the database does, for an uptime monitor. Done ahead of
+outreach to the first founding clubs.
+
+## Phones get the phone screens, and live logging works off a stream
+*2026-10-22*
+
+A phone opening the review workspace saw nothing: its side panel will not
+narrow, so the video was left a sliver. The review page now sends a phone
+(told by the `Sec-CH-UA-Mobile` hint, else "Mobile" in the user agent, so
+tablets keep the workspace) to `/m/watch`, with `?full=1` to opt out. Live
+stat logging is the other job people will do on a phone, so the phone home
+page now gives coaches "Log stats live" for the latest match and a way to
+start another, the logger keeps its log button pinned under the thumb on a
+narrow screen, and the full site's nav scrolls sideways instead of
+squeezing. Logging can now be done off a live stream as well as from the
+line: each phone can run a set number of seconds behind, measured by
+tapping when a whistle already tapped at the ground shows on the stream, so
+its stamps, whistles and running clock all match what the logger sees.
+
 ## New code photographs, and hurling joins the run
 *2026-10-21*
 

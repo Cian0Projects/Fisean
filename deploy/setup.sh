@@ -175,17 +175,8 @@ ufw allow 80/tcp >/dev/null
 ufw allow 443 >/dev/null
 ufw --force enable >/dev/null
 
-say "Nightly database backup, kept for 30 days"
-cat > /etc/cron.daily/fisean-backup <<EOF
-#!/bin/sh
-set -e
-D=$HOME_DIR/backups
-mkdir -p "\$D"
-# .backup is safe against a live database, unlike copying the file.
-sqlite3 $APP_DIR/data/fisean.db ".backup '\$D/fisean-\$(date +%F).db'"
-find "\$D" -name 'fisean-*.db' -mtime +30 -delete
-EOF
-chmod +x /etc/cron.daily/fisean-backup
+say "Nightly database backup: 30 days on this server, and a copy in the bucket"
+install -m 755 "$APP_DIR/deploy/backup-cron.sh" /etc/cron.daily/fisean-backup
 
 say "Checking the app answers"
 for _ in $(seq 1 30); do

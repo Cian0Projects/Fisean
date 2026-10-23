@@ -101,6 +101,10 @@ In the Cloudflare dashboard, under **R2 Object Storage**:
    multipart uploads after 7 days. An upload abandoned part-way is otherwise
    paid-for storage nobody can see. Ardawn notices when R2 has cleared one and
    starts that file afresh the next time it is dropped.
+
+   Add a second rule for the nightly database copies: prefix `backups/`,
+   delete objects after 90 days. Each copy is a few megabytes, so 90 days
+   costs nothing and covers a mistake nobody noticed for a month.
 4. **API token** (R2 overview → Manage R2 API Tokens → Create). Permission
    **Object Read & Write**, applied to this bucket only. Note the **Access Key
    ID**, the **Secret Access Key**, and your **account ID** from the endpoint
@@ -242,6 +246,36 @@ they are in. Nothing to approve.
 Usernames are unique across the whole instance, not per club, because signing
 in asks for nothing else.
 
+### 8. Before the first club
+
+Run this on the server once everything above is done, and again after any
+change to the `.env`:
+
+```bash
+sudo -u fisean -H bash -c 'cd /srv/fisean/app && npm run preflight'
+```
+
+It checks what would hurt a club and that nothing else would tell you about:
+footage going to R2 and not this server's disk, the bucket in the EU
+jurisdiction, a real test upload with the token, the CORS rule (the bucket
+letting the site's address upload), sign-in emails really sending, the
+sign-up code, the per-club storage cap, and a recent database backup both
+here and in the bucket. It cancels its test upload, so nothing is left
+behind. Fix every `FAIL` before sending a club the link.
+
+Then point an uptime monitor (UptimeRobot's free plan is enough) at
+`https://ardawnsport.ie/api/health` every five minutes, emailing you. It
+answers `ok` only when the database does, so you hear the site is down before
+a manager tells you.
+
+**During the founding period**, while places are limited and free, set these
+in `.env` and restart:
+
+```bash
+SIGNUP_CODE=<a code you give each founding club>
+TEAM_STORAGE_GB=50     # about 15 matches at 3 GB; raise it for a club that asks
+```
+
 ---
 
 ## How footage gets in
@@ -267,31 +301,42 @@ sudo -u fisean -H bash -c 'cd /srv/fisean/app && npm run ingest -- /srv/fisean/m
 ## Backups
 
 The database holds every club, clip, tag and comment, which is the actual
-work product. A single SQLite file makes backing it up trivial. The footage in
-R2 is stored redundantly by Cloudflare; on the local driver, back up
-`data/media/` as well.
+work product. The footage in R2 is stored redundantly by Cloudflare and would
+survive this server dying. The database would not, unless a copy lives
+somewhere else.
+
+`npm run backup` (`scripts/backup.ts`) takes a snapshot with SQLite's own
+backup API, which is safe against the live database, keeps 30 days of them in
+`/srv/fisean/backups`, and sends the same snapshot to the bucket as
+`backups/fisean-<date>.db`. The bucket's lifecycle rule (step 1) keeps those
+for 90 days.
+
+It runs nightly from `/etc/cron.daily/fisean-backup`, which is
+`deploy/backup-cron.sh` installed by `setup.sh` and refreshed by every
+`update.sh`, and before every update. A server set up before the script
+existed picks it up on its next `update.sh`. Run it once by hand to see it
+work:
 
 ```bash
-# /etc/cron.daily/fisean-backup
-#!/bin/sh
-set -e
-D=/srv/fisean/backups
-mkdir -p "$D"
-# .backup is safe against a live database, unlike copying the file.
-sqlite3 /srv/fisean/app/data/fisean.db ".backup '$D/fisean-$(date +%F).db'"
-find "$D" -name 'fisean-*.db' -mtime +30 -delete
+bash /etc/cron.daily/fisean-backup
 ```
 
-```bash
-chmod +x /etc/cron.daily/fisean-backup
-apt install -y sqlite3
-```
-
-Then get it off the box — to a Hetzner Storage Box, or pull it to your own
-machine:
+On the local driver there is no bucket to send it to, so pull the backups to
+your own machine as well:
 
 ```bash
 rsync -az fisean@<ip>:/srv/fisean/backups/ ./backups/
+```
+
+**To restore**, stop the app, put the copy in place of the live file, and
+start it again:
+
+```bash
+systemctl stop fisean
+cp /srv/fisean/backups/fisean-<date>.db /srv/fisean/app/data/fisean.db
+rm -f /srv/fisean/app/data/fisean.db-wal /srv/fisean/app/data/fisean.db-shm
+chown fisean:fisean /srv/fisean/app/data/fisean.db
+systemctl start fisean
 ```
 
 ---

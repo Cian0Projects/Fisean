@@ -19,6 +19,8 @@
     "create-admin": "tsx scripts/create-admin.ts",
     "set-email": "tsx scripts/set-email.ts",
     "ingest": "tsx scripts/ingest.ts",
+    "backup": "tsx scripts/backup.ts",
+    "preflight": "tsx scripts/preflight.ts",
     "seed": "tsx scripts/seed-demo.ts",
     "smoke": "tsx scripts/smoke.ts"
   },
