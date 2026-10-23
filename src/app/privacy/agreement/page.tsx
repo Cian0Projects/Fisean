@@ -35,7 +35,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { themeColor: "#ffffff" };
 
-const UPDATED = "19 October 2026";
+const UPDATED = "22 October 2026";
 const PROVIDER = "Cian Ó Cathasaigh, trading as Ardawn";
 
 const SUBPROCESSORS = [
@@ -145,9 +145,10 @@ export default function AgreementPage() {
               </li>
               <li>The database is backed up daily, and backups are kept for 30 days.</li>
               <li>
-                Only {PROVIDER.split(",")[0]} can reach the servers, and looks at a club&apos;s data
-                only when the club asks for help, or to keep Ardawn running and secure. Anyone else
-                ever given that access will be bound to keep it confidential.
+                Access to the servers is limited to the people who run Ardawn, and each is bound to
+                keep what they see confidential. We open a club&apos;s footage or data only when the
+                club asks us to, for help with something, or when keeping Ardawn running and secure
+                requires it. We never browse it otherwise.
               </li>
             </ul>
           </Answer>
