@@ -4,6 +4,7 @@ import {
   INSTALL_HINT_SNOOZE_DAYS,
   isAppleTouchDevice,
   isInstalledApp,
+  isPhoneRequest,
   snoozeExpired,
 } from "../src/lib/device.ts";
 
@@ -26,6 +27,22 @@ test("a real Mac, an Android phone and Windows are not", () => {
   assert.equal(isAppleTouchDevice({ userAgent: MAC, platform: "MacIntel", maxTouchPoints: 0 }), false);
   assert.equal(isAppleTouchDevice({ userAgent: ANDROID, platform: "Linux armv81", maxTouchPoints: 5 }), false);
   assert.equal(isAppleTouchDevice({ userAgent: "Windows NT 10.0", platform: "Win32", maxTouchPoints: 10 }), false);
+});
+
+test("phones are told from tablets and computers, by the client hint first", () => {
+  assert.equal(isPhoneRequest(IPHONE, null), true);
+  assert.equal(isPhoneRequest(ANDROID, "?1"), true);
+  assert.equal(isPhoneRequest(ANDROID, null), true);
+  // A modern iPad says it is a Mac; an Android tablet leaves out "Mobile".
+  assert.equal(isPhoneRequest(MAC, null), false);
+  assert.equal(
+    isPhoneRequest("Mozilla/5.0 (Linux; Android 14; SM-X710) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36", "?0"),
+    false,
+  );
+  assert.equal(isPhoneRequest("Mozilla/5.0 (Android 14; Tablet; rv:131.0) Gecko/131.0 Firefox/131.0", null), false);
+  assert.equal(isPhoneRequest("Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) Mobile/15E148", null), false);
+  // The hint beats the user agent when the two disagree.
+  assert.equal(isPhoneRequest(ANDROID, "?0"), false);
 });
 
 test("opened from the home screen counts as installed, either way the browser says it", () => {

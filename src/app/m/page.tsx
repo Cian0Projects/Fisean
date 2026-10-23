@@ -11,7 +11,7 @@ import {
   playlists,
   videos,
 } from "@/lib/db/schema";
-import { requireUserFor } from "@/lib/auth/guard";
+import { isCoach, requireUserFor } from "@/lib/auth/guard";
 import { signOut } from "@/lib/actions/auth";
 import { Mark } from "@/components/ui/Mark";
 import { InstallHint } from "@/components/ui/InstallHint";
@@ -27,11 +27,13 @@ import { ChevronIcon } from "@/components/ui/Icon";
  * What a player opens it for, in that order: what they have been set to
  * watch, then the last match and how it went, then the clips they are in.
  * Every row is the whole width and at least 56 px tall, so it is one thumb
- * tap with a glove half on. The stat sheet is left to the desktop — it is a
- * coach's tool, read at a table.
+ * tap with a glove half on. Reading the stat sheet is left to the desktop,
+ * where it is read at a table; logging it is not, because that happens on
+ * the line or in front of a stream, so a coach gets a way in to it here.
  */
 export default async function PhoneHome() {
   const user = await requireUserFor("/m");
+  const coach = isCoach(user);
 
   const matchRows = await db
     .select()
@@ -184,6 +186,20 @@ export default async function PhoneHome() {
               The footage is not up yet.
             </p>
           )}
+          {coach && (
+            <div className="mt-3 flex items-center gap-4">
+              <Link
+                href={`/matches/${latest.id}/stats/log`}
+                className="btn-outline min-h-12 flex-1 text-[16px]"
+              >
+                Log stats live
+              </Link>
+              {/* A fixture not on the list yet is started there, and opens ready to log. */}
+              <Link href="/stats" className="py-3 text-[14px]" style={{ color: "var(--color-ink-dim)" }}>
+                Another match
+              </Link>
+            </div>
+          )}
         </section>
       ) : (
         <section className="px-4 pt-6">
@@ -191,6 +207,11 @@ export default async function PhoneHome() {
           <p className="mt-2 text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
             Once a coach adds a match and its footage, it will be here.
           </p>
+          {coach && (
+            <Link href="/stats" className="btn-primary mt-5 min-h-12 w-full text-[16px]">
+              Start a match and log it live
+            </Link>
+          )}
         </section>
       )}
 

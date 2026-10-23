@@ -1,6 +1,7 @@
 /**
- * Telling an iPhone or iPad from everything else, for the one prompt that
- * only they need.
+ * Telling devices apart: an iPhone or iPad, for the one prompt that only
+ * they need, and a phone from everything else, for the one screen a phone
+ * cannot show.
  *
  * Android's browser offers its own "install app" pop-up, and a computer's
  * browser has an install icon in the address bar. Safari on iOS has neither:
@@ -24,6 +25,24 @@ export type DeviceHints = {
 export function isAppleTouchDevice({ userAgent, platform, maxTouchPoints }: DeviceHints): boolean {
   if (/iPhone|iPad|iPod/.test(userAgent)) return true;
   return platform === "MacIntel" && maxTouchPoints > 1;
+}
+
+/**
+ * A phone, as opposed to a tablet or a computer, told from a request's own
+ * headers so the server can send it to the right screen before anything
+ * loads.
+ *
+ * Chromium browsers say so outright in `Sec-CH-UA-Mobile` (`?1` on a phone,
+ * `?0` on a tablet or computer), so that wins when it is there. Safari and
+ * Firefox do not send it, but by long convention a phone's user agent says
+ * "Mobile" and a tablet's does not: an iPad asks for the desktop site and
+ * calls itself a Mac, and Android tablets leave the word out. Firefox on an
+ * Android tablet says "Tablet" alongside it, hence the second check.
+ */
+export function isPhoneRequest(userAgent: string, mobileHint: string | null): boolean {
+  if (mobileHint === "?1") return true;
+  if (mobileHint === "?0") return false;
+  return /Mobi/.test(userAgent) && !/iPad|Tablet/.test(userAgent);
 }
 
 /**

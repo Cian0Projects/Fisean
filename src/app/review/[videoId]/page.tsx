@@ -1,4 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { isPhoneRequest } from "@/lib/device";
 import { asc, eq, isNull, or } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { eventTypes, matches, users, videoMarkers, videos } from "@/lib/db/schema";
@@ -13,11 +15,24 @@ import { tagsForCode } from "@/lib/hurling/events";
 
 export default async function ReviewPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ videoId: string }>;
+  searchParams: Promise<{ full?: string }>;
 }) {
-  const user = await requireUser();
   const { videoId } = await params;
+
+  // The workspace is a keyboard and a wide screen: a side panel that will not
+  // narrow, and a timeline and transport that each keep their height. On a
+  // phone that leaves the video a sliver, so a phone is handed the screen
+  // built for it, whichever link it came in by. `?full=1` opts out, for the
+  // odd tablet that calls itself a phone.
+  const h = await headers();
+  if ((await searchParams).full !== "1" && isPhoneRequest(h.get("user-agent") ?? "", h.get("sec-ch-ua-mobile"))) {
+    redirect(`/m/watch/${videoId}`);
+  }
+
+  const user = await requireUser();
 
   const [video] = await db.select().from(videos).where(eq(videos.id, videoId)).limit(1);
   // A file still uploading is half a file; it opens once it has all arrived.

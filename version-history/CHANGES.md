@@ -16,6 +16,22 @@ is used, how it is deployed).
 
 -->
 
+## Double tap to skip, and a scrub bar in full screen
+*2026-10-23*
+
+Full screen showed the picture and nothing else, so there was no way to
+move through the match without leaving it. The video stage now carries its
+own bar in full screen (play, the time, a scrub bar the width of the
+screen, exit), which fades while the match plays and comes back at a touch
+or a mouse move. On every screen with a video, phone and desktop alike, two
+taps or clicks on the right half of the picture skip forward ten seconds
+and two on the left go back, with each quick tap after that adding another
+ten. A single tap still plays and pauses at once, because an iPhone only
+starts a video from inside a tap; a double puts that toggle back before it
+skips. The tap rules are in `src/components/player/taps.ts`, tested. An
+iPhone's full screen is still its own player, which the page cannot draw
+on.
+
 ## Backups leave the server, and a preflight before the first club
 *2026-10-23*
 

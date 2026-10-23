@@ -794,6 +794,37 @@ export function liveGameTime(at: number, whistles: Markers, halfLengthMin = 30) 
 }
 
 /**
+ * Logging off a live stream rather than from the line.
+ *
+ * A stream runs behind the pitch, by twenty seconds to a minute depending on
+ * who carries it, and every stat is stamped with when it was seen. So a
+ * logger watching one keeps their phone that far behind: stamps, whistles
+ * and the running clock all read the stream's moment, not the pitch's. The
+ * delay belongs to one screen, not the match, since a coach on the line and
+ * one at home on the stream want different answers.
+ *
+ * The easy way to measure it is the whistle someone on the line has already
+ * tapped: when it shows on the stream, the gap since is the delay.
+ */
+export const MAX_STREAM_DELAY_MS = 10 * 60_000;
+
+const WHISTLE_ORDER = ["fullTime", "secondHalf", "halfTime", "throwIn"] as const;
+
+/** The last whistle blown so far, to measure a stream's delay against. */
+export function latestWhistle(whistles: Markers): { key: (typeof WHISTLE_ORDER)[number]; at: number } | null {
+  for (const key of WHISTLE_ORDER) {
+    const at = whistles[key];
+    if (at != null) return { key, at };
+  }
+  return null;
+}
+
+/** The delay that puts a whistle seen on the stream just now at the moment it was tapped on the line. */
+export function streamDelayFrom(whistleAt: number, seenAt: number): number {
+  return Math.min(MAX_STREAM_DELAY_MS, Math.max(0, Math.round(seenAt - whistleAt)));
+}
+
+/**
  * Where in a video a stat seen on the line happened.
  *
  * The match's whistles turn the moment it was seen into a half and a time

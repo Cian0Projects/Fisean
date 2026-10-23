@@ -407,14 +407,15 @@ export function StatLogger({
                     chooseType(t);
                   }}
                   aria-pressed={here}
-                  className="flex items-center gap-1.5 rounded px-2 py-1.5 text-left text-[14px] transition-colors"
+                  className="flex items-center gap-1.5 rounded px-2 py-1.5 text-left text-[14px] transition-colors pointer-coarse:px-3 pointer-coarse:py-2.5"
                   style={{
                     border: `1px solid ${here ? "var(--color-ink)" : "var(--color-line-strong)"}`,
                     background: here ? "var(--color-surface-2)" : "transparent",
                     color: here ? "var(--color-ink)" : "var(--color-ink-dim)",
                   }}
                 >
-                  <span className="kbd">{m.hotkey}</span>
+                  {/* No keys to press on a touch screen. */}
+                  <span className="kbd pointer-coarse:hidden">{m.hotkey}</span>
                   {m.label}
                   {rows.some((r) => r.statType === t) && (
                     <span className="tabular text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
@@ -485,11 +486,14 @@ export function StatLogger({
             )}
           </div>
 
+          {/* On a phone the column runs past the fold, so the log button
+              stays pinned to the bottom of the screen, under the thumb,
+              whichever question is in view. */}
           <div
-            className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t pt-3"
-            style={{ borderColor: "var(--color-line)" }}
+            className="sticky bottom-0 z-10 -mx-4 mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] lg:static lg:mx-0 lg:px-0 lg:pb-0"
+            style={{ borderColor: "var(--color-line)", background: "var(--color-stage)" }}
           >
-            <button onClick={submit} disabled={!ready || pending} className="btn-primary">
+            <button onClick={submit} disabled={!ready || pending} className="btn-primary max-lg:min-h-12 max-lg:flex-1">
               {editingId ? "Save changes" : `Log this ${meta.label.toLowerCase()}`}
             </button>
             {editingId && (

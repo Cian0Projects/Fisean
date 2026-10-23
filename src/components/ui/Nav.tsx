@@ -67,7 +67,9 @@ export function Nav({ user }: { user: SessionUser }) {
           </span>
         </Link>
 
-        <nav className="flex items-stretch">
+        {/* On a phone the sections can outrun the width; they scroll sideways
+            rather than squeezing into one another. */}
+        <nav className="flex min-w-0 items-stretch overflow-x-auto [scrollbar-width:none]">
           {sections.map((s) => {
             const here = s.match(pathname);
             return (
@@ -75,7 +77,7 @@ export function Nav({ user }: { user: SessionUser }) {
                 key={s.href}
                 href={s.href}
                 aria-current={here ? "page" : undefined}
-                className={`flex items-center px-2 text-[14px] font-semibold sm:px-3 transition-colors ${here ? "here" : ""}`}
+                className={`flex shrink-0 items-center whitespace-nowrap px-2 text-[14px] font-semibold sm:px-3 transition-colors ${here ? "here" : ""}`}
                 style={{ color: here ? "var(--color-ink)" : "var(--color-ink-dim)" }}
               >
                 {s.label}

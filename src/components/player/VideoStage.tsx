@@ -13,10 +13,16 @@
  *
  * B must be muted and playsInline or iOS will refuse to start it
  * programmatically; it is unmuted on the swap, which follows a user gesture.
+ *
+ * The picture itself takes taps: one plays or pauses, two on either half
+ * skip ten seconds that way (see taps.ts). Full screen leaves every other
+ * control behind, so the stage brings its own bar along: play, the time and
+ * a scrub bar, faded out while the match plays and back at a touch.
  */
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { PlayerEngine, Transport } from "./engine";
 import { AnnotationLayer, type Tool } from "./AnnotationLayer";
+import { TAP_SKIP_MS, nextTap, sideOf, type TapRun, type TapSide } from "./taps";
 import type { Shape } from "@/lib/db/schema";
 import { FullScreenIcon, PauseIcon, PlayIcon } from "@/components/ui/Icon";
 import { formatClock, formatClockPrecise, toGameTime, type Markers } from "@/lib/hurling/notation";
@@ -35,6 +41,9 @@ type Props = {
   preloadMs?: number | null;
 };
 
+/** How long the full-screen bar stays up after the last touch while playing. */
+const BAR_IDLE_MS = 2500;
+
 export function VideoStage({
   engine,
   src,
@@ -51,6 +60,11 @@ export function VideoStage({
   const videoRef = useRef<HTMLVideoElement>(null);
   const preloadRef = useRef<HTMLVideoElement>(null);
   const [full, setFull] = useState(false);
+  const [awake, setAwake] = useState(true);
+  const sleepTimer = useRef<number | null>(null);
+  const tapRun = useRef<TapRun | null>(null);
+  const [skipped, setSkipped] = useState<{ side: TapSide; seconds: number; key: number } | null>(null);
+  const flashTimer = useRef<number | null>(null);
 
   useEffect(() => {
     const v = videoRef.current;
@@ -60,12 +74,42 @@ export function VideoStage({
   }, [engine, src, fps]);
 
   // Esc, the browser's own control or the F key can all leave full screen,
-  // so the button reads the document rather than keeping its own count.
+  // so the button reads the document rather than keeping its own count. The
+  // phone puts a wrapper round the stage full screen, not the stage itself,
+  // so anything holding the stage counts.
   useEffect(() => {
-    const sync = () => setFull(document.fullscreenElement === stageRef.current);
+    const sync = () => {
+      const el = document.fullscreenElement;
+      setFull(!!el && !!stageRef.current && el.contains(stageRef.current));
+    };
     document.addEventListener("fullscreenchange", sync);
     return () => document.removeEventListener("fullscreenchange", sync);
   }, []);
+
+  /** Bring the full-screen bar up, and let it fade again once play has run on untouched. */
+  const wake = useCallback(() => {
+    setAwake(true);
+    if (sleepTimer.current) clearTimeout(sleepTimer.current);
+    sleepTimer.current = window.setTimeout(() => {
+      if (engine.snapshot.playing) setAwake(false);
+    }, BAR_IDLE_MS);
+  }, [engine]);
+
+  // Starting or stopping play by any route (space, a button, a tap) wakes
+  // the bar, so it fades on play and is there to hand on pause.
+  useEffect(() => {
+    let playing = engine.snapshot.playing;
+    const off = engine.subscribe((t) => {
+      if (t.playing === playing) return;
+      playing = t.playing;
+      wake();
+    });
+    return () => {
+      off();
+      if (sleepTimer.current) clearTimeout(sleepTimer.current);
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+    };
+  }, [engine, wake]);
 
   // Keep the shadow element parked on whatever is coming next.
   useEffect(() => {
@@ -81,8 +125,31 @@ export function VideoStage({
     }
   }, [preloadMs, src]);
 
+  const tapPicture = (e: React.MouseEvent<HTMLVideoElement>) => {
+    if (drawing) return;
+    wake();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const side = sideOf(e.clientX - rect.left, rect.width);
+    const tap = nextTap(tapRun.current, e.timeStamp, side);
+    tapRun.current = tap.run;
+    if (!tap.skip) {
+      engine.toggle();
+      return;
+    }
+    if (tap.undoToggle) engine.toggle();
+    engine.nudge(side === "back" ? -TAP_SKIP_MS : TAP_SKIP_MS);
+    setSkipped({ side, seconds: (tap.run.skips * TAP_SKIP_MS) / 1000, key: tap.run.at });
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = window.setTimeout(() => setSkipped(null), 700);
+  };
+
   return (
-    <div ref={stageRef} data-video-stage className="group relative flex-1 overflow-hidden bg-black">
+    <div
+      ref={stageRef}
+      data-video-stage
+      onPointerMove={full ? wake : undefined}
+      className={`group relative flex-1 overflow-hidden bg-black select-none ${full && !awake ? "cursor-none" : ""}`}
+    >
       <video
         ref={videoRef}
         src={src}
@@ -95,8 +162,11 @@ export function VideoStage({
         onContextMenu={(e) => e.preventDefault()}
         // The keyboard is the fast path, but it only reaches the transport
         // when nothing else holds focus — and while logging, something always
-        // does. Clicking the picture is the way back to playing.
-        onClick={() => !drawing && engine.toggle()}
+        // does. Clicking the picture is the way back to playing, and two
+        // clicks on a side skip. `manipulation` stops a phone reading the
+        // double tap as a zoom.
+        onClick={tapPicture}
+        style={{ touchAction: "manipulation" }}
       />
 
       <video
@@ -118,20 +188,182 @@ export function VideoStage({
         editable={drawing}
       />
 
-      {/*
-        Out of the way in the corner, and faint until the pointer is over the
-        picture, so it never sits on a play being reviewed. Above the drawing
-        layer, so it still works while a coach is annotating.
-      */}
+      {skipped && (
+        <div
+          key={skipped.key}
+          aria-hidden
+          className={`pointer-events-none absolute inset-y-0 z-10 flex w-1/3 items-center justify-center ${
+            skipped.side === "back" ? "left-0" : "right-0"
+          }`}
+        >
+          <span
+            className="tabular rounded-full px-3.5 py-1.5 text-[15px] font-semibold text-white"
+            style={{ background: "rgb(0 0 0 / 0.55)" }}
+          >
+            {skipped.side === "back" ? "−" : "+"}
+            {skipped.seconds}s
+          </span>
+        </div>
+      )}
+
+      {full ? (
+        <StageBar
+          engine={engine}
+          visible={awake}
+          onExit={() => toggleStageFullscreen(stageRef.current)}
+          onUse={wake}
+        />
+      ) : (
+        /*
+          Out of the way in the corner, and faint until the pointer is over
+          the picture, so it never sits on a play being reviewed. Above the
+          drawing layer, so it still works while a coach is annotating.
+        */
+        <button
+          type="button"
+          onClick={() => toggleStageFullscreen(stageRef.current)}
+          title="Full screen (F)"
+          aria-label="Full screen"
+          className="absolute right-3 bottom-3 z-10 flex h-9 w-9 items-center justify-center rounded-[2px] text-white opacity-60 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+          style={{ background: "rgb(0 0 0 / 0.55)" }}
+        >
+          <FullScreenIcon size={16} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The bar along the foot of the picture in full screen, where the page's own
+ * timeline and transport cannot follow. One scrub bar the width of the
+ * screen with a touch area a thumb can hit; while a clip is focused it spans
+ * the clip, since every seek is held inside it anyway. Like the other
+ * readouts it writes straight to the DOM from the engine, so a drag never
+ * re-renders React.
+ */
+function StageBar({
+  engine,
+  visible,
+  onExit,
+  onUse,
+}: {
+  engine: PlayerEngine;
+  visible: boolean;
+  onExit: () => void;
+  onUse: () => void;
+}) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const headRef = useRef<HTMLDivElement>(null);
+  const fillRef = useRef<HTMLDivElement>(null);
+  const timeRef = useRef<HTMLSpanElement>(null);
+  const dragging = useRef(false);
+  const [playing, setPlaying] = useState(() => engine.snapshot.playing);
+
+  const range = useCallback(() => {
+    const lo = engine.bounds?.startMs ?? 0;
+    const hi = engine.bounds?.endMs ?? engine.snapshot.durationMs;
+    return { lo, hi, span: Math.max(1, hi - lo) };
+  }, [engine]);
+
+  useEffect(
+    () =>
+      engine.subscribe((t) => {
+        setPlaying((was) => (was === t.playing ? was : t.playing));
+        const { lo, hi, span } = range();
+        const pct = `${Math.min(100, Math.max(0, ((t.positionMs - lo) / span) * 100))}%`;
+        if (headRef.current) headRef.current.style.left = pct;
+        if (fillRef.current) fillRef.current.style.width = pct;
+        if (timeRef.current) timeRef.current.textContent = `${formatClock(t.positionMs)} / ${formatClock(hi)}`;
+        trackRef.current?.setAttribute("aria-valuenow", String(Math.round(t.positionMs / 1000)));
+      }),
+    [engine, range],
+  );
+
+  const seekTo = (clientX: number) => {
+    const rect = trackRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const { lo, span } = range();
+    engine.seek(lo + Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)) * span);
+  };
+
+  const endDrag = () => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    engine.setDragging(false);
+  };
+
+  return (
+    <div
+      className={`absolute inset-x-0 bottom-0 z-20 flex items-center gap-2 px-3 pt-10 text-white transition-opacity duration-300 ${
+        visible ? "opacity-100" : "pointer-events-none opacity-0"
+      }`}
+      style={{
+        background: "linear-gradient(to top, rgb(0 0 0 / 0.75), transparent)",
+        paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)",
+      }}
+      onPointerDown={onUse}
+    >
       <button
         type="button"
-        onClick={() => toggleStageFullscreen(stageRef.current)}
-        title={full ? "Exit full screen (F)" : "Full screen (F)"}
-        aria-label={full ? "Exit full screen" : "Full screen"}
-        className="absolute right-3 bottom-3 z-10 flex h-9 w-9 items-center justify-center rounded-[2px] text-white opacity-60 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-        style={{ background: "rgb(0 0 0 / 0.55)" }}
+        onClick={() => engine.toggle()}
+        aria-label={playing ? "Pause" : "Play"}
+        className="flex h-11 w-11 shrink-0 items-center justify-center"
       >
-        <FullScreenIcon exit={full} size={16} />
+        {playing ? <PauseIcon size={18} /> : <PlayIcon size={18} />}
+      </button>
+
+      <div
+        ref={trackRef}
+        role="slider"
+        aria-label="Position in the video"
+        aria-valuemin={0}
+        aria-valuenow={0}
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowLeft") engine.nudge(-5000);
+          if (e.key === "ArrowRight") engine.nudge(5000);
+        }}
+        className="relative h-11 min-w-0 flex-1 cursor-pointer"
+        // Without this a sideways drag scrolls or swipes back instead.
+        style={{ touchAction: "none" }}
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture(e.pointerId);
+          dragging.current = true;
+          engine.setDragging(true);
+          seekTo(e.clientX);
+        }}
+        onPointerMove={(e) => {
+          if (!dragging.current) return;
+          onUse();
+          seekTo(e.clientX);
+        }}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+      >
+        <div
+          className="absolute inset-x-0 top-[19px] h-1.5 overflow-hidden rounded-full"
+          style={{ background: "rgb(255 255 255 / 0.3)" }}
+        >
+          <div ref={fillRef} className="h-full" style={{ background: "rgb(255 255 255 / 0.85)" }} />
+        </div>
+        <div
+          ref={headRef}
+          aria-hidden
+          className="pointer-events-none absolute top-[14px] h-4 w-4 -translate-x-1/2 rounded-full bg-white"
+        />
+      </div>
+
+      <span ref={timeRef} className="tabular shrink-0 text-[13px]" />
+
+      <button
+        type="button"
+        onClick={onExit}
+        title="Exit full screen (F)"
+        aria-label="Exit full screen"
+        className="flex h-11 w-11 shrink-0 items-center justify-center"
+      >
+        <FullScreenIcon exit size={16} />
       </button>
     </div>
   );

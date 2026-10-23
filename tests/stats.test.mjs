@@ -27,6 +27,9 @@ import {
   statShape,
   footageMomentOf,
   liveGameTime,
+  latestWhistle,
+  streamDelayFrom,
+  MAX_STREAM_DELAY_MS,
   statTiming,
   statVocabulary,
   stepToStat,
@@ -778,4 +781,16 @@ test("a two-pointer counts at face value for its scorer, frees and all", () => {
   const player = playerStatLines([scorer("two_pointer"), scorer("wide")]).get(14);
   assert.equal(player.twoPointers, 1);
   assert.equal(player.missed, 1);
+});
+
+test("a stream's delay is measured against the last whistle blown, and kept within reason", () => {
+  assert.equal(latestWhistle({}), null);
+  assert.deepEqual(latestWhistle({ throwIn: 1000, halfTime: null }), { key: "throwIn", at: 1000 });
+  assert.deepEqual(latestWhistle({ throwIn: 1000, halfTime: 5000, secondHalf: 9000 }), { key: "secondHalf", at: 9000 });
+
+  assert.equal(streamDelayFrom(100_000, 135_400), 35_400);
+  // Tapped before the whistle was even set on the line: no delay, not a negative one.
+  assert.equal(streamDelayFrom(100_000, 90_000), 0);
+  // Seen an hour later is a mistake, not a stream.
+  assert.equal(streamDelayFrom(0, 3_600_000), MAX_STREAM_DELAY_MS);
 });
