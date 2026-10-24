@@ -16,6 +16,19 @@ is used, how it is deployed).
 
 -->
 
+## Set the match clock by its minute
+*2026-10-24*
+
+A logger joining after throw-in can now set the clock from what the game
+clock reads ("15:30, first half") instead of the time of day the whistle
+went, which nobody arriving late knows. The stat logger's "Adjust" became
+"Set the clock", and the whistle the clock counts from is worked back from
+now: throw-in in the first half, the restart in the second (with a throw-in
+put in for it when none was tapped). It is saved to the match, so every
+phone logging it moves too, and a phone on a stream delay works it back from
+its own delayed moment. Setting a whistle by time of day is still there
+underneath.
+
 ## Marks and two-point attempts on the football stat sheet
 *2026-10-24*
 

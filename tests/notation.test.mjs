@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   formatClock,
+  parseClock,
   formatScore,
   formatScoreWithTotal,
   markersFromRows,
@@ -113,4 +114,15 @@ test("35-minute halves shift the second-half clock accordingly", () => {
   const markers = { throwIn: 0, halfTime: 35 * 60_000, secondHalf: 50 * 60_000 };
   const t = toGameTime(50 * 60_000 + 60_000, markers, 35);
   assert.equal(t.label, "2nd 36:00");
+});
+
+test("a game clock is read the ways people type it", () => {
+  assert.equal(parseClock("15:30"), 930_000);
+  assert.equal(parseClock("15.30"), 930_000);
+  assert.equal(parseClock(" 15 30 "), 930_000);
+  assert.equal(parseClock("15"), 900_000);
+  assert.equal(parseClock("0:05"), 5_000);
+  assert.equal(parseClock("15:60"), null);
+  assert.equal(parseClock("quarter past"), null);
+  assert.equal(parseClock(""), null);
 });

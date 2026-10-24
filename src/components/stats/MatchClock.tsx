@@ -10,6 +10,11 @@
  * tapped, and a whistle tapped late can be corrected afterwards, moving every
  * entry with it.
  *
+ * Someone joining after throw-in does not know what time of day it went, but
+ * can read the game clock off the scoreboard or the stream. So the clock can
+ * also be set by its minute ("15:30, first half"), and the whistle it counts
+ * from is worked out backwards (see `whistlesForClock`).
+ *
  * Each phone asks for the whistles every 20 seconds, which is how a second
  * logger sees the clock start without anyone telling them. The same request
  * returns the server's time, and each phone keeps the difference from its own
@@ -24,8 +29,16 @@
 import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { setMatchWhistle, type Whistle } from "@/lib/actions/stats";
 import { readMatchClock } from "@/lib/actions/reads";
-import { formatClock, type Markers } from "@/lib/hurling/notation";
-import { MAX_STREAM_DELAY_MS, latestWhistle, liveGameTime, streamDelayFrom } from "@/lib/hurling/stats";
+import { formatClock, parseClock, type Markers } from "@/lib/hurling/notation";
+import {
+  MAX_STREAM_DELAY_MS,
+  latestWhistle,
+  liveGameTime,
+  streamDelayFrom,
+  whistlesForClock,
+  type Half,
+} from "@/lib/hurling/stats";
+import { Choice } from "./StatFields";
 
 const POLL_MS = 20_000;
 
@@ -173,6 +186,36 @@ export function MatchClock({ matchId, clock }: { matchId: string; clock: MatchCl
     });
   };
 
+  // Joining late: the clock as it reads now, worked back to its whistles.
+  const [clockText, setClockText] = useState("");
+  const [clockHalf, setClockHalf] = useState<Half>(1);
+  const setClock = () => {
+    const gameMs = parseClock(clockText);
+    if (gameMs === null) {
+      setError("Type the clock as minutes and seconds, like 15:30.");
+      return;
+    }
+    const plan = whistlesForClock(gameMs, clockHalf, clock.now(), whistles, clock.halfLengthMin);
+    if ("error" in plan) {
+      setError(plan.error);
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      try {
+        let saved = whistles;
+        for (const [key, at] of Object.entries(plan.set) as [Whistle, number][]) {
+          saved = await setMatchWhistle(matchId, key, at);
+        }
+        clock.setWhistles(saved);
+        setClockText("");
+        setAdjusting(false);
+      } catch (err) {
+        setError((err as Error).message || "The clock could not be set.");
+      }
+    });
+  };
+
   const status =
     whistles.throwIn == null
       ? "Not started"
@@ -191,7 +234,7 @@ export function MatchClock({ matchId, clock }: { matchId: string; clock: MatchCl
   const halfRunOut = game?.half != null && game.halfMs >= clock.halfLengthMin * 60_000;
   const prompt =
     whistles.throwIn == null
-      ? "Tap Throw-in at the first whistle. Every stat's minute is counted from it."
+      ? "Tap Throw-in at the first whistle, or Set the clock if the game is already under way."
       : game?.phase === "half_time"
         ? "Tap Second half when play restarts."
         : halfRunOut && next
@@ -245,11 +288,15 @@ export function MatchClock({ matchId, clock }: { matchId: string; clock: MatchCl
           {streaming ? "Done" : delaySec > 0 ? `Stream, ${delaySec}s behind` : "On a stream?"}
         </button>
         <button
-          onClick={() => setAdjusting((a) => !a)}
+          onClick={() => {
+            // Opened, it offers the half the game is in now.
+            if (!adjusting) setClockHalf(game?.phase === "second_half" || game?.phase === "half_time" ? 2 : 1);
+            setAdjusting(!adjusting);
+          }}
           aria-expanded={adjusting}
           className="btn-ghost text-xs"
         >
-          {adjusting ? "Done" : "Adjust"}
+          {adjusting ? "Done" : "Set the clock"}
         </button>
       </div>
 
@@ -310,7 +357,45 @@ export function MatchClock({ matchId, clock }: { matchId: string; clock: MatchCl
       {adjusting && (
         <div className="mt-3 space-y-2">
           <p className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-            Tapped late, or by mistake? Set the time it really went, and every stat moves with it.
+            Joined late, or the clock is out? Type what the game clock reads right now, and it runs on from
+            there for every phone logging this match.
+          </p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              setClock();
+            }}
+            className="flex flex-wrap items-end gap-3 text-[14px]"
+          >
+            <label className="block">
+              <span className="label mb-1.5 block">Clock now</span>
+              <input
+                value={clockText}
+                onChange={(e) => setClockText(e.target.value)}
+                // A phone's decimal pad has a point but no colon; 15.30 reads the same.
+                inputMode="decimal"
+                autoComplete="off"
+                placeholder="15:30"
+                aria-label="What the game clock reads now, in minutes and seconds"
+                className="field tabular w-24"
+              />
+            </label>
+            <Choice
+              label="Half"
+              options={[
+                { value: "1", label: "1st half" },
+                { value: "2", label: "2nd half" },
+              ]}
+              value={String(clockHalf)}
+              onChange={(v) => setClockHalf(Number(v) as Half)}
+            />
+            <button type="submit" disabled={pending || !clockText.trim()} className="btn-primary text-sm">
+              Set clock
+            </button>
+          </form>
+          <p className="pt-2 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+            Or set the time of day each whistle really went, if it was tapped late or by mistake. Every stat
+            moves with it.
           </p>
           {WHISTLES.map((w) => {
             const at = whistles[w.key];

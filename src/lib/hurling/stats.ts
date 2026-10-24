@@ -881,6 +881,47 @@ export function liveGameTime(at: number, whistles: Markers, halfLengthMin = 30) 
 }
 
 /**
+ * Starting the clock from the minute the game is at, for a logger who joins
+ * after throw-in: "it's 15:30 in the first half" rather than the time of day
+ * the whistle went, which nobody joining late knows.
+ *
+ * Worked backwards from now (the server's clock, less any stream delay) to
+ * the whistle that clock counts from. In the first half that is throw-in. In
+ * the second it is the restart, since the second half counts on from the half
+ * length (30:00, or 35:00) at the restart; and when throw-in was never tapped
+ * it is put a half length before the restart, because the clock does not run
+ * without one. With no first half logged, where in the interval it really
+ * went changes nothing.
+ *
+ * Returns the whistles to set, or a refusal worded for the logger.
+ */
+export function whistlesForClock(
+  gameMs: number,
+  half: Half,
+  now: number,
+  whistles: Markers,
+  halfLengthMin = 30,
+): { set: Partial<Pick<Markers, "throwIn" | "secondHalf">> } | { error: string } {
+  const halfLengthMs = halfLengthMin * 60_000;
+  if (!Number.isFinite(gameMs) || gameMs < 0) return { error: "Type the clock as minutes and seconds, like 15:30." };
+
+  if (half === 1) {
+    if (gameMs > halfLengthMs + STOPPAGE_ALLOWANCE_MS) {
+      return { error: `The first half does not run that long. Pick the second half for anything past ${halfLengthMin}:00.` };
+    }
+    return { set: { throwIn: now - gameMs } };
+  }
+
+  if (gameMs < halfLengthMs) {
+    return { error: `The second half starts at ${halfLengthMin}:00, so its clock reads ${halfLengthMin}:00 or more.` };
+  }
+  if (gameMs > halfLengthMs * 2 + STOPPAGE_ALLOWANCE_MS) return { error: "The second half does not run that long." };
+  const secondHalf = now - (gameMs - halfLengthMs);
+  const throwIn = whistles.throwIn != null && whistles.throwIn < secondHalf ? undefined : secondHalf - halfLengthMs;
+  return { set: throwIn === undefined ? { secondHalf } : { throwIn, secondHalf } };
+}
+
+/**
  * Logging off a live stream rather than from the line.
  *
  * A stream runs behind the pitch, by twenty seconds to a minute depending on

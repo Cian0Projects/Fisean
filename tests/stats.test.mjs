@@ -27,6 +27,7 @@ import {
   statShape,
   footageMomentOf,
   liveGameTime,
+  whistlesForClock,
   latestWhistle,
   streamDelayFrom,
   MAX_STREAM_DELAY_MS,
@@ -905,4 +906,31 @@ test("a stream's delay is measured against the last whistle blown, and kept with
   assert.equal(streamDelayFrom(100_000, 90_000), 0);
   // Seen an hour later is a mistake, not a stream.
   assert.equal(streamDelayFrom(0, 3_600_000), MAX_STREAM_DELAY_MS);
+});
+
+test("the clock set by its minute is worked back to the whistle it counts from", () => {
+  const now = 1_800_000_000_000;
+  const none = { throwIn: null, halfTime: null, secondHalf: null, fullTime: null };
+
+  // 15:30 into the first half: throw-in went 15 and a half minutes ago.
+  const first = whistlesForClock(930_000, 1, now, none, 30);
+  assert.deepEqual(first, { set: { throwIn: now - 930_000 } });
+  assert.equal(liveGameTime(now, { ...none, ...first.set }, 30).gameMs, 930_000);
+
+  // 45:00 in a 35-minute second half: the restart was 10 minutes ago, and a
+  // throw-in nobody tapped is put a half length before it.
+  const second = whistlesForClock(45 * 60_000, 2, now, none, 35);
+  assert.deepEqual(second, { set: { secondHalf: now - 600_000, throwIn: now - 600_000 - 35 * 60_000 } });
+  const t = liveGameTime(now, { ...none, ...second.set }, 35);
+  assert.equal(t.half, 2);
+  assert.equal(t.gameMs, 45 * 60_000);
+
+  // A throw-in already tapped is kept.
+  const tapped = { ...none, throwIn: now - 60 * 60_000 };
+  assert.deepEqual(whistlesForClock(40 * 60_000, 2, now, tapped, 30), { set: { secondHalf: now - 600_000 } });
+
+  // Refused, in words, rather than a clock that cannot be right.
+  assert.match(whistlesForClock(20 * 60_000, 2, now, none, 30).error, /starts at 30:00/);
+  assert.match(whistlesForClock(80 * 60_000, 1, now, none, 30).error, /second half/);
+  assert.match(whistlesForClock(-1, 1, now, none, 30).error, /15:30/);
 });

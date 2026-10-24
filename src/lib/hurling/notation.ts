@@ -104,6 +104,20 @@ export function formatClock(ms: number): string {
     : `${mm}:${String(s).padStart(2, "0")}`;
 }
 
+/**
+ * A game clock as someone types it, in ms: "15:30", "15.30" or "15 30" for
+ * fifteen and a half minutes, "15" for fifteen on the dot. Null for anything
+ * else, including seconds of 60 or more, rather than a guess at what was meant.
+ */
+export function parseClock(input: string): number | null {
+  const m = input.trim().match(/^(\d{1,3})(?:[:.\s](\d{1,2}))?$/);
+  if (!m) return null;
+  const minutes = Number(m[1]);
+  const seconds = m[2] === undefined ? 0 : Number(m[2]);
+  if (seconds >= 60) return null;
+  return (minutes * 60 + seconds) * 1000;
+}
+
 /** mm:ss.cc — for frame-level work on the in/out points. */
 export function formatClockPrecise(ms: number): string {
   const cs = Math.floor((Math.max(0, ms) % 1000) / 10);
