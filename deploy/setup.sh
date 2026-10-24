@@ -5,7 +5,7 @@
 #   curl -fsSLO https://raw.githubusercontent.com/Cian0Projects/Fisean/main/deploy/setup.sh
 #   bash setup.sh
 #
-# It asks for the domain, an optional sign-up code and the R2 details, then
+# It asks for the domain and the R2 details, then
 # does every step in docs/DEPLOYMENT.md: Node, Caddy, the app user, the build,
 # the database, HTTPS, the service, the firewall and the nightly backup.
 #
@@ -52,7 +52,6 @@ ask DOMAIN "Domain the site will answer on" "ardawnsport.ie"
 if [ -f "$ENV_FILE" ]; then
   echo "Keeping the existing $ENV_FILE (and its session secret)."
 else
-  ask SIGNUP_CODE "Code a club must enter at /start (leave blank to let anyone sign up)"
   echo
   echo "Footage: with an R2 bucket it lives at Cloudflare and costs nothing to"
   echo "watch. Without one it stays on this server's disk, which suits a pilot."
@@ -116,7 +115,6 @@ if [ ! -f "$ENV_FILE" ]; then
       echo "MEDIA_DIR=$APP_DIR/data/media"
     fi
     echo "TEAM_STORAGE_GB=100"
-    if [ -n "${SIGNUP_CODE:-}" ]; then echo "SIGNUP_CODE=$SIGNUP_CODE"; fi
   } > "$ENV_FILE"
   chown fisean:fisean "$ENV_FILE"
   chmod 600 "$ENV_FILE"

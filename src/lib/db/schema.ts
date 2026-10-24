@@ -59,6 +59,14 @@ const id = () =>
 export const clubs = sqliteTable("clubs", {
   id: id(),
   name: text("name").notNull(),
+  /**
+   * When the host checked the club was real and new, or null while it waits.
+   * Anyone can fill in /start; until this is set, its admin sees only a
+   * waiting page and its join code lets nobody in (see "Checking a new club"
+   * in src/lib/db/clubs.ts).
+   * Clubs from before the check were approved as they stood.
+   */
+  approvedAt: integer("approved_at"),
   createdAt: integer("created_at").notNull().default(now),
 });
 

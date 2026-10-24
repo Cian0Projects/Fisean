@@ -11,7 +11,7 @@ import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 import { and, eq, gt, lt } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { sessions, users, teams, type Role } from "@/lib/db/schema";
+import { clubs, sessions, users, teams, type Role } from "@/lib/db/schema";
 import type { GameCode } from "@/lib/hurling/codes";
 import { appSecret } from "./secret";
 
@@ -83,8 +83,37 @@ export async function destroySession(): Promise<void> {
   jar.delete(COOKIE);
 }
 
-/** The signed-in user, or null. Safe to call from any server component. */
+/**
+ * The signed-in user, or null. Safe to call from any server component.
+ *
+ * Someone whose club is still waiting for the host's check counts as
+ * signed out here, so every page, action and API route refuses them without
+ * each having to ask. The guards send them to the waiting page rather than
+ * the sign-in form, using `waitingUser` below.
+ */
 export async function currentUser(): Promise<SessionUser | null> {
+  const row = await sessionRow();
+  if (!row || row.clubApprovedAt === null) return null;
+  return asUser(row);
+}
+
+/** Signed in, but on a club the host has not let in yet; otherwise null. */
+export async function waitingUser(): Promise<(SessionUser & { clubName: string }) | null> {
+  const row = await sessionRow();
+  if (!row || row.clubApprovedAt !== null) return null;
+  const user = asUser(row);
+  const [club] = await db.select({ name: clubs.name }).from(clubs).where(eq(clubs.id, user.clubId)).limit(1);
+  return { ...user, clubName: club?.name ?? user.teamName };
+}
+
+/** The session's user without the approval date, which is the gate's business only. */
+function asUser(row: SessionUser & { clubApprovedAt: number | null }): SessionUser {
+  const user: SessionUser & { clubApprovedAt?: number | null } = { ...row };
+  delete user.clubApprovedAt;
+  return user;
+}
+
+async function sessionRow(): Promise<(SessionUser & { clubApprovedAt: number | null }) | null> {
   const jar = await cookies();
   const token = jar.get(COOKIE)?.value;
   if (!token) return null;
@@ -110,10 +139,12 @@ export async function currentUser(): Promise<SessionUser | null> {
       teamName: teams.name,
       teamCode: teams.code,
       badgeVersion: teams.badgeUpdatedAt,
+      clubApprovedAt: clubs.approvedAt,
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
     .innerJoin(teams, eq(teams.id, users.teamId))
+    .innerJoin(clubs, eq(clubs.id, teams.clubId))
     .where(and(eq(sessions.id, sid), gt(sessions.expiresAt, Date.now())))
     .limit(1);
 

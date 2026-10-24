@@ -29,6 +29,22 @@ phone logging it moves too, and a phone on a stream delay works it back from
 its own delayed moment. Setting a whistle by time of day is still there
 underneath.
 
+## Anyone can set up a club; the host checks it before it opens
+*2026-10-24*
+
+The sign-up code is gone: `/start` is open to anyone, and `SIGNUP_CODE` is no
+longer read. Instead every new club is made waiting (`clubs.approved_at` is
+null; clubs from before were approved as they stood). The host is emailed at
+`HOST_EMAIL` (default hello@ardawnsport.ie) with who set it up and any club
+already here whose name shares an identifying word, the likeliest sign of a
+duplicate, with a signed link to a page that approves or declines it. Until
+then the club's admin counts as signed out everywhere but a waiting page that
+says what is happening, and its join code lets nobody in, so nothing is
+uploaded and no panel forms. Approving emails the admin that the club is
+ready; declining deletes the club and their account and emails them to get
+in touch. `npm run pending-clubs` lists waiting clubs with their links, in
+case an email goes astray.
+
 ## Marks and two-point attempts on the football stat sheet
 *2026-10-24*
 

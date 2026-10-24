@@ -11,14 +11,15 @@
  * Plain functions over the database, not a server action, so the script can
  * call them too. The action in `src/lib/actions/auth.ts` adds the session.
  */
-import { eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull, ne } from "drizzle-orm";
 import { db } from "./client";
 import { clubs, eventTypes, teams, users, videos } from "./schema";
-import { removeFootage } from "../storage";
 import { BUILT_IN_EVENTS } from "../hurling/events";
 import type { GameCode } from "../hurling/codes";
+import { similarClubs } from "../hurling/club-names";
 import { generateJoinCode } from "../auth/password";
-import { looksLikeEmail, normaliseEmail } from "../auth/email-code";
+import { appSecret } from "../auth/secret";
+import { keyedHash, looksLikeEmail, normaliseEmail, sameHash } from "../auth/email-code";
 
 /** A problem worth showing the person filling in the form, word for word. */
 export class ClubSetupError extends Error {}
@@ -114,6 +115,9 @@ export async function closeClub(clubId: string): Promise<{ files: number }> {
     .innerJoin(teams, eq(teams.id, videos.teamId))
     .where(eq(teams.clubId, clubId));
   await db.delete(clubs).where(eq(clubs.id, clubId));
+  // Storage is loaded only here, so the sign-up form and the host's check,
+  // which import this file, do not pull in the footage drivers.
+  const { removeFootage } = await import("../storage");
   await removeFootage(footage);
   return { files: footage.length };
 }
@@ -159,7 +163,7 @@ export async function createClub(input: {
   displayName: string;
   /** On the web, already proven by the code emailed before this runs. */
   email: string;
-}): Promise<{ teamId: string; userId: string; joinCode: string }> {
+}): Promise<{ clubId: string; teamId: string; userId: string; joinCode: string }> {
   const fields = checkClubFields(input);
   if ("error" in fields) throw new ClubSetupError(fields.error);
   const { teamName, displayName, email } = fields;
@@ -185,6 +189,105 @@ export async function createClub(input: {
       .values({ teamId: team.id, email, displayName, role: "admin" })
       .returning()
       .get();
-    return { teamId: team.id, userId: admin.id, joinCode };
+    return { clubId: club.id, teamId: team.id, userId: admin.id, joinCode };
   });
+}
+
+/* ------------------------------------------------------ checking a new club */
+
+/*
+ * Anyone can set up a club at /start, with no code to ask for first. What
+ * stands between that and a club using the host's disk is the host: a club
+ * is made waiting (`approvedAt` null), the host is emailed who it is and
+ * which clubs already here have a similar name, and lets it in or turns it
+ * away from a page the email links to. Until then its admin sees a waiting
+ * page, and its join code lets nobody in, so nothing is uploaded and no
+ * panel forms around a club that may be a duplicate.
+ *
+ * The page needs no sign-in, because the host has no account on any club.
+ * Its link carries a signature over the club id instead, like an
+ * unsubscribe link, so it opens that one club's check and nothing else.
+ * `npm run pending-clubs` prints the same links, in case an email is lost.
+ */
+
+export function reviewSignature(clubId: string): string {
+  return keyedHash(appSecret(), clubId, "club-review");
+}
+
+export function validReview(clubId: string, signature: string): boolean {
+  return /^[0-9a-f]{64}$/.test(signature) && sameHash(reviewSignature(clubId), signature);
+}
+
+export function reviewPath(clubId: string): string {
+  return `/host/clubs/${encodeURIComponent(clubId)}?k=${reviewSignature(clubId)}`;
+}
+
+/** Where the host is told about new clubs. */
+export function hostEmail(): string {
+  return process.env.HOST_EMAIL?.trim() || "hello@ardawnsport.ie";
+}
+
+export type ClubForReview = {
+  id: string;
+  name: string;
+  approvedAt: number | null;
+  createdAt: number;
+  game: GameCode;
+  admin: { name: string; email: string | null } | null;
+  similar: { id: string; name: string }[];
+};
+
+/** Everything the host needs to decide, or null once the club is gone. */
+export async function clubForReview(clubId: string): Promise<ClubForReview | null> {
+  const [club] = await db.select().from(clubs).where(eq(clubs.id, clubId)).limit(1);
+  if (!club) return null;
+  const [team] = await db
+    .select({ code: teams.code })
+    .from(teams)
+    .where(eq(teams.clubId, clubId))
+    .orderBy(asc(teams.createdAt))
+    .limit(1);
+  const [admin] = await db
+    .select({ name: users.displayName, email: users.email })
+    .from(users)
+    .innerJoin(teams, eq(teams.id, users.teamId))
+    .where(and(eq(teams.clubId, clubId), eq(users.role, "admin")))
+    .orderBy(asc(users.createdAt))
+    .limit(1);
+  const others = await db
+    .select({ id: clubs.id, name: clubs.name })
+    .from(clubs)
+    .where(ne(clubs.id, clubId));
+  return {
+    id: club.id,
+    name: club.name,
+    approvedAt: club.approvedAt,
+    createdAt: club.createdAt,
+    game: team?.code ?? "hurling",
+    admin: admin ?? null,
+    similar: similarClubs(club.name, others),
+  };
+}
+
+/** Let a waiting club in. Returns false if it was already in. */
+export async function approveClub(clubId: string): Promise<boolean> {
+  const done = await db
+    .update(clubs)
+    .set({ approvedAt: Date.now() })
+    .where(and(eq(clubs.id, clubId), isNull(clubs.approvedAt)))
+    .returning({ id: clubs.id });
+  return done.length > 0;
+}
+
+/**
+ * Turn a waiting club away. It is deleted outright: while it waited nothing
+ * could be uploaded and nobody could join, so there is nothing of anyone's
+ * to keep, and its admin's email is freed to join a real club's panel.
+ * Refuses a club already let in; that is `npm run close-club`'s job.
+ */
+export async function declineClub(clubId: string): Promise<boolean> {
+  const [club] = await db.select().from(clubs).where(eq(clubs.id, clubId)).limit(1);
+  if (!club || club.approvedAt !== null) return false;
+  await closeClub(clubId);
+  return true;
 }

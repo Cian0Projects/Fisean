@@ -51,9 +51,7 @@ function checkSettings() {
     fail("Email is going to the outbox, not to people", "Set ZEPTOMAIL_TOKEN and remove MAIL_DRIVER=local, or nobody outside the server can sign in.");
   } else ok("Email sends through ZeptoMail");
 
-  if (!process.env.SIGNUP_CODE) {
-    warn("No SIGNUP_CODE: anyone who finds /start can create a club", "Set SIGNUP_CODE while founding places are limited.");
-  } else ok("New clubs need the sign-up code");
+  ok(`New clubs wait for your check, emailed to ${process.env.HOST_EMAIL?.trim() || "hello@ardawnsport.ie"}`);
 
   const gb = teamQuotaBytes(process.env.TEAM_STORAGE_GB) / 1024 ** 3;
   ok(`Each club may store ${gb} GB, about ${Math.floor(gb / 3)} matches at 3 GB`);

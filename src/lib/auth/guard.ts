@@ -8,7 +8,7 @@
  */
 import "server-only";
 import { redirect } from "next/navigation";
-import { currentUser, type SessionUser } from "./session";
+import { currentUser, waitingUser, type SessionUser } from "./session";
 
 export class Forbidden extends Error {
   constructor(message = "You do not have permission to do that.") {
@@ -17,10 +17,19 @@ export class Forbidden extends Error {
   }
 }
 
+/**
+ * Someone signed in on a club the host has not checked yet goes to the
+ * waiting page, not the sign-in form, which would only sign them in to be
+ * bounced again.
+ */
+async function bounce(signIn: string): Promise<never> {
+  redirect((await waitingUser()) ? "/start/waiting" : signIn);
+}
+
 /** For pages: bounces to the sign-in screen when not authenticated. */
 export async function requireUser(): Promise<SessionUser> {
   const user = await currentUser();
-  if (!user) redirect("/login");
+  if (!user) return bounce("/login");
   return user;
 }
 
@@ -31,7 +40,7 @@ export async function requireUser(): Promise<SessionUser> {
  */
 export async function requireUserFor(path: string): Promise<SessionUser> {
   const user = await currentUser();
-  if (!user) redirect(`/login?next=${encodeURIComponent(path)}`);
+  if (!user) return bounce(`/login?next=${encodeURIComponent(path)}`);
   return user;
 }
 

@@ -82,6 +82,86 @@ export function signInMail(input: {
   return { subject: `${code} is your Ardawn code`, text, html };
 }
 
+/**
+ * To the host, when a club has been set up and is waiting to be checked:
+ * who it is, and any club already here whose name looks like it, which is
+ * the question most worth answering before letting it in.
+ */
+export function clubReviewMail(input: {
+  clubName: string;
+  game: string;
+  adminName: string;
+  adminEmail: string;
+  similar: string[];
+  reviewUrl: string;
+}): Rendered {
+  const facts = [
+    `Club: ${input.clubName}`,
+    `First team plays: ${input.game}`,
+    `Set up by: ${input.adminName}, ${input.adminEmail}`,
+  ];
+  const similar = input.similar.length
+    ? `Already on Ardawn with a similar name: ${input.similar.join(", ")}.`
+    : "No club already on Ardawn has a similar name.";
+  const note = "Their email address is proven, and is not on any other club: an address can only be on one.";
+
+  const text = [
+    "A new club is waiting to be checked.",
+    "",
+    ...facts,
+    "",
+    similar,
+    note,
+    "",
+    "Approve or decline it here:",
+    input.reviewUrl,
+  ].join("\n");
+
+  const html = frame(
+    `<p style="margin:0 0 16px;font-size:15px;line-height:1.5">A new club is waiting to be checked.</p>
+${facts.map((f) => `<p style="margin:0 0 6px;font-size:15px;line-height:1.4">${escape(f)}</p>`).join("\n")}
+<p style="margin:16px 0 6px;font-size:14px;line-height:1.5;${input.similar.length ? "font-weight:600" : "color:#45443f"}">${escape(similar)}</p>
+<p style="margin:0 0 20px;font-size:14px;line-height:1.5;color:#45443f">${escape(note)}</p>
+<p style="margin:0 0 4px">${button(input.reviewUrl, "Approve or decline")}</p>`,
+    "Only you get this. The link works without signing in, so do not forward it.",
+  );
+
+  return { subject: `New club to check: ${input.clubName}`, text, html };
+}
+
+/** To the club's admin, once the host has let the club in. */
+export function clubApprovedMail(input: { name: string; clubName: string; url: string }): Rendered {
+  const first = input.name.split(/\s+/)[0] || input.name;
+  const lead = `Hi ${first}, ${input.clubName} is ready on Ardawn.`;
+  const next = "Sign in with this email to get your team code for the panel, and drop in your first match.";
+
+  const text = [lead, "", next, input.url].join("\n");
+  const html = frame(
+    `<p style="margin:0 0 16px;font-size:15px;line-height:1.5">${escape(lead)}</p>
+<p style="margin:0 0 20px;font-size:14px;line-height:1.5;color:#45443f">${escape(next)}</p>
+<p style="margin:0 0 4px">${button(input.url, "Open Ardawn")}</p>`,
+    "Questions? Email hello@ardawnsport.ie.",
+  );
+  return { subject: `${input.clubName} is ready on Ardawn`, text, html };
+}
+
+/** To the club's admin, when the host could not confirm the club. */
+export function clubDeclinedMail(input: { name: string; clubName: string }): Rendered {
+  const first = input.name.split(/\s+/)[0] || input.name;
+  const lead = `Hi ${first}, we could not set up ${input.clubName} on Ardawn.`;
+  const why =
+    "Usually that is because the club is already here, or because we could not confirm who the club is. " +
+    "Email hello@ardawnsport.ie and we will sort it out with you.";
+
+  const text = [lead, "", why].join("\n");
+  const html = frame(
+    `<p style="margin:0 0 16px;font-size:15px;line-height:1.5">${escape(lead)}</p>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#45443f">${escape(why)}</p>`,
+    "Nothing was kept: the club and your account have been removed.",
+  );
+  return { subject: `About ${input.clubName} on Ardawn`, text, html };
+}
+
 export function digestMail(input: {
   name: string;
   teamName: string;

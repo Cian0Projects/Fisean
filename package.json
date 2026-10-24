@@ -19,6 +19,7 @@
     "create-admin": "tsx scripts/create-admin.ts",
     "set-email": "tsx scripts/set-email.ts",
     "close-club": "tsx scripts/close-club.ts",
+    "pending-clubs": "tsx scripts/pending-clubs.ts",
     "ingest": "tsx scripts/ingest.ts",
     "backup": "tsx scripts/backup.ts",
     "preflight": "tsx scripts/preflight.ts",

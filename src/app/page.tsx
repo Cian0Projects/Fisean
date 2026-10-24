@@ -12,7 +12,8 @@ import {
   playlists,
   videos,
 } from "@/lib/db/schema";
-import { currentUser } from "@/lib/auth/session";
+import { redirect } from "next/navigation";
+import { currentUser, waitingUser } from "@/lib/auth/session";
 import { requireUser } from "@/lib/auth/guard";
 import { Nav } from "@/components/ui/Nav";
 import { formatClock, formatScore } from "@/lib/hurling/notation";
@@ -44,8 +45,11 @@ export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 export default async function Home() {
   const user = await currentUser();
-  if (!user) return <PublicHomepage />;
-  return <Dashboard />;
+  if (user) return <Dashboard />;
+  // An admin whose club is still being checked goes back to the page that
+  // says so, rather than to the pitch for signing up again.
+  if (await waitingUser()) redirect("/start/waiting");
+  return <PublicHomepage />;
 }
 
 /*
@@ -186,7 +190,7 @@ function PublicHomepage() {
               </Question>
               <Question q="How do we get started?">
                 Press Set up your club, upload a match, and send the panel your club&apos;s
-                code. Need a sign-up code? Email{" "}
+                code. We check each new club before it opens, usually within a day. Questions? Email{" "}
                 <a href="mailto:hello@ardawnsport.ie" className="font-semibold text-ink underline">
                   hello@ardawnsport.ie
                 </a>

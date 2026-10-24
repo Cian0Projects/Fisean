@@ -65,7 +65,7 @@ curl -fsSLO https://raw.githubusercontent.com/Cian0Projects/Fisean/main/deploy/s
 bash setup.sh
 ```
 
-It asks for the domain, an optional sign-up code and the R2 details (leave
+It asks for the domain and the R2 details (leave
 those blank to keep footage on the server's disk), then builds and starts
 everything. It deploys what is on `main` on GitHub, so push first. Later
 releases are `bash /srv/fisean/app/deploy/update.sh`.
@@ -166,8 +166,8 @@ R2_BUCKET=ardawn-footage
 # The EU bucket from step 1 answers only on its own hostname.
 R2_JURISDICTION=eu
 TEAM_STORAGE_GB=100
-# Optional: only clubs you give this to can set up at /start.
-SIGNUP_CODE=<something you choose>
+# Optional: where new clubs waiting to be checked are emailed. Default hello@ardawnsport.ie.
+# HOST_EMAIL=hello@ardawnsport.ie
 NODE_ENV=production
 EOF
 chmod 600 .env.local
@@ -237,10 +237,14 @@ systemctl status fisean
 
 ### 7. Hand it to the clubs
 
-Send a club `https://ardawnsport.ie/start`, and the sign-up code if you set
-one. Whoever fills it in becomes that club's admin and lands on the squad
-page, with the join code to send the panel and a place to drop the first
-match. Players go to `/join`, enter the code, their name and a password, and
+Send a club `https://ardawnsport.ie/start`. Anyone can fill it in, with no
+code to ask for. Whoever does becomes that club's admin, but the club waits
+until you have checked it: you are emailed (at `HOST_EMAIL`) who it is and any
+club already here with a similar name, with a link to approve or decline it.
+Until you approve, its admin sees a waiting page and its join code lets
+nobody in. Approving emails them that it is ready; declining deletes the club
+and their account and emails them to get in touch. If the email goes astray,
+`npm run pending-clubs` lists every waiting club with its link. Players go to `/join`, enter the code, their name and a password, and
 they are in. Nothing to approve.
 
 Usernames are unique across the whole instance, not per club, because signing
@@ -259,7 +263,7 @@ It checks what would hurt a club and that nothing else would tell you about:
 footage going to R2 and not this server's disk, the bucket in the EU
 jurisdiction, a real test upload with the token, the CORS rule (the bucket
 letting the site's address upload), sign-in emails really sending, the
-sign-up code, the per-club storage cap, and a recent database backup both
+per-club storage cap, and a recent database backup both
 here and in the bucket. It cancels its test upload, so nothing is left
 behind. Fix every `FAIL` before sending a club the link.
 
@@ -272,7 +276,6 @@ a manager tells you.
 in `.env` and restart:
 
 ```bash
-SIGNUP_CODE=<a code you give each founding club>
 TEAM_STORAGE_GB=50     # about 15 matches at 3 GB; raise it for a club that asks
 ```
 

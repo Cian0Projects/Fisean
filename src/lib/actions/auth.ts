@@ -1,12 +1,21 @@
 "use server";
 
-import { createHash, timingSafeEqual } from "node:crypto";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { teams, users } from "@/lib/db/schema";
-import { checkClubFields, ClubSetupError, createClub } from "@/lib/db/clubs";
-import { isGameCode, type GameCode } from "@/lib/hurling/codes";
+import { clubs, teams, users } from "@/lib/db/schema";
+import {
+  checkClubFields,
+  ClubSetupError,
+  clubForReview,
+  createClub,
+  hostEmail,
+  reviewPath,
+} from "@/lib/db/clubs";
+import { GAME_LABELS, isGameCode, type GameCode } from "@/lib/hurling/codes";
+import { sendMail } from "@/lib/mail";
+import { clubReviewMail } from "@/lib/mail/templates";
+import { appUrl } from "@/lib/url";
 import { normaliseJoinCode } from "@/lib/auth/password";
 import { looksLikeEmail, normaliseEmail } from "@/lib/auth/email-code";
 import { issueSignIn, redeemCode, redeemLink, type SignInRequest } from "@/lib/auth/email-sign-in";
@@ -71,6 +80,12 @@ export async function joinTeam(_prev: AuthState, form: FormData): Promise<AuthSt
 
   const [team] = await db.select().from(teams).where(eq(teams.joinCode, code)).limit(1);
   if (!team) return { error: "That join code was not recognised." };
+  // A club the host has not checked yet has no panel. Its admin cannot see
+  // the code, but a code guessed or passed on early should not get round that.
+  const [club] = await db.select({ approvedAt: clubs.approvedAt }).from(clubs).where(eq(clubs.id, team.clubId)).limit(1);
+  if (!club?.approvedAt) {
+    return { error: "That club is still being set up. Try again once your manager says it is ready." };
+  }
 
   const payload: JoinPayload = { teamId: team.id, displayName };
   const issued = await issueSignIn({
@@ -85,28 +100,16 @@ export async function joinTeam(_prev: AuthState, form: FormData): Promise<AuthSt
   toCodePage(issued.requestId);
 }
 
-/** Compare without leaking, through timing, how much of a guess was right. */
-function sameText(given: string, expected: string): boolean {
-  const a = createHash("sha256").update(given).digest();
-  const b = createHash("sha256").update(expected).digest();
-  return timingSafeEqual(a, b);
-}
-
 type StartPayload = { teamName: string; code: GameCode; displayName: string };
 
 /**
- * Set up a new club from the web. Whoever fills this in becomes its admin and
- * lands on the squad page, with the join code to hand out and a place to drop
- * the first match file. The club is made when their emailed code comes back.
+ * Set up a new club from the web. Anyone can; there is no code to ask for
+ * first. The club is made when their emailed code comes back, and waits
+ * there until the host has checked it is real and not already here (see
+ * "Checking a new club" in src/lib/db/clubs.ts). Every club is a promise of
+ * up to TEAM_STORAGE_GB of the host's disk, which is why someone looks.
  */
 export async function startClub(_prev: AuthState, form: FormData): Promise<AuthState> {
-  // With SIGNUP_CODE set, only clubs the host has given the code to can set
-  // up — every club is a promise of up to TEAM_STORAGE_GB of the host's disk.
-  const required = process.env.SIGNUP_CODE;
-  if (required && !sameText(String(form.get("signupCode") ?? "").trim(), required)) {
-    return { error: "That sign-up code is not right. Email hello@ardawnsport.ie and we'll send you a new one." };
-  }
-
   const code = form.get("code");
   if (!isGameCode(code)) return { error: "Choose the game your team plays." };
 
@@ -189,7 +192,8 @@ async function finish(request: SignInRequest): Promise<AuthState> {
         throw err;
       }
       await createSession(club.userId);
-      redirect("/admin");
+      await askHostToCheck(club.clubId);
+      redirect("/start/waiting");
     }
 
     case "change-email": {
@@ -199,6 +203,29 @@ async function finish(request: SignInRequest): Promise<AuthState> {
       await db.update(users).set({ email: request.email }).where(eq(users.id, userId));
       redirect("/account?changed=1");
     }
+  }
+}
+
+/**
+ * Tell the host a club is waiting. A failed send must not lose the club
+ * its admin has just made, so it is logged rather than thrown; the host
+ * finds it again with `npm run pending-clubs`.
+ */
+async function askHostToCheck(clubId: string): Promise<void> {
+  try {
+    const club = await clubForReview(clubId);
+    if (!club) return;
+    const mail = clubReviewMail({
+      clubName: club.name,
+      game: GAME_LABELS[club.game],
+      adminName: club.admin?.name ?? "unknown",
+      adminEmail: club.admin?.email ?? "no email",
+      similar: club.similar.map((c) => c.name),
+      reviewUrl: `${await appUrl()}${reviewPath(club.id)}`,
+    });
+    await sendMail({ to: hostEmail(), ...mail });
+  } catch (err) {
+    console.error(`Could not email the host about club ${clubId}; run npm run pending-clubs.`, err);
   }
 }
 

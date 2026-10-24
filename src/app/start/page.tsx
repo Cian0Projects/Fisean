@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { connection } from "next/server";
 import { socialFor } from "@/lib/seo";
 import { StartForm } from "./StartForm";
 
@@ -20,20 +19,10 @@ export const metadata: Metadata = {
 };
 
 /**
- * A server page around a client form, only so it can read whether the host
- * has set `SIGNUP_CODE` — the form asks for one only when it is needed —
- * and pick up a code sent in the link, so a club given the link never has
- * to type it.
+ * A server page around a client form, so the page has its own title and
+ * description. Links sent out with ?code= from when a sign-up code was asked
+ * for still work: the code is simply not needed any more.
  */
-export default async function StartPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ code?: string | string[] }>;
-}) {
-  // Read at request time, not baked in at build: the code is set on the
-  // server, and changing it should not need a rebuild.
-  await connection();
-  const { code } = await searchParams;
-  const givenCode = (Array.isArray(code) ? code[0] : code)?.trim().slice(0, 64) ?? "";
-  return <StartForm needsCode={Boolean(process.env.SIGNUP_CODE)} givenCode={givenCode} />;
+export default function StartPage() {
+  return <StartForm />;
 }

@@ -1,0 +1,1 @@
+ALTER TABLE `clubs` ADD `approved_at` integer;
