@@ -16,7 +16,8 @@ import { socialFor } from "@/lib/seo";
  * club scoping (guard.ts), the 15 minute sign-in code (email-code.ts), the
  * day-long playback link (sigv4.ts), sign-in records purged after a day
  * (email-sign-in.ts), 30 days of backups (docs/DEPLOYMENT.md), closing the
- * club (deleteClub in actions/admin.ts). Change those, change this.
+ * club (closeClub in db/clubs.ts, run by the host from scripts/close-club.ts
+ * once a club asks). Change those, change this.
  *
  * PROVIDER and SUBPROCESSORS are the two facts most likely to change: a
  * company formed, a server moved. Changing either is a change to the
@@ -35,7 +36,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { themeColor: "#ffffff" };
 
-const UPDATED = "22 October 2026";
+const UPDATED = "23 October 2026";
 const PROVIDER = "Cian Ó Cathasaigh, trading as Ardawn";
 
 const SUBPROCESSORS = [
@@ -125,7 +126,7 @@ export default function AgreementPage() {
             </ul>
             <p>
               Before adding or replacing one, we email your club&apos;s admins 30 days ahead. If your
-              club objects, it can close its account and everything is deleted.
+              club objects, it can ask us to close its account and everything is deleted.
             </p>
           </Answer>
 
@@ -196,8 +197,10 @@ export default function AgreementPage() {
 
           <Answer q="10. When it ends">
             <p>
-              Your club can close its account at any time, from the squad page. Everything is deleted
-              from Ardawn at once, and from the backups within 30 days.
+              Your club can close its account at any time. So that it never happens by accident, an
+              admin asks by email from the address they sign in with, and we check with them before
+              anything goes. Everything is deleted from Ardawn within seven days of the club
+              confirming, and from the backups within 30 days after that.
             </p>
             <p>
               If we ever stop running Ardawn, we give your admins at least 60 days&apos; notice

@@ -1,5 +1,7 @@
 /**
- * Creating a club: the team, its first admin, and the shared tag vocabulary.
+ * Creating a club: the club, its first team, its first admin, and the shared
+ * tag vocabulary. The club's other teams are added later by an admin
+ * (`createTeam`), each with its own game and join code.
  *
  * One instance hosts every club, so this is something a club secretary does
  * from the sign-up page at /start, not something the host does from a
@@ -11,7 +13,8 @@
  */
 import { eq, isNull } from "drizzle-orm";
 import { db } from "./client";
-import { eventTypes, teams, users } from "./schema";
+import { clubs, eventTypes, teams, users, videos } from "./schema";
+import { removeFootage } from "../storage";
 import { BUILT_IN_EVENTS } from "../hurling/events";
 import type { GameCode } from "../hurling/codes";
 import { generateJoinCode } from "../auth/password";
@@ -83,10 +86,70 @@ export function checkClubFields(input: {
   const teamName = input.teamName.trim();
   const displayName = input.displayName.trim();
   const email = normaliseEmail(input.email);
-  if (!teamName) return { error: "Enter the club or team name." };
+  if (!teamName) return { error: "Enter the club's name." };
   if (!displayName) return { error: "Enter your name." };
   if (!looksLikeEmail(email)) return { error: "Enter your email address." };
   return { teamName, displayName, email };
+}
+
+/**
+ * Close a club: every team in it, and every match, file, clip, stat, drill
+ * and person on those teams, at once.
+ *
+ * Only the host runs this, through `npm run close-club`, after the club has
+ * asked by email and confirmed. It used to be a button on the squad page,
+ * but it is the one action with no way back, and a club should never lose a
+ * season because an admin pressed the wrong thing.
+ *
+ * Deleting the club row cascades to its teams and from them to everything
+ * scoped by `teamId`, sessions included, so every member is signed out on
+ * their next request. The footage is in storage, not the database, so its
+ * keys are read out first and the files removed after. Backups still hold
+ * the club until they age out, as docs/DEPLOYMENT.md sets.
+ */
+export async function closeClub(clubId: string): Promise<{ files: number }> {
+  const footage = await db
+    .select({ storageKey: videos.storageKey, uploadId: videos.uploadId })
+    .from(videos)
+    .innerJoin(teams, eq(teams.id, videos.teamId))
+    .where(eq(teams.clubId, clubId));
+  await db.delete(clubs).where(eq(clubs.id, clubId));
+  await removeFootage(footage);
+  return { files: footage.length };
+}
+
+/**
+ * Another team in an existing club, made by one of its admins. It starts
+ * with nobody on it: the admin sends its own join code to its own panel, or
+ * moves people across from the team they are on. The badge is the club's,
+ * so it is copied from a team that has one.
+ */
+export async function createTeam(input: {
+  clubId: string;
+  name: string;
+  code: GameCode;
+}): Promise<{ id: string; name: string; code: GameCode; joinCode: string }> {
+  const name = input.name.trim();
+  if (!name) throw new ClubSetupError("Enter the team's name.");
+
+  const [badged] = await db
+    .select({ badge: teams.badge, badgeUpdatedAt: teams.badgeUpdatedAt })
+    .from(teams)
+    .where(eq(teams.clubId, input.clubId))
+    .limit(1);
+  const joinCode = await freshJoinCode();
+  const [team] = await db
+    .insert(teams)
+    .values({
+      clubId: input.clubId,
+      name,
+      code: input.code,
+      joinCode,
+      badge: badged?.badge ?? null,
+      badgeUpdatedAt: badged?.badgeUpdatedAt ?? null,
+    })
+    .returning();
+  return { id: team.id, name: team.name, code: team.code, joinCode };
 }
 
 export async function createClub(input: {
@@ -109,10 +172,12 @@ export async function createClub(input: {
   const joinCode = await freshJoinCode();
 
   // One transaction, so a failure part-way never leaves a club with no admin.
+  // The first team takes the club's name; a club with one team needs no other.
   return db.transaction((tx) => {
+    const club = tx.insert(clubs).values({ name: teamName }).returning().get();
     const team = tx
       .insert(teams)
-      .values({ name: teamName, joinCode, code: input.code ?? "hurling" })
+      .values({ clubId: club.id, name: teamName, joinCode, code: input.code ?? "hurling" })
       .returning()
       .get();
     const admin = tx

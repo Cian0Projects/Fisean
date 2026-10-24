@@ -460,7 +460,7 @@ async function Dashboard() {
     .innerJoin(clips, eq(clips.id, clipPlayers.clipId))
     .innerJoin(videos, eq(videos.id, clips.videoId))
     .leftJoin(matches, eq(matches.id, videos.matchId))
-    .where(eq(clipPlayers.userId, user.id))
+    .where(and(eq(clipPlayers.userId, user.id), eq(clips.teamId, user.teamId)))
     .orderBy(desc(clips.createdAt))
     .limit(8);
 
@@ -490,7 +490,7 @@ async function Dashboard() {
     })
     .from(playlistViewers)
     .innerJoin(playlists, eq(playlists.id, playlistViewers.playlistId))
-    .where(eq(playlistViewers.userId, user.id))
+    .where(and(eq(playlistViewers.userId, user.id), eq(playlists.teamId, user.teamId)))
     .orderBy(desc(playlistViewers.assignedAt));
 
   const isCoach = user.role !== "player";

@@ -20,8 +20,10 @@ import { socialFor } from "@/lib/seo";
  *   the day-long link stableWindow in src/lib/storage/sigv4.ts: playback
  *                     links are signed for up to 24 hours, so a video
  *                     already open outlives the session by that much
- *   deletion          deleteVideo, deleteMatch, deleteClub in the same
- *                     file, each removing the files from storage too
+ *   deletion          deleteVideo, deleteMatch in the same file, and
+ *                     closeClub in src/lib/db/clubs.ts (run by the host,
+ *                     scripts/close-club.ts), each removing the files from
+ *                     storage too
  *   one cookie        src/lib/auth/session.ts, 90 days
  *   backups           docs/DEPLOYMENT.md, kept 30 days
  *
@@ -41,7 +43,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { themeColor: "#ffffff" };
 
-const UPDATED = "19 October 2026";
+const UPDATED = "23 October 2026";
 
 export default function PrivacyPage() {
   return (
@@ -77,13 +79,17 @@ export default function PrivacyPage() {
 
           <Answer q="Who can see it?">
             <p>
-              Only the people on your club&apos;s panel. Every match, clip, playlist and stat
-              belongs to one club, and every request is checked against the club of the person
-              making it, so one club can never open another club&apos;s footage.
+              Only the people on your team&apos;s panel. Every match, clip, playlist, stat and
+              drill belongs to one team, and every request is checked against the team of the
+              person making it, so nobody can open another team&apos;s footage. That holds
+              between two teams of the same club too: the under 16s cannot see the seniors.
             </p>
             <p>
-              Within the club, players can watch and make their own clips. Only coaches and admins
+              Within a team, players can watch and make their own clips. Only coaches and admins
               can add footage, and only an admin can delete it or decide who is on the panel.
+              Everyone is on one team at a time. A club admin looks after all of the club&apos;s
+              teams, going to each in turn, and is the only person who can move someone from one
+              team to another.
             </p>
           </Answer>
 
@@ -135,8 +141,10 @@ export default function PrivacyPage() {
             </p>
             <p>
               Closing the club deletes everything at once: every match, file, clip, stat, drill and
-              person. The database is backed up daily and backups are kept for 30 days, so a
-              deletion is complete once the last backup holding it has aged out.
+              person. So that it can never happen by accident, your admin asks for it by email and
+              we do it within seven days of the club confirming. The database is backed up daily
+              and backups are kept for 30 days, so a deletion is complete once the last backup
+              holding it has aged out.
             </p>
           </Answer>
 

@@ -104,7 +104,7 @@ export async function startClub(_prev: AuthState, form: FormData): Promise<AuthS
   // up — every club is a promise of up to TEAM_STORAGE_GB of the host's disk.
   const required = process.env.SIGNUP_CODE;
   if (required && !sameText(String(form.get("signupCode") ?? "").trim(), required)) {
-    return { error: "That sign-up code is not right. Ask whoever sent you the link." };
+    return { error: "That sign-up code is not right. Email hello@ardawnsport.ie and we'll send you a new one." };
   }
 
   const code = form.get("code");

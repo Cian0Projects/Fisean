@@ -11,14 +11,21 @@ import { GAME_CODES, GAME_LABELS } from "@/lib/hurling/codes";
  * four fields (five when the host asks for a sign-up code), then the code
  * emailed to them, and the next screen has the team code to send the panel
  * and a place to drop the first match.
+ *
+ * The sign-up code, when the host asks for one, usually arrives in the link
+ * to this page (/start?code=…), and then the field is never shown. Someone
+ * who found the page on their own is told how to get one before they are
+ * asked for it, so the first thing they read is how to start, not a box
+ * they cannot fill.
  */
-export function StartForm({ needsCode }: { needsCode: boolean }) {
+export function StartForm({ needsCode, givenCode }: { needsCode: boolean; givenCode: string }) {
   const [state, action, pending] = useActionState(startClub, undefined);
+  const askForCode = needsCode && !givenCode;
 
   return (
     <Gate
       title="Set up your club"
-      intro="Make a space for your team, then drop in a match. You get a six-character code to send the panel, and that is all they need to watch it."
+      intro="Make a space for your club, then drop in a match. You get a six-character code to send the panel, and that is all they need to watch it."
       footer={
         <>
           Your club is already on Ardawn? <GateLink href="/join">Join with your team code</GateLink>
@@ -26,33 +33,32 @@ export function StartForm({ needsCode }: { needsCode: boolean }) {
       }
     >
       <form action={action} className="space-y-4">
-        {needsCode && (
+        {needsCode && givenCode && <input type="hidden" name="signupCode" value={givenCode} />}
+        {askForCode && (
           <div>
-            <label htmlFor="signupCode" className="label mb-1.5 block">
-              Sign-up code
-            </label>
-            <input id="signupCode" name="signupCode" autoFocus autoComplete="off" className="field" />
-            {/* A club that found the site on its own has no code yet; without
-                this line the form is a dead end rather than an introduction. */}
-            <p className="mt-1.5 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-              It came with the link to this page. Don&apos;t have one? Email{" "}
+            <p className="mb-3 text-[14px] leading-relaxed" style={{ color: "var(--color-ink-dim)" }}>
+              To get set up, email{" "}
               <a href="mailto:hello@ardawnsport.ie?subject=Setting%20up%20our%20club%20on%20Ardawn" className="underline">
                 hello@ardawnsport.ie
               </a>{" "}
-              and we&apos;ll set you up.
+              and we&apos;ll send you a sign-up code quickly. If you have one already, put it here.
             </p>
+            <label htmlFor="signupCode" className="label mb-1.5 block">
+              Sign-up code
+            </label>
+            <input id="signupCode" name="signupCode" autoComplete="off" className="field" />
           </div>
         )}
 
         <div>
           <label htmlFor="teamName" className="label mb-1.5 block">
-            Club or team
+            Club
           </label>
           <input
             id="teamName"
             name="teamName"
-            autoFocus={!needsCode}
-            placeholder="St Brigid's seniors"
+            autoFocus={!askForCode}
+            placeholder="St Brigid's GAA"
             className="field"
           />
         </div>
@@ -63,7 +69,7 @@ export function StartForm({ needsCode }: { needsCode: boolean }) {
           </label>
           <select id="code" name="code" defaultValue="" className="field">
             <option value="" disabled>
-              Choose the game your team plays
+              Choose the game your first team plays
             </option>
             {GAME_CODES.map((c) => (
               <option key={c} value={c}>
@@ -72,7 +78,7 @@ export function StartForm({ needsCode }: { needsCode: boolean }) {
             ))}
           </select>
           <p className="mt-1.5 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-            A dual club sets up each team on its own.
+            Start with one team. You can add the club&apos;s other teams, in any game, once you are in.
           </p>
         </div>
 

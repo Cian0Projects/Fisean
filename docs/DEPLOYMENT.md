@@ -341,6 +341,35 @@ systemctl start fisean
 
 ---
 
+## Closing a club
+
+Clubs cannot delete themselves from the app. The squad page tells an admin to
+email hello@ardawnsport.ie from the address they sign in with, and the data
+agreement promises it is done within seven days of the club confirming.
+
+When a request comes in, first look at what would go. This deletes nothing:
+
+```bash
+sudo -u fisean -H bash -c 'cd /srv/fisean/app && npm run close-club -- --email secretary@club.ie'
+```
+
+It finds the club by that address and refuses unless the address belongs to
+an admin, so check it is the address the email came from. It prints the club
+name and code, how many people, matches and files of footage it holds, and its
+admins. Reply to the club with that and ask them to confirm. Once they have,
+run the same command with `--yes` on the end:
+
+```bash
+sudo -u fisean -H bash -c 'cd /srv/fisean/app && npm run close-club -- --email secretary@club.ie --yes'
+```
+
+That deletes the club and everything in it, footage in storage included, and
+signs every member out. Backups still hold a copy until they age out (30 days
+on the server, 90 in the bucket), so a mistake can be undone from a backup
+within that window. Email the club to say it is done.
+
+---
+
 ## Updating
 
 `bash /srv/fisean/app/deploy/update.sh` as root, which takes a backup first and

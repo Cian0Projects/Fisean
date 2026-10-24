@@ -1,12 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { and, eq } from "drizzle-orm";
-import { destroySession } from "@/lib/auth/session";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
   matches,
+  notifications,
   teams,
   users,
   videoMarkers,
@@ -15,7 +14,7 @@ import {
   MARKER_KINDS,
   ROLES,
 } from "@/lib/db/schema";
-import { freshJoinCode } from "@/lib/db/clubs";
+import { ClubSetupError, createTeam, freshJoinCode } from "@/lib/db/clubs";
 import { badgeProblem } from "@/lib/media/badge";
 import { isGameCode, type GameCode } from "@/lib/hurling/codes";
 import { looksLikeEmail, normaliseEmail } from "@/lib/auth/email-code";
@@ -124,62 +123,21 @@ export async function deleteVideo(videoId: string): Promise<void> {
   revalidatePath("/");
 }
 
-/**
- * Take footage out of storage once its rows are gone. The rows go first so
- * that, if storage fails, the app stays coherent and the orphan can be
- * cleaned up separately: the database is the source of truth. Each file is
- * tried on its own, so one failure does not leave the rest of a season behind.
- */
+/** Deferred like the rest of storage, so an action that never deletes never loads it. */
 async function removeStoredFiles(
   footage: { storageKey: string; uploadId: string | null }[],
 ): Promise<void> {
   if (footage.length === 0) return;
-  const { store } = await import("@/lib/storage");
-  const media = await store().catch(() => null);
-  if (!media) return;
-  for (const video of footage) {
-    try {
-      // A file stopped part-way is a set of parts, not yet an object.
-      if (video.uploadId) await media.abortMultipart(video.storageKey, video.uploadId);
-      else await media.remove(video.storageKey);
-    } catch {
-      // Leave the file; see above.
-    }
-  }
+  const { removeFootage } = await import("@/lib/storage");
+  await removeFootage(footage);
 }
 
-/* ------------------------------------------------------------------ club */
-
-/**
- * Close the club: every match, file, clip, stat, drill and person, at once.
- *
- * The privacy page and the data agreement both promise a club can do this
- * itself, without emailing anyone, so it lives here rather than in a script.
- * Typing the club's name is the confirmation, the way a repository is
- * deleted on GitHub: a confirm() box is clicked through, a name is not.
- *
- * Deleting the team row cascades to everything scoped by `teamId`, sessions
- * included, so every member is signed out on their next request. Backups
- * still hold the club until they age out, as docs/DEPLOYMENT.md sets.
+/*
+ * Closing a whole club is not here on purpose. It was once a button on the
+ * squad page; now a club asks by email and the host runs
+ * `npm run close-club`, so no admin can lose a season to a stray click.
+ * See closeClub in src/lib/db/clubs.ts.
  */
-export async function deleteClub(typedName: string): Promise<{ error: string }> {
-  const admin = await requireAdmin();
-  const [team] = await db.select().from(teams).where(eq(teams.id, admin.teamId)).limit(1);
-  if (!team) return { error: "That club no longer exists." };
-  if (typedName.trim().toLowerCase() !== team.name.trim().toLowerCase()) {
-    return { error: `Type ${team.name} exactly as it is shown to confirm.` };
-  }
-
-  const footage = await db
-    .select({ storageKey: videos.storageKey, uploadId: videos.uploadId })
-    .from(videos)
-    .where(eq(videos.teamId, team.id));
-  await db.delete(teams).where(eq(teams.id, team.id));
-  await removeStoredFiles(footage);
-
-  await destroySession();
-  redirect("/");
-}
 
 /* ---------------------------------------------------------------- members */
 
@@ -199,13 +157,16 @@ export async function setMemberRole(
   assertSameTeam(admin, target);
 
   // Refuse to remove the last admin, which would lock everyone out of the
-  // squad's own settings with no way back in.
+  // club's settings with no way back in. Counted across the club, not the
+  // team: an admin reaches every team in it, so a team with no admin of its
+  // own is still looked after.
   if (target.role === "admin" && role !== "admin") {
     const remaining = await db
       .select({ id: users.id })
       .from(users)
-      .where(and(eq(users.teamId, admin.teamId), eq(users.role, "admin")));
-    if (remaining.length <= 1) return { error: "The squad needs at least one admin." };
+      .innerJoin(teams, eq(teams.id, users.teamId))
+      .where(and(eq(teams.clubId, admin.clubId), eq(users.role, "admin")));
+    if (remaining.length <= 1) return { error: "The club needs at least one admin." };
   }
 
   await db.update(users).set({ role }).where(eq(users.id, userId));
@@ -282,11 +243,73 @@ export async function removeMember(userId: string): Promise<void> {
   revalidatePath("/admin/members");
 }
 
+/* ------------------------------------------------------------------ teams */
+
+/**
+ * Add another team to the club: a dual club's footballers beside its
+ * hurlers, or its under 16s. It gets its own game and its own join code, and
+ * nobody on its panel sees the other teams' footage, clips or drills.
+ */
+export async function addTeam(input: {
+  name: string;
+  code: string;
+}): Promise<{ id: string; name: string; code: GameCode } | { error: string }> {
+  const admin = await requireAdmin();
+  if (!isGameCode(input.code)) return { error: "Choose the game the team plays." };
+  try {
+    const team = await createTeam({ clubId: admin.clubId, name: input.name, code: input.code });
+    revalidatePath("/admin");
+    return { id: team.id, name: team.name, code: team.code };
+  } catch (err) {
+    if (err instanceof ClubSetupError) return { error: err.message };
+    throw err;
+  }
+}
+
+/**
+ * Move someone on the admin's team to another team in the club. With the
+ * admin's own id, this is how an admin goes to look after a different team:
+ * nobody is on two teams at once, admins included, so the scoping that
+ * keeps one team's footage from another never has an exception to make.
+ *
+ * Only an admin can do it, and only between teams of their own club. A
+ * player or coach cannot move themselves, so the team they joined with a
+ * code is the only one they will see until an admin says otherwise.
+ *
+ * What they made on the old team stays there, as the old team's: their
+ * clips and playlists belong to that team, not to them. Shares not yet
+ * emailed are dropped, so nobody is mailed a link they can no longer open.
+ */
+export async function moveToTeam(
+  userId: string,
+  teamId: string,
+): Promise<{ teamId: string } | { error: string }> {
+  const admin = await requireAdmin();
+  const [target] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (!target) return { error: "That person is not on the panel." };
+  assertSameTeam(admin, target);
+  if (target.teamId === teamId) return { teamId };
+
+  const [destination] = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
+  if (!destination || destination.clubId !== admin.clubId) {
+    return { error: "That team is not in your club." };
+  }
+
+  await db.update(users).set({ teamId }).where(eq(users.id, userId));
+  await db
+    .delete(notifications)
+    .where(and(eq(notifications.userId, userId), isNull(notifications.sentAt)));
+  // Moving yourself changes every page; moving someone else, only the panel.
+  revalidatePath(userId === admin.id ? "/" : "/admin", userId === admin.id ? "layout" : "page");
+  return { teamId };
+}
+
 /* ------------------------------------------------------------------ badge */
 
 /**
- * Set the club badge. The admin's browser has already scaled the image to a
- * small PNG; this checks that is what arrived before it is kept.
+ * Set the club badge, on every team in the club at once: it is the club's
+ * crest, not one team's. The admin's browser has already scaled the image
+ * to a small PNG; this checks that is what arrived before it is kept.
  */
 export async function setClubBadge(
   form: FormData,
@@ -303,7 +326,7 @@ export async function setClubBadge(
   await db
     .update(teams)
     .set({ badge: Buffer.from(bytes), badgeUpdatedAt: version })
-    .where(eq(teams.id, admin.teamId));
+    .where(eq(teams.clubId, admin.clubId));
   // Every page's masthead carries the badge.
   revalidatePath("/", "layout");
   return { version };
@@ -314,17 +337,18 @@ export async function removeClubBadge(): Promise<void> {
   await db
     .update(teams)
     .set({ badge: null, badgeUpdatedAt: null })
-    .where(eq(teams.id, admin.teamId));
+    .where(eq(teams.clubId, admin.clubId));
   revalidatePath("/", "layout");
 }
 
 /* ------------------------------------------------------------------- game */
 
 /**
- * Change the game the club plays. Nothing stored has to change with it: the
- * stat sheet and the tags keep the same values in every code and only read
- * differently, so a club set up as the wrong code, or one that picked the
- * default by mistake, is put right here without losing a clip or a stat.
+ * Change the game this team plays; each team in a club has its own. Nothing
+ * stored has to change with it: the stat sheet and the tags keep the same
+ * values in every code and only read differently, so a team set up as the
+ * wrong code, or one that picked the default by mistake, is put right here
+ * without losing a clip or a stat.
  */
 export async function setClubCode(code: string): Promise<{ code: GameCode } | { error: string }> {
   const admin = await requireAdmin();

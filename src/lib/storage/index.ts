@@ -85,6 +85,29 @@ export async function store(): Promise<MediaStore> {
   return cached;
 }
 
+/**
+ * Take footage out of storage once its rows are gone. The rows go first so
+ * that, if storage fails, the app stays coherent and the orphan can be
+ * cleaned up separately: the database is the source of truth. Each file is
+ * tried on its own, so one failure does not leave the rest of a season behind.
+ */
+export async function removeFootage(
+  footage: { storageKey: string; uploadId: string | null }[],
+): Promise<void> {
+  if (footage.length === 0) return;
+  const media = await store().catch(() => null);
+  if (!media) return;
+  for (const video of footage) {
+    try {
+      // A file stopped part-way is a set of parts, not yet an object.
+      if (video.uploadId) await media.abortMultipart(video.storageKey, video.uploadId);
+      else await media.remove(video.storageKey);
+    } catch {
+      // Leave the file; see above.
+    }
+  }
+}
+
 /** Media keys are app-controlled, but never trust one that reached us from a URL. */
 export function assertSafeKey(key: string): string {
   if (!/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(key) || key.includes("..")) {

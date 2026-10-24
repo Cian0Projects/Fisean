@@ -24,6 +24,7 @@ import {
   playlistItems,
   playlistViewers,
   playlists,
+  clubs,
   teams,
   users,
   videoMarkers,
@@ -124,9 +125,10 @@ async function main() {
   );
 
   const joinCode = generateJoinCode();
+  const [club] = await db.insert(clubs).values({ name: "Demo Hurling Club" }).returning();
   const [team] = await db
     .insert(teams)
-    .values({ name: "Demo Hurling Club", joinCode, halfLengthMin: 30 })
+    .values({ clubId: club.id, name: "Demo Hurling Club", joinCode, halfLengthMin: 30 })
     .returning();
 
   const [manager] = await db

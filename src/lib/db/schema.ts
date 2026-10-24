@@ -42,12 +42,34 @@ const id = () =>
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID());
 
+/* ------------------------------------------------------------------ clubs */
+
+/**
+ * A club is the teams that answer to the same admins: a dual club's hurlers
+ * and footballers, its camogie and its under 16s. It holds no footage of its
+ * own. Everything stays scoped to a team, so a player on one team never sees
+ * another's matches, clips or drills; the club only says which teams an
+ * admin may reach and move people between. A player or coach is on exactly
+ * one team, because `users.team_id` is a single column.
+ *
+ * Clubs made before teams were grouped took their team's id and name, so
+ * every existing team became a club of one.
+ */
+export const clubs = sqliteTable("clubs", {
+  id: id(),
+  name: text("name").notNull(),
+  createdAt: integer("created_at").notNull().default(now),
+});
+
 /* ------------------------------------------------------------------ teams */
 
 export const teams = sqliteTable(
   "teams",
   {
     id: id(),
+    clubId: text("club_id")
+      .notNull()
+      .references(() => clubs.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     /**
      * Short code players type once to join. Rotatable by an admin. Unique
@@ -73,7 +95,7 @@ export const teams = sqliteTable(
     badgeUpdatedAt: integer("badge_updated_at"),
     createdAt: integer("created_at").notNull().default(now),
   },
-  (t) => [uniqueIndex("teams_join_code").on(t.joinCode)],
+  (t) => [uniqueIndex("teams_join_code").on(t.joinCode), index("teams_club").on(t.clubId)],
 );
 
 /* ------------------------------------------------------------------ users */

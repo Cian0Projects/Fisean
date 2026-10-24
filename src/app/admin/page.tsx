@@ -1,6 +1,6 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { matches, teams, users, videos } from "@/lib/db/schema";
+import { clubs, matches, teams, users, videos } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/guard";
 import { Nav } from "@/components/ui/Nav";
 import { AdminPanels } from "@/components/admin/AdminPanels";
@@ -18,7 +18,7 @@ export default async function AdminPage() {
           <h1 className="display text-5xl">Squad settings</h1>
           <p className="measure mt-4 text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
             Matches, footage and the panel are looked after by the coaches and
-            the team admin. Everything you can do is on the matches page.
+            the club admin. Everything you can do is on the matches page.
           </p>
         </main>
       </>
@@ -26,6 +26,23 @@ export default async function AdminPage() {
   }
 
   const [team] = await db.select().from(teams).where(eq(teams.id, user.teamId)).limit(1);
+  const [club] = await db.select().from(clubs).where(eq(clubs.id, user.clubId)).limit(1);
+
+  // The club's teams, for the admin alone: where they can go, and where they
+  // can move someone. A coach sees only their own team, as a player does.
+  const clubTeams =
+    user.role === "admin"
+      ? await db
+          .select({
+            id: teams.id,
+            name: teams.name,
+            code: teams.code,
+            people: sql<number>`(select count(*) from ${users} where ${users.teamId} = ${teams.id})`,
+          })
+          .from(teams)
+          .where(eq(teams.clubId, user.clubId))
+          .orderBy(asc(teams.createdAt))
+      : [];
 
   const members = await db
     .select({
@@ -56,6 +73,9 @@ export default async function AdminPage() {
       <Nav user={user} />
       <AdminPanels
         viewer={{ id: user.id, role: user.role }}
+        teamId={user.teamId}
+        clubName={club?.name ?? team?.name ?? ""}
+        clubTeams={clubTeams}
         joinCode={team?.joinCode ?? ""}
         teamName={team?.name ?? ""}
         code={team?.code ?? user.teamCode}

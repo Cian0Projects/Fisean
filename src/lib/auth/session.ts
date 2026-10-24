@@ -24,7 +24,10 @@ function secret(): Uint8Array {
 
 export type SessionUser = {
   id: string;
+  /** The one team this person is on. Everything they can see is scoped to it. */
   teamId: string;
+  /** Only an admin acts on it: which teams they may reach and move people between. */
+  clubId: string;
   /** Null only for an account from before sign-in moved to email. */
   email: string | null;
   displayName: string;
@@ -99,6 +102,7 @@ export async function currentUser(): Promise<SessionUser | null> {
     .select({
       id: users.id,
       teamId: users.teamId,
+      clubId: teams.clubId,
       email: users.email,
       displayName: users.displayName,
       role: users.role,

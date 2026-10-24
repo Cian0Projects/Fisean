@@ -58,7 +58,7 @@ export async function requireCoach(): Promise<SessionUser> {
 
 export async function requireAdmin(): Promise<SessionUser> {
   const user = await requireUserOrThrow();
-  if (!isAdmin(user)) throw new Forbidden("Only a team admin can do that.");
+  if (!isAdmin(user)) throw new Forbidden("Only a club admin can do that.");
   return user;
 }
 
@@ -82,7 +82,12 @@ export function assertCanEditOwned(
   if (!canEditOwned(user, owned)) throw new Forbidden("That is not yours to change.");
 }
 
-/** Everything is scoped to one squad; never leak across teams. */
+/**
+ * Everything is scoped to one squad; never leak across teams, not even
+ * between two teams of the same club. An admin who looks after several
+ * teams is on one at a time and moves to reach another (moveToTeam in
+ * src/lib/actions/admin.ts), so this check never needs to know about clubs.
+ */
 export function assertSameTeam(user: SessionUser, row: { teamId: string }): void {
   if (row.teamId !== user.teamId) throw new Forbidden();
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
   clipPlayers,
@@ -71,7 +71,7 @@ export default async function PhoneHome() {
     .innerJoin(clips, eq(clips.id, clipPlayers.clipId))
     .innerJoin(videos, eq(videos.id, clips.videoId))
     .leftJoin(matches, eq(matches.id, videos.matchId))
-    .where(eq(clipPlayers.userId, user.id))
+    .where(and(eq(clipPlayers.userId, user.id), eq(clips.teamId, user.teamId)))
     .orderBy(desc(clips.createdAt))
     .limit(10);
 
@@ -87,7 +87,7 @@ export default async function PhoneHome() {
     })
     .from(playlistViewers)
     .innerJoin(playlists, eq(playlists.id, playlistViewers.playlistId))
-    .where(eq(playlistViewers.userId, user.id))
+    .where(and(eq(playlistViewers.userId, user.id), eq(playlists.teamId, user.teamId)))
     .orderBy(desc(playlistViewers.assignedAt))
     .limit(6);
 

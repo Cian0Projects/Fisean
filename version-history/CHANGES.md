@@ -16,6 +16,26 @@ is used, how it is deployed).
 
 -->
 
+## A club can have more than one team
+*2026-10-24*
+
+A dual club used to set up each team as a separate club, and nobody could be
+on two of them because an email belongs to one account. Now a club holds
+teams: a new `clubs` table, and `teams.club_id` pointing at it. Every
+existing team became a club of one, under its own id and name. Each team keeps
+its own game, join code, panel, footage, clips, drills and stats, scoped by
+`teamId` exactly as before, so the under 16s still cannot see the seniors.
+Players and coaches are on one team, the one they joined. Admins are club
+admins: from the squad page they add a team, go to another team (which moves
+them onto it, so nobody is ever on two at once), and move someone on their
+panel to another team in the club. The badge is the club's and is set on every
+team together, the last-admin check counts the whole club, and closing a club
+closes all its teams. "Clips you are in" and "playlists set for you" now also
+filter by team, so someone moved across stops seeing the old team's titles.
+The set-up page tells a club without a sign-up code to email for one before
+asking for it, and a code sent as `/start?code=…` fills itself in and hides
+the field.
+
 ## Voice remembers what it heard
 *2026-10-24*
 
@@ -45,6 +65,20 @@ starts a video from inside a tap; a double puts that toggle back before it
 skips. The tap rules are in `src/components/player/taps.ts`, tested. An
 iPhone's full screen is still its own player, which the page cannot draw
 on.
+
+## Closing a club is done by the host, on request
+*2026-10-23*
+
+The squad page used to let an admin delete the whole club by typing its
+name. It was the one action in the app with no way back, and too easy to
+reach. The button is gone: the squad page now explains what closing deletes
+and opens an email to hello@ardawnsport.ie, sent from the admin's own
+address. The host checks with the club, then runs
+`npm run close-club -- --email <admin> --yes`, which finds the club by that
+admin's address (a dry run without `--yes` shows what would go) and deletes
+it the same way as before, footage in storage included. The privacy page and
+the data agreement now say a club asks, and that it is done within seven
+days of the club confirming.
 
 ## Backups leave the server, and a preflight before the first club
 *2026-10-23*

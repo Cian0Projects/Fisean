@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import {
-  deleteClub,
+  addTeam,
   deleteMatch,
   deleteVideo,
+  moveToTeam,
   removeMember,
   rotateJoinCode,
   setClubCode,
@@ -29,6 +30,14 @@ type Member = {
   email: string | null;
   role: Role;
   lastSeenAt: number | null;
+};
+
+/** A team in the admin's club, for going to it and moving people onto it. */
+type ClubTeam = {
+  id: string;
+  name: string;
+  code: GameCode;
+  people: number;
 };
 
 type Match = {
@@ -56,12 +65,16 @@ type Video = {
  * For an admin it leads with the panel: everyone at the club in one list,
  * each name flagged player, coach or admin, and the admin alone deciding
  * which. Numbers and positions stay off it on purpose. They change game to
- * game, so each match keeps its own number sheet. The club's matches and
- * footage sit in a rail beside it, under the game the club plays. A coach
- * has no panel to manage, so matches take the main column instead.
+ * game, so each match keeps its own number sheet. The team's matches and
+ * footage sit in a rail beside it, under the club's teams and the game this
+ * one plays. A coach has no panel to manage, so matches take the main column
+ * instead, and no list of teams: only an admin goes between them.
  */
 export function AdminPanels({
   viewer,
+  teamId,
+  clubName,
+  clubTeams,
   joinCode,
   teamName,
   code,
@@ -72,6 +85,9 @@ export function AdminPanels({
   imports,
 }: {
   viewer: { id: string; role: Role };
+  teamId: string;
+  clubName: string;
+  clubTeams: ClubTeam[];
   joinCode: string;
   teamName: string;
   code: GameCode;
@@ -82,6 +98,7 @@ export function AdminPanels({
   imports: ImportView[];
 }) {
   const isAdmin = viewer.role === "admin";
+  const otherTeams = clubTeams.filter((t) => t.id !== teamId);
 
   return (
     <UploadProvider>
@@ -103,23 +120,26 @@ export function AdminPanels({
               </p>
             </div>
           </div>
-          {isAdmin && <TeamCode initial={joinCode} />}
+          {/* Keyed by team, so going to another team shows that team's code
+              rather than the one held in state from the last. */}
+          {isAdmin && <TeamCode key={teamId} initial={joinCode} />}
         </header>
 
         <div className="mt-12 grid gap-x-16 gap-y-14 lg:grid-cols-[minmax(0,1fr)_25rem]">
           <div className="space-y-14">
             {isAdmin ? (
-              <Panel members={members} viewerId={viewer.id} />
+              <Panel members={members} viewerId={viewer.id} otherTeams={otherTeams} />
             ) : (
               <Matches matches={matches} videos={videos} canDelete={false} />
             )}
           </div>
 
           <aside className="space-y-14">
-            {isAdmin && <GameChoice initial={code} />}
+            {isAdmin && <ClubTeams teams={clubTeams} currentId={teamId} viewerId={viewer.id} />}
+            {isAdmin && <GameChoice key={teamId} initial={code} />}
             {isAdmin && <Matches matches={matches} videos={videos} canDelete />}
             <Footage videos={videos} imports={imports} canDelete={isAdmin} />
-            {isAdmin && <CloseClub teamName={teamName} />}
+            {isAdmin && <CloseClub teamName={clubName} />}
           </aside>
         </div>
       </main>
@@ -235,7 +255,7 @@ function GameChoice({ initial }: { initial: GameCode }) {
     <section>
       <SectionHead
         title="The game"
-        note="Sets the words on the stat sheet and the tags: kick-out or poc amach, 45 or 65, and whether football's two-point arc is drawn. Every clip and stat is kept when it changes. A dual club sets up each team on its own."
+        note="Sets the words on the stat sheet and the tags: kick-out or poc amach, 45 or 65, and whether football's two-point arc is drawn. Every clip and stat is kept when it changes. Each team in the club has its own."
       />
       <label htmlFor="club-code" className="sr-only">
         The game this team plays
@@ -262,10 +282,162 @@ function GameChoice({ initial }: { initial: GameCode }) {
   );
 }
 
+/* --------------------------------------------------------------- the teams */
+
+/**
+ * The club's teams, for an admin. Each has its own panel, code, footage,
+ * clips and drills, and nobody on one sees another's. The admin is on one
+ * team at a time like everyone else; going to another moves them onto it,
+ * which is why the button says "go" rather than "view".
+ */
+function ClubTeams({
+  teams,
+  currentId,
+  viewerId,
+}: {
+  teams: ClubTeam[];
+  currentId: string;
+  viewerId: string;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function go(team: ClubTeam) {
+    setError(null);
+    startTransition(async () => {
+      const result = await moveToTeam(viewerId, team.id);
+      if ("error" in result) setError(result.error);
+    });
+  }
+
+  return (
+    <section>
+      <SectionHead
+        title="Teams in the club"
+        note="Each team has its own code, matches, clips and drills, and nobody on one can see another's. Only a club admin goes between them or moves someone across."
+      />
+      <ul>
+        {teams.map((t) => (
+          <li key={t.id} className="fixture flex items-center gap-3 py-2.5">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[15px] font-semibold">{t.name}</div>
+              <div className="caption">
+                {GAME_LABELS[t.code]}, {count(t.people, "person", "people")}
+              </div>
+            </div>
+            {t.id === currentId ? (
+              <span className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+                You are here
+              </span>
+            ) : (
+              <button disabled={pending} onClick={() => go(t)} className="btn-ghost text-xs">
+                Go to this team
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {error && (
+        <p className="mt-2 text-[12px]" style={{ color: "var(--color-danger-ink)" }}>
+          {error}
+        </p>
+      )}
+      <AddTeam />
+    </section>
+  );
+}
+
+function AddTeam() {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="btn-outline mt-4">
+        Add a team
+      </button>
+    );
+  }
+
+  return (
+    <form
+      className="mt-4 space-y-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setError(null);
+        startTransition(async () => {
+          const result = await addTeam({ name, code });
+          if ("error" in result) {
+            setError(result.error);
+          } else {
+            setName("");
+            setCode("");
+            setOpen(false);
+          }
+        });
+      }}
+    >
+      <div>
+        <label htmlFor="new-team-name" className="label mb-1.5 block">
+          Team name
+        </label>
+        <input
+          id="new-team-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          autoFocus
+          placeholder="Under 16 camogie"
+          className="field"
+        />
+      </div>
+      <div>
+        <label htmlFor="new-team-code" className="label mb-1.5 block">
+          Game
+        </label>
+        <select
+          id="new-team-code"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          className="field"
+        >
+          <option value="" disabled>
+            Choose the game this team plays
+          </option>
+          {GAME_CODES.map((c) => (
+            <option key={c} value={c}>
+              {GAME_LABELS[c]}
+            </option>
+          ))}
+        </select>
+      </div>
+      <p className="caption">
+        It gets its own team code to send its panel. You can also move people onto it from the
+        panel on the left.
+      </p>
+      {error && (
+        <p className="text-[12px]" style={{ color: "var(--color-danger-ink)" }}>
+          {error}
+        </p>
+      )}
+      <div className="flex gap-2">
+        <button type="submit" disabled={pending} className="btn-primary">
+          {pending ? "Adding…" : "Add the team"}
+        </button>
+        <button type="button" onClick={() => setOpen(false)} className="btn-ghost">
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
 /* --------------------------------------------------------------- the panel */
 
 const ROLE_LABEL: Record<Role, string> = {
-  admin: "Team admin",
+  admin: "Club admin",
   coach: "Coach",
   player: "Player",
 };
@@ -279,7 +451,15 @@ const ROLE_ORDER: Record<Role, number> = { admin: 0, coach: 1, player: 2 };
  * and for the admin a choice of what they should be. Sorted by the role they
  * arrived with, so a row stays put while its role is being changed.
  */
-function Panel({ members, viewerId }: { members: Member[]; viewerId: string }) {
+function Panel({
+  members,
+  viewerId,
+  otherTeams,
+}: {
+  members: Member[];
+  viewerId: string;
+  otherTeams: ClubTeam[];
+}) {
   const sorted = [...members].sort(
     (a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role] || a.displayName.localeCompare(b.displayName),
   );
@@ -295,7 +475,7 @@ function Panel({ members, viewerId }: { members: Member[]; viewerId: string }) {
       ) : (
         <ul>
           {sorted.map((m) => (
-            <MemberRow key={m.id} member={m} isSelf={m.id === viewerId} />
+            <MemberRow key={m.id} member={m} isSelf={m.id === viewerId} otherTeams={otherTeams} />
           ))}
         </ul>
       )}
@@ -325,10 +505,31 @@ function RoleFlag({ role }: { role: Role }) {
   );
 }
 
-function MemberRow({ member, isSelf }: { member: Member; isSelf: boolean }) {
+function MemberRow({
+  member,
+  isSelf,
+  otherTeams,
+}: {
+  member: Member;
+  isSelf: boolean;
+  otherTeams: ClubTeam[];
+}) {
   const [role, setRole] = useState(member.role);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  // Moving someone takes them off this panel: they see only the new team's
+  // matches from then on, so it is asked first, like removing them.
+  function move(teamId: string) {
+    const team = otherTeams.find((t) => t.id === teamId);
+    if (!team) return;
+    if (!confirm(`Move ${member.displayName} to ${team.name}? They will see only that team's matches, clips and drills from now on.`)) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await moveToTeam(member.id, team.id);
+      if ("error" in result) setError(result.error);
+    });
+  }
 
   function changeRole(next: Role) {
     const before = role;
@@ -372,8 +573,29 @@ function MemberRow({ member, isSelf }: { member: Member; isSelf: boolean }) {
       >
         <option value="player">Player</option>
         <option value="coach">Coach</option>
-        <option value="admin">Team admin</option>
+        <option value="admin">Club admin</option>
       </select>
+
+      {/* An admin goes to another team from the list of teams, not from
+          here, so their own row has no move. */}
+      {!isSelf && otherTeams.length > 0 && (
+        <select
+          value=""
+          disabled={pending}
+          onChange={(e) => move(e.target.value)}
+          className="field w-36 text-[13px]"
+          aria-label={`Move ${member.displayName} to another team`}
+        >
+          <option value="" disabled>
+            Move to…
+          </option>
+          {otherTeams.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
+      )}
 
       <div className="flex w-20 justify-end">
         {!isSelf && (
@@ -555,61 +777,37 @@ function MatchRow({
 /* -------------------------------------------------------------- the club */
 
 /**
- * Closing the club, at the foot of the rail where nobody lands on it by
- * accident. Folded shut, and the button only wakes once the club's name has
- * been typed, because this is the one action in the app with no way back.
+ * Closing the club, at the foot of the rail. There is no button: deleting a
+ * whole club is the one action with no way back, so an admin asks by email
+ * and the host does it with `npm run close-club` once the club has
+ * confirmed. The email has to come from an admin's own address, which is how
+ * the script finds the club, so the link fills in the rest.
  */
 function CloseClub({ teamName }: { teamName: string }) {
-  const [typed, setTyped] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-  const matchesName = typed.trim().toLowerCase() === teamName.trim().toLowerCase();
+  const subject = `Close ${teamName} on Ardawn`;
+  const body =
+    `Please close ${teamName} on Ardawn and delete everything in it.\n\n` +
+    "I am an admin of the club and am sending this from the address I sign in with.";
+  const href = `mailto:hello@ardawnsport.ie?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
   return (
     <section>
       <SectionHead title="Close the club" />
-      <details className="group">
-        <summary className="btn-outline cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-          Delete the club and everything in it
-        </summary>
-        <div className="mt-4 space-y-3">
-          <p className="text-[14px] leading-relaxed" style={{ color: "var(--color-ink-dim)" }}>
-            Every match, file of footage, clip, stat, drill and person on the panel is deleted at
-            once, and everyone is signed out. This cannot be undone. Backups hold a copy for up to
-            30 days, then it is gone for good.
-          </p>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              setError(null);
-              startTransition(async () => {
-                const result = await deleteClub(typed);
-                if (result?.error) setError(result.error);
-              });
-            }}
-            className="space-y-3"
-          >
-            <label htmlFor="closeClubName" className="label block">
-              Type <strong style={{ color: "var(--color-ink)" }}>{teamName}</strong> to confirm
-            </label>
-            <input
-              id="closeClubName"
-              value={typed}
-              onChange={(e) => setTyped(e.target.value)}
-              autoComplete="off"
-              className="field"
-            />
-            {error && (
-              <p className="text-[12px]" style={{ color: "var(--color-danger-ink)" }}>
-                {error}
-              </p>
-            )}
-            <button type="submit" disabled={!matchesName || pending} className="btn-outline w-full">
-              {pending ? "Deleting the club…" : "Delete the club for good"}
-            </button>
-          </form>
-        </div>
-      </details>
+      <div className="space-y-3 text-[14px] leading-relaxed" style={{ color: "var(--color-ink-dim)" }}>
+        <p>
+          Closing the club deletes every team in it, with every match, file of footage, clip, stat,
+          drill and person on their panels, and cannot be undone. So that it never happens by accident, it is done by us, not
+          from this page.
+        </p>
+        <p>
+          To ask, email us from the address you sign in with. We reply to check it is what the club
+          wants, and delete everything within seven days of you confirming. Backups hold a copy for up
+          to 30 days, then it is gone for good.
+        </p>
+        <a href={href} className="btn-outline inline-block">
+          Ask to close the club
+        </a>
+      </div>
     </section>
   );
 }
