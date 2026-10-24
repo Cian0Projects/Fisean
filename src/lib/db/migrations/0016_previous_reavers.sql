@@ -1,0 +1,1 @@
+ALTER TABLE `match_stats` ADD `voice_heard` text;

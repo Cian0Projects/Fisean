@@ -107,9 +107,14 @@ function fromA(nouns: string[]): string[] {
 
 // The restart is a puck-out in hurling and camogie, a kick-out in football;
 // people say either, and the engine hears "poc amach" a few different ways.
+// "Puckout" is not in the engine's dictionary, so it reaches for the nearest
+// real words. The ones that mean nothing else at a match are trusted anywhere
+// in a sentence; common words it might be ("pocket", "back out") only count
+// as the first word, below.
 const RESTART = [
   "puckout", "puckouts", "puck out", "puck outs", "puck", "poc amach", "puc amach", "pock amach", "poc",
   "kickout", "kickouts", "kick out", "kick outs", "restart",
+  "bookhouse", "book house", "bookhouses", "book out", "bookout", "buckhouse", "buck house", "puck house", "buck out",
 ];
 
 /**
@@ -153,11 +158,16 @@ const PHRASES: [string[], Meaning][] = [
   [["theirs", "their", "them", "they", "opposition", "opponents", "the opposition"], { t: "side", v: "opposition" }],
 
   /* ------------------------------------------------------------ outcomes */
+  // The engine writes "won" as "one" whenever it can, so "we one" and "one
+  // it" are a win too. "One" on its own stays a number.
   [
-    ["won", "win", "won it", "we won", "we won it", "kept", "kept it", "retained", "good", "caught", "found", "gained", "success", "successful", "complete", "completed"],
+    [
+      "we 1", "we 1 it", "weve 1", "weve 1 it", "1 it", "1 the break", "won the break", "we won the break",
+      "won", "win", "won it", "we won", "we won it", "kept", "kept it", "retained", "good", "caught", "found", "gained", "success", "successful", "complete", "completed",
+    ],
     { t: "won" },
   ],
-  [["lost", "lose", "lost it", "they won", "they won it", "intercepted", "bad", "conceded"], { t: "lost" }],
+  [["lost", "lose", "lost it", "lost the break", "they won", "they won it", "they 1", "they 1 it", "intercepted", "bad", "conceded"], { t: "lost" }],
   [["unclear", "broke", "break", "broken", "breaking", "breaking ball", "neither", "nobody", "50 50"], { t: "unclear" }],
 
   /* ------------------------------------------------------------- details */
@@ -352,9 +362,18 @@ export function parseSpokenStat(text: string, current: StatType): VoiceStat {
   let unclear = false;
   let short = false;
 
+  let prev: Meaning | undefined;
   for (const m of said) {
     switch (m.t) {
       case "number":
+        // "Turnover seven won" arrives as "turnover 7 1". Only a turnover or
+        // a poc amach is won or lost by one player, so on those a 1 straight
+        // after a number is the win, not a second player.
+        if (m.v === 1 && prev?.t === "number" && (statType === "turnover" || statType === "puckout")) {
+          won = true;
+          unclear = false;
+          break;
+        }
         if (Number.isInteger(m.v) && m.v >= 1 && m.v <= MAX_JERSEY) numbers.push(m.v);
         break;
       case "half":
@@ -408,6 +427,7 @@ export function parseSpokenStat(text: string, current: StatType): VoiceStat {
         if (statType === "puckout") f.pastSixtyFive = true;
         break;
     }
+    prev = m;
   }
 
   // Who it was. A delivery names two, struck by and aimed at, in that order;

@@ -260,6 +260,7 @@ export function StatLogger({
       // Logged without touching anything first (the type already showing,
       // straight to log): now is the best there is.
       seenAt: editingId ? seenAt : (seenAt ?? clock.now()),
+      voiceHeard: voice.heard || null,
     };
 
     startTransition(async () => {

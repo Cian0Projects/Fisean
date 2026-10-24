@@ -16,6 +16,20 @@ is used, how it is deployed).
 
 -->
 
+## Voice remembers what it heard
+*2026-10-24*
+
+The browser's speech engine mishears GAA words in ways nobody would guess:
+puck out comes back as "bookhouse", won as "one", shot as "shop". Each stat
+logged by voice now keeps the words the engine wrote, in a new
+`match_stats.voice_heard` column, beside what the coach finally logged. It is
+text only, never audio, and nothing in the app shows it; it is there to be
+read off real matches so the mishearings can be added to the phrase table in
+`src/lib/hurling/voice.ts` in batches rather than guessed at one by one. The
+same release teaches the parser the first of them: sound-alikes for every
+stat type, trusted only as a stat's first word, "we one" as a win, and
+"bookhouse" as a puck-out anywhere in a sentence.
+
 ## Double tap to skip, and a scrub bar in full screen
 *2026-10-23*
 

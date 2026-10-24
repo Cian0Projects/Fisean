@@ -258,6 +258,7 @@ export function StatPad({
       videoId,
       atMs,
       seenAt: entrySeenAt,
+      voiceHeard: voice.heard || null,
     };
 
     startTransition(async () => {

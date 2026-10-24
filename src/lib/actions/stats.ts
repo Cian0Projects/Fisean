@@ -18,7 +18,17 @@ export type StatInput = StatDraft & {
   atMs?: number | null;
   /** The real-world moment the coach started the entry, by the server's clock. */
   seenAt?: number | null;
+  /** What the speech engine wrote, when the entry was said. See the schema. */
+  voiceHeard?: string | null;
 };
+
+/** Long enough for any stat said in one go, short enough that a mic left open cannot fill the row. */
+const VOICE_HEARD_MAX = 500;
+
+function voiceHeardOf(input: { voiceHeard?: string | null }): string | null {
+  const heard = typeof input.voiceHeard === "string" ? input.voiceHeard.trim() : "";
+  return heard ? heard.slice(0, VOICE_HEARD_MAX) : null;
+}
 
 /** What the logging form keeps in its list. Names come from the match's number sheet. */
 export type SavedStat = StatRow;
@@ -83,7 +93,7 @@ function revalidateStats(matchId: string): void {
 /** The row as the forms hold it — the stored columns, less the bookkeeping. */
 function toSaved(row: typeof matchStats.$inferSelect): SavedStat {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { matchId, teamId, createdBy, updatedAt, ...saved } = row;
+  const { matchId, teamId, createdBy, updatedAt, voiceHeard, ...saved } = row;
   return saved;
 }
 
@@ -109,7 +119,13 @@ export async function logMatchStat(input: StatInput): Promise<SavedStat> {
 
   const [row] = await db
     .insert(matchStats)
-    .values({ ...values, matchId: match.id, teamId: user.teamId, createdBy: user.id })
+    .values({
+      ...values,
+      voiceHeard: voiceHeardOf(input),
+      matchId: match.id,
+      teamId: user.teamId,
+      createdBy: user.id,
+    })
     .returning();
 
   revalidateStats(match.id);
@@ -139,10 +155,13 @@ export async function updateMatchStat(
 
   const values = normalise(input, user.teamCode);
   await assertReferencesAreOurs(user, values);
+  // An edit tapped by hand keeps what was heard the first time; one said
+  // again replaces it.
+  const heard = voiceHeardOf(input);
 
   const [row] = await db
     .update(matchStats)
-    .set({ ...values, updatedAt: Date.now() })
+    .set({ ...values, ...(heard ? { voiceHeard: heard } : {}), updatedAt: Date.now() })
     .where(eq(matchStats.id, statId))
     .returning();
 

@@ -659,6 +659,13 @@ export const matchStats = sqliteTable(
      * a throw-in tapped late or corrected afterwards moves every entry.
      */
     seenAt: integer("seen_at"),
+    /**
+     * The words the speech engine wrote, when the entry was said rather than
+     * tapped. Text only, never audio. Kept beside what was finally logged so
+     * the engine's mishearings ("bookhouse" for puck out) can be read off
+     * real matches and taught to the parser; nothing in the app shows it.
+     */
+    voiceHeard: text("voice_heard"),
     createdAt: integer("created_at").notNull().default(now),
     updatedAt: integer("updated_at").notNull().default(now),
   },

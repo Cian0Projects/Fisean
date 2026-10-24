@@ -65,6 +65,30 @@ test("a misheard type is trusted as the first word, and only there", () => {
   assert.equal(p.fields.puckoutLength, "short");
 });
 
+test("won, as the engine writes it, is a win and not number 1", () => {
+  for (const said of ["we won turnover", "we one turnover", "turnover 7 we one", "turnover seven one it", "turnover seven one"]) {
+    const t = parseSpokenStat(said, "tackle");
+    assert.equal(t.statType, "turnover", said);
+    assert.equal(t.fields.outcome, "positive", said);
+    assert.notEqual(t.fields.playerNumber, "1", said);
+  }
+  assert.equal(parseSpokenStat("turnover seven one", "tackle").fields.playerNumber, "7");
+  assert.equal(parseSpokenStat("puckout ours they one it", "shot").fields.outcome, "negative");
+  // One on its own is still the keeper, and a tackle has nobody to win.
+  assert.equal(parseSpokenStat("turnover one", "tackle").fields.playerNumber, "1");
+  assert.equal(parseSpokenStat("tackle seven one", "shot").fields.playerNumber, "1");
+});
+
+test("puck out as the engine hears it", () => {
+  for (const said of ["bookhouse ours long", "book house ours long", "Bookhouse, ours, long"]) {
+    const p = parseSpokenStat(said, "shot");
+    assert.equal(p.statType, "puckout", said);
+    assert.equal(p.fields.puckoutLength, "long", said);
+  }
+  // Anywhere in the sentence, since it means nothing else.
+  assert.equal(parseSpokenStat("shot 11 point from a bookhouse", "tackle").fields.attemptSource, "puckout");
+});
+
 test("a result names the type by itself", () => {
   const s = parseSpokenStat("seven wide", "tackle");
   assert.equal(s.statType, "shot");
