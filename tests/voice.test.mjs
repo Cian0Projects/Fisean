@@ -2,6 +2,27 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { normaliseSpeech, parseSpokenStat, speechScore } from "../src/lib/hurling/voice.ts";
 
+test("a mark, its kind, and whether it was scored from", () => {
+  const football = ["tackle", "delivery", "turnover", "shot", "free_conceded", "puckout", "free_won", "mark"];
+  const a = parseSpokenStat("advanced mark fourteen we scored", "tackle", football);
+  assert.equal(a.statType, "mark");
+  assert.equal(a.fields.markKind, "advanced");
+  assert.equal(a.fields.playerNumber, "14");
+  assert.equal(a.fields.ledToScore, true);
+
+  // "Kickout mark" is a mark, not a restart; "mark from the kickout" too.
+  const k = parseSpokenStat("kickout mark eight", "shot", football);
+  assert.equal(k.statType, "mark");
+  assert.equal(k.fields.markKind, "kickout");
+  assert.equal(parseSpokenStat("mark from the kickout ours", "shot", football).fields.markKind, "kickout");
+  assert.equal(parseSpokenStat("their mark", "shot", football).fields.side, "opposition");
+
+  // A hurling sheet has no mark, so the word is not a type there.
+  const hurling = football.filter((t) => t !== "mark");
+  assert.equal(parseSpokenStat("mark seven", "tackle", hurling).statType, "tackle");
+  assert.equal(parseSpokenStat("advanced mark", "shot", hurling).statType, "shot");
+});
+
 test("number words become digits, tens and units together", () => {
   assert.deepEqual(normaliseSpeech("Number twenty-one, sixty five"), ["number", "21", "65"]);
   assert.deepEqual(normaliseSpeech("Cúl"), ["cul"]);

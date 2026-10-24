@@ -31,7 +31,6 @@ import { deleteMatchStat, logMatchStat, updateMatchStat } from "@/lib/actions/st
 import { formatClock, toGameTime, type Markers } from "@/lib/hurling/notation";
 import type { GameCode } from "@/lib/hurling/codes";
 import {
-  STAT_TYPES,
   STAT_TYPE_SHAPE,
   statVocabulary,
   describeStat,
@@ -170,6 +169,7 @@ export function StatPad({
   // Opening the mic is the moment the coach saw it, so it stamps the time the
   // way switching type or placing a point does.
   const voice = useVoiceEntry({
+    statTypes: vocabulary.statTypes,
     statType,
     detail,
     chooseType,
@@ -197,7 +197,7 @@ export function StatPad({
         resetEntry();
         return;
       }
-      const found = STAT_TYPES.find((t) => STAT_TYPE_SHAPE[t].hotkey === e.key);
+      const found = vocabulary.statTypes.find((t) => STAT_TYPE_SHAPE[t].hotkey === e.key);
       if (found) {
         e.preventDefault();
         chooseType(found);
@@ -206,7 +206,7 @@ export function StatPad({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [editingId, stampMs, markers, halfLengthMin]);
+  }, [editingId, stampMs, markers, halfLengthMin, vocabulary]);
 
   const placePoint = (p: { x: number; y: number }) => {
     if (meta.points === 0) return;
@@ -317,7 +317,7 @@ export function StatPad({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3">
       <div className="flex flex-wrap gap-1 border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
-        {STAT_TYPES.map((t) => {
+        {vocabulary.statTypes.map((t) => {
           const m = vocabulary.meta[t];
           const here = t === statType;
           return (

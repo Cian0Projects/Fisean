@@ -32,6 +32,7 @@ import {
   statVocabulary,
   summariseShooting,
   summariseStats,
+  type MarkSummary,
   type PlayerTally,
   type PuckoutBreakdown,
   type ShotResult,
@@ -85,8 +86,8 @@ export function StatReport({
   const { terms } = vocabulary;
   const players = numberSheet(numbers);
   const summary = summariseStats(rows);
-  const ours = summariseShooting(rows, "us");
-  const theirs = summariseShooting(rows, "opposition");
+  const ours = summariseShooting(rows, "us", code);
+  const theirs = summariseShooting(rows, "opposition", code);
   const of = (...types: StatRow["statType"][]) => rows.filter((r) => types.includes(r.statType));
   const shots = of("shot");
   const ourShots = shots.filter((r) => r.side !== "opposition");
@@ -263,6 +264,25 @@ export function StatReport({
             <HalfMaps rows={of("free_conceded", "free_won")} players={players} code={code} />
           </Section>
 
+          {/* ------------------------------------------------- marks, football */}
+          {terms.marks && (
+            <Section
+              title="Marks"
+              note={`Clean catches that earn a free, both ways: off a ${terms.restart.toLowerCase()}, or an advanced mark inside the 45. Filled green for ours, ringed red for theirs.`}
+              legend={<Legend />}
+            >
+              <Lead
+                parts={[
+                  { n: summary.ourMarks.total, outcome: "positive" },
+                  { n: summary.theirMarks.total, outcome: "negative" },
+                ]}
+              >
+                {marksSentence(summary.ourMarks, summary.theirMarks, terms.restart)}
+              </Lead>
+              <HalfMaps rows={of("mark")} players={players} code={code} />
+            </Section>
+          )}
+
           {/* -------------------------------------------------- player by player */}
           <Section
             title="Player by player"
@@ -356,6 +376,33 @@ function disciplineSentence(s: ReturnType<typeof summariseStats>): string {
   return `${given}, and won ${s.freesWon}.`;
 }
 
+/**
+ * "We won 6 marks: 4 advanced and 2 off a kick-out. We scored from 3 of
+ * them, 50%. They won 2, and scored from 1." Kinds nobody logged are left
+ * out rather than said as nought.
+ */
+function marksSentence(ours: MarkSummary, theirs: MarkSummary, restart: string): string {
+  if (ours.total + theirs.total === 0) return "No marks logged either way.";
+  const kinds = (m: MarkSummary) => {
+    const parts = [
+      m.byKind.advanced > 0 && `${m.byKind.advanced} advanced`,
+      m.byKind.kickout > 0 && `${m.byKind.kickout} off a ${restart.toLowerCase()}`,
+    ].filter(Boolean);
+    return parts.length ? `: ${parts.join(" and ")}` : "";
+  };
+  const us =
+    ours.total === 0
+      ? "We won no marks."
+      : `We won ${plural(ours.total, "mark")}${kinds(ours)}.${
+          ours.scoredFrom > 0 ? ` We scored from ${ours.scoredFrom} of them, ${ours.scoredFromPercent}%.` : ""
+        }`;
+  const them =
+    theirs.total === 0
+      ? " They won none."
+      : ` They won ${theirs.total}${kinds(theirs)}${theirs.scoredFrom > 0 ? `, and scored from ${theirs.scoredFrom}` : ""}.`;
+  return us + them;
+}
+
 /** Rows in the order the analyst's sheet lists them; the rarer ones only when they happened. */
 const RESULT_ROWS: { result: ShotResult; always: boolean }[] = [
   { result: "goal", always: true },
@@ -424,6 +471,17 @@ function ShootingColumn({
       detail: `${s.sources[k].scored} scored`,
     }));
 
+  // Football only: where they went for two, read off the marks on the map.
+  const arcRows = s.arc
+    ? [
+        { label: "Outside the arc", value: s.arc.outside.attempts, detail: `${s.arc.outside.scored} scored` },
+        { label: "Inside the arc", value: s.arc.inside.attempts, detail: `${s.arc.inside.scored} scored` },
+        ...(s.arc.unplaced.attempts > 0
+          ? [{ label: "Not on the map", value: s.arc.unplaced.attempts, detail: `${s.arc.unplaced.scored} scored` }]
+          : []),
+      ]
+    : null;
+
   return (
     <div>
       <h3 className="title text-[16px]">{name}</h3>
@@ -433,10 +491,14 @@ function ShootingColumn({
         <ShootingFigure s={s} ours={ours} />
       </div>
 
-      <div className="mt-6 grid gap-5 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+      {/* Four panels sit two by two; hurling's three stay in a row. */}
+      <div
+        className={`mt-6 grid gap-5 lg:grid-cols-1 ${arcRows ? "sm:grid-cols-2 xl:grid-cols-2" : "sm:grid-cols-3 xl:grid-cols-3"}`}
+      >
         <Counts title={vocabulary.shotKindLabels.play} rows={resultRows(s.playResults)} />
         <Counts title={`Scorable free or ${vocabulary.terms.endLineFree}`} rows={resultRows(s.placedResults)} />
         <Counts title="Attempt came from" rows={sourceRows} />
+        {arcRows && <Counts title="Inside or outside the arc" rows={arcRows} />}
       </div>
 
       <div className="mt-6">
@@ -658,6 +720,7 @@ function PlayerTable({
             <Th>Frees won</Th>
             <Th>Frees given</Th>
             <Th>{vocabulary.terms.restarts}</Th>
+            {vocabulary.terms.marks && <Th>Marks</Th>}
           </tr>
         </thead>
         <tbody>
@@ -684,6 +747,7 @@ function PlayerTable({
                 <Num value={line.freesWon} />
                 <Num value={line.freesConceded} tone="negative" />
                 <Num value={line.puckoutsWon} />
+                {vocabulary.terms.marks && <Num value={line.marks} />}
               </tr>
             );
           })}

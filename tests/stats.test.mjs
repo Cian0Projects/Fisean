@@ -783,6 +783,91 @@ test("a point marked outside the arc counts two, in a code with the arc", () => 
   assert.equal(resultFromWhere(null, { x: 0.7, y: 0.5 }, "football"), null);
 });
 
+test("only a code with the mark offers one, and it is good for whoever caught it", () => {
+  assert.ok(statVocabulary("football").statTypes.includes("mark"));
+  assert.ok(statVocabulary("ladies_football").statTypes.includes("mark"));
+  assert.ok(!statVocabulary("hurling").statTypes.includes("mark"));
+  assert.ok(!statVocabulary("camogie").statTypes.includes("mark"));
+  assert.throws(() => normaliseEntry({ statType: "mark" }, "hurling"), /only given in football/);
+
+  const ours = normaliseEntry(
+    { statType: "mark", markKind: "advanced", ledToScore: true, playerNumber: 14, originX: 0.8, originY: 0.4 },
+    "football",
+  );
+  assert.equal(ours.side, "us");
+  assert.equal(ours.outcome, "positive");
+  assert.equal(ours.markKind, "advanced");
+  assert.equal(ours.ledToScore, true);
+  assert.equal(ours.playerNumber, 14);
+  assert.equal(ours.originX, 0.8);
+
+  // Theirs is red and names nobody; the kind is optional, and dropped if made up.
+  const theirs = normaliseEntry(
+    { statType: "mark", side: "opposition", markKind: "fair_catch", playerNumber: 3 },
+    "football",
+  );
+  assert.equal(theirs.outcome, "negative");
+  assert.equal(theirs.playerNumber, null);
+  assert.equal(theirs.markKind, null);
+  assert.equal(theirs.ledToScore, false);
+
+  // The column means nothing on any other stat.
+  assert.equal(normaliseEntry({ ...shot("wide"), markKind: "advanced" }, "football").markKind, null);
+});
+
+test("a mark is said the way a coach would say it", () => {
+  const mark = (extra) => describeStat({ statType: "mark", outcome: null, ...extra }, "football");
+  assert.equal(mark({ markKind: "advanced" }), "Advanced mark");
+  assert.equal(mark({ markKind: "kickout", ledToScore: true }), "Mark off a kick-out, we scored from it");
+  assert.equal(mark({ side: "opposition", ledToScore: true }), "Their mark, they scored from it");
+});
+
+test("marks roll up by side and kind, and onto the player who caught them", () => {
+  const rows = [
+    { statType: "mark", outcome: "positive", side: "us", markKind: "advanced", ledToScore: true, playerNumber: 14 },
+    { statType: "mark", outcome: "positive", side: "us", markKind: "advanced", ledToScore: false, playerNumber: 14 },
+    { statType: "mark", outcome: "positive", side: "us", markKind: "kickout", ledToScore: false, playerNumber: 8 },
+    { statType: "mark", outcome: "positive", side: "us", markKind: null, ledToScore: false },
+    { statType: "mark", outcome: "negative", side: "opposition", markKind: "advanced", ledToScore: true },
+  ];
+  const s = summariseStats(rows);
+  assert.equal(s.ourMarks.total, 4);
+  assert.deepEqual(s.ourMarks.byKind, { kickout: 1, advanced: 2, unrecorded: 1 });
+  assert.equal(s.ourMarks.scoredFrom, 1);
+  assert.equal(s.ourMarks.scoredFromPercent, 25);
+  assert.equal(s.theirMarks.total, 1);
+  assert.equal(s.theirMarks.scoredFrom, 1);
+
+  const lines = playerStatLines(rows);
+  assert.equal(lines.get(14).marks, 2);
+  assert.equal(lines.get(8).marks, 1);
+});
+
+test("a code with the arc splits its attempts by it, read off the map", () => {
+  const at = (shotResult, originX, side = "us") => ({ ...shot(shotResult), side, originX, originY: 0.5 });
+  const rows = [
+    at("two_pointer", 0.7),
+    at("wide", 0.7),
+    at("point", 0.9),
+    at("goal", 0.95),
+    // A two-pointer is outside whatever its mark says; no mark is not guessed.
+    at("two_pointer", 0.9),
+    { ...shot("wide") },
+    at("point", 0.9, "opposition"),
+  ];
+  const ours = summariseShooting(rows, "us", "football");
+  assert.deepEqual(ours.arc, {
+    outside: { attempts: 3, scored: 2 },
+    inside: { attempts: 2, scored: 2 },
+    unplaced: { attempts: 1, scored: 0 },
+  });
+  assert.equal(summariseShooting(rows, "opposition", "football").arc.inside.attempts, 1);
+  // No arc in hurling, and none without the code.
+  assert.equal(summariseShooting(rows, "us", "hurling").arc, null);
+  assert.equal(summariseShooting(rows, "us").arc, null);
+});
+
+
 test("a two-pointer is one score worth two", () => {
   // 0-2 and two two-pointers is 0-6: four scores from five shots.
   const rows = [shot("point"), shot("point"), shot("two_pointer"), shot("two_pointer"), shot("wide")];

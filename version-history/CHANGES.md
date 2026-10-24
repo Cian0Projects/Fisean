@@ -16,6 +16,19 @@ is used, how it is deployed).
 
 -->
 
+## Marks and two-point attempts on the football stat sheet
+*2026-10-24*
+
+Football and ladies football sheets get a stat of their own: the mark, either
+side's, off a kick-out or an advanced mark inside the 45, with whether it was
+scored from. It is logged by tap or by voice ("advanced mark fourteen, we
+scored"), has its own lane on the timeline, a section in the report and a
+column in the player table, and is never offered to a hurling or camogie
+sheet. The report's shooting columns also split every attempt by the arc,
+read off the map, so a coach sees how often the team went for two and how
+often it came off. One nullable column, `match_stats.mark_kind`, added by
+migration 0020; existing rows are untouched.
+
 ## A club can have more than one team
 *2026-10-24*
 

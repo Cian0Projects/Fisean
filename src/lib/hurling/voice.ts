@@ -30,6 +30,7 @@
 import type {
   AttemptSource,
   Half,
+  MarkKind,
   PossessionKind,
   PuckoutLength,
   PuckoutSide,
@@ -61,6 +62,7 @@ export type VoiceFields = Partial<{
   puckoutTakenBy: PuckoutSide;
   puckoutLength: PuckoutLength;
   pastSixtyFive: boolean;
+  markKind: MarkKind;
 }>;
 
 export type VoiceStat = {
@@ -85,6 +87,7 @@ type Meaning =
   | { t: "length"; v: PuckoutLength }
   | { t: "kind"; v: ShotKind }
   | { t: "source"; v: AttemptSource }
+  | { t: "markKind"; v: MarkKind }
   | { t: "possession"; v: PossessionKind }
   | { t: "scored" }
   | { t: "front" }
@@ -129,6 +132,11 @@ const PHRASES: [string[], Meaning][] = [
   [["turnover", "turnovers", "turn over", "turned over"], { t: "type", v: "turnover" }],
   [["shot", "shots", "shoot", "shooting", "attempt", "effort"], { t: "type", v: "shot" }],
   [RESTART, { t: "type", v: "puckout" }],
+  // Football's mark. "Caught a mark" beats "caught" as a win, being longer.
+  [["mark", "marks", "marked", "took a mark", "caught a mark", "called a mark", "clean catch"], { t: "type", v: "mark" }],
+  [["advanced mark", "advance mark", "advanced marks", "advanced"], { t: "markKind", v: "advanced" }],
+  // Longer than "kickout" alone, so this is a mark and not a restart.
+  [["kickout mark", "kick out mark", "kickout marks", "kick out marks"], { t: "markKind", v: "kickout" }],
   [
     ["free won", "won a free", "free for us", "free to us", "free in", "got a free", "we got a free", "fouled", "we were fouled"],
     { t: "type", v: "free_won" },
@@ -339,9 +347,11 @@ function meanings(words: string[]): Meaning[] {
 
 /**
  * Read one stat out of everything heard since the mic opened. `current` is
- * the type the form already shows, used when nobody names one.
+ * the type the form already shows, used when nobody names one. `allowed` is
+ * the stats this sheet logs: a type the code does not have (a mark, said on
+ * a hurling sheet) is ignored like any other word it does not know.
  */
-export function parseSpokenStat(text: string, current: StatType): VoiceStat {
+export function parseSpokenStat(text: string, current: StatType, allowed?: readonly StatType[]): VoiceStat {
   const all = meanings(normaliseSpeech(text));
   let lastCancel = -1;
   let resets = 0;
@@ -353,10 +363,19 @@ export function parseSpokenStat(text: string, current: StatType): VoiceStat {
   });
   const said = all.slice(lastCancel + 1);
 
-  const typed = said.filter((m) => m.t === "type");
+  const can = (t: StatType) => !allowed || allowed.includes(t);
+  const typed = said.filter((m): m is Extract<Meaning, { t: "type" }> => m.t === "type" && can(m.v));
   const results = said.filter((m) => m.t === "result");
-  // A result names the type by itself: "seven point" can only be a shot.
-  const statType: StatType = typed.length ? typed[typed.length - 1].v : results.length ? "shot" : current;
+  const markKinds = can("mark") ? said.filter((m) => m.t === "markKind") : [];
+  // A result names the type by itself: "seven point" can only be a shot, and
+  // "advanced mark" can only be a mark.
+  const statType: StatType = typed.length
+    ? typed[typed.length - 1].v
+    : results.length
+      ? "shot"
+      : markKinds.length
+        ? "mark"
+        : current;
 
   const f: VoiceFields = {};
   const numbers: number[] = [];
@@ -398,7 +417,7 @@ export function parseSpokenStat(text: string, current: StatType): VoiceStat {
         if (m.v === "short") short = true;
         break;
       case "side":
-        if (statType === "shot") f.side = m.v;
+        if (statType === "shot" || statType === "mark") f.side = m.v;
         // The first side named is whose poc amach it was; who won the break
         // is said with "won" or "lost", so a later "ours" does not move it.
         if (statType === "puckout" && f.puckoutTakenBy === undefined) f.puckoutTakenBy = m.v;
@@ -411,13 +430,18 @@ export function parseSpokenStat(text: string, current: StatType): VoiceStat {
         break;
       case "source":
         if (statType === "shot") f.attemptSource = m.v;
+        // "Mark from the kickout".
+        if (statType === "mark" && m.v === "puckout") f.markKind = "kickout";
+        break;
+      case "markKind":
+        if (statType === "mark") f.markKind = m.v;
         break;
       case "possession":
         if (statType === "turnover") f.possession = m.v;
         if (statType === "turnover" && m.v === "unforced") won = false;
         break;
       case "scored":
-        if (statType === "turnover") f.ledToScore = true;
+        if (statType === "turnover" || statType === "mark") f.ledToScore = true;
         break;
       case "front":
         if (statType === "tackle") f.frontEight = true;

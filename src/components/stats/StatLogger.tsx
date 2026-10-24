@@ -27,7 +27,6 @@ import { PitchMap, type PitchMark } from "@/components/pitch/PitchMap";
 import { VIEW_W, pitchViewHeight } from "@/components/pitch/PitchMarkings";
 import { deleteMatchStat, logMatchStat, updateMatchStat } from "@/lib/actions/stats";
 import {
-  STAT_TYPES,
   STAT_TYPE_SHAPE,
   statVocabulary,
   describeStat,
@@ -162,6 +161,7 @@ export function StatLogger({
   };
 
   const voice = useVoiceEntry({
+    statTypes: vocabulary.statTypes,
     statType,
     detail,
     chooseType,
@@ -192,7 +192,7 @@ export function StatLogger({
         resetEntry();
         return;
       }
-      const found = STAT_TYPES.find((t) => STAT_TYPE_SHAPE[t].hotkey === e.key);
+      const found = vocabulary.statTypes.find((t) => STAT_TYPE_SHAPE[t].hotkey === e.key);
       if (found) {
         e.preventDefault();
         chooseType(found);
@@ -203,7 +203,7 @@ export function StatLogger({
     return () => window.removeEventListener("keydown", onKeyDown);
     // Everything the handler calls only sets state, which React keeps stable,
     // so `editingId` is the one value it actually has to read back.
-  }, [editingId]);
+  }, [editingId, vocabulary]);
 
   /* ------------------------------------------------------------ the map */
 
@@ -407,7 +407,7 @@ export function StatLogger({
           {/* Type first: it decides what the rest of the panel even asks.
               Each button only as wide as its name, so they share rows. */}
           <div className="flex flex-wrap gap-1.5">
-            {STAT_TYPES.map((t) => {
+            {vocabulary.statTypes.map((t) => {
               const m = vocabulary.meta[t];
               const here = t === statType;
               return (

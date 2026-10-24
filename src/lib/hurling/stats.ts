@@ -19,8 +19,9 @@
  * The sheet is the same for all four codes; only the words differ. A restart
  * is stored as `puckout` and the end-line free as `sixty_five` whichever game
  * logged them, and `statVocabulary(code)` says them as that code does: a
- * kick-out and a 45 for football. The one rule that differs is the
- * two-pointer, which only a code with the arc can log.
+ * kick-out and a 45 for football. Two things are football's alone: the
+ * two-pointer, which only a code with the arc can log, and the mark, which
+ * is only offered where the code has one.
  */
 import { termsFor, type CodeTerms, type GameCode } from "./codes";
 import {
@@ -45,6 +46,8 @@ export const STAT_TYPES = [
   "free_conceded",
   "puckout",
   "free_won",
+  // Football only: see `CodeTerms.marks`.
+  "mark",
 ] as const;
 export type StatType = (typeof STAT_TYPES)[number];
 
@@ -109,6 +112,15 @@ export type PuckoutLength = (typeof PUCKOUT_LENGTHS)[number];
 export const POSSESSION_KINDS = ["turnover", "sixty_forty", "sixty_plus", "other", "unforced"] as const;
 export type PossessionKind = (typeof POSSESSION_KINDS)[number];
 
+/**
+ * The two marks football gives. A kick-out caught clean, or the advanced mark:
+ * a long kick pass caught inside the opposition 45, which is as good as a
+ * free shot. Kept apart because they answer different questions, one about
+ * winning restarts and the other about how well the forwards are found.
+ */
+export const MARK_KINDS = ["kickout", "advanced"] as const;
+export type MarkKind = (typeof MARK_KINDS)[number];
+
 export type Half = 1 | 2;
 
 /** What the logging form and the report both need of a stat row. */
@@ -138,6 +150,7 @@ export type StatEntry = {
   puckoutTakenBy?: PuckoutSide | null;
   puckoutLength?: PuckoutLength | null;
   pastSixtyFive?: boolean | null;
+  markKind?: MarkKind | null;
 };
 
 export type StatTypeMeta = {
@@ -218,6 +231,14 @@ function statTypeMeta(t: CodeTerms): Record<StatType, StatTypeMeta> {
       hotkey: "7",
       hint: "Where we were fouled.",
     },
+    mark: {
+      label: "Mark",
+      plural: "Marks",
+      points: 1,
+      outcomes: [],
+      hotkey: "8",
+      hint: `Either team's, where it was caught. Off a ${lower(t.restart)}, or an advanced mark inside their 45.`,
+    },
   };
 }
 
@@ -230,6 +251,9 @@ export type StatVocabulary = {
   code: GameCode;
   terms: CodeTerms;
   meta: Record<StatType, StatTypeMeta>;
+  /** The stats this code logs, in tab order: the mark only where there is one. */
+  statTypes: readonly StatType[];
+  markKindLabels: Record<MarkKind, string>;
   /** The results a shot can be logged with: the two-pointer only where there is an arc. */
   shotResults: readonly ShotResult[];
   shotResultLabels: Record<ShotResult, string>;
@@ -247,6 +271,11 @@ export function statVocabulary(code: GameCode): StatVocabulary {
     code,
     terms: t,
     meta: statTypeMeta(t),
+    statTypes: STAT_TYPES.filter((s) => s !== "mark" || t.marks),
+    markKindLabels: {
+      kickout: `Off a ${lower(t.restart)}`,
+      advanced: "Advanced mark",
+    },
     shotResults: SHOT_RESULTS.filter((r) => r !== "two_pointer" || t.twoPointArc),
     shotResultLabels: {
       goal: "Cúl",
@@ -357,6 +386,7 @@ const OUTCOME_LABELS: Record<StatType, Partial<Record<StatOutcome, string>>> = {
   free_conceded: {},
   puckout: { positive: "Won by us", negative: "Won by them", unclear: "Broke unclear" },
   free_won: {},
+  mark: {},
 };
 
 const GENERIC_OUTCOME_LABELS: Record<StatOutcome, string> = {
@@ -406,6 +436,7 @@ export const STAT_TYPE_COLOURS: Record<StatType, string> = {
   free_conceded: "var(--color-lane-free)",
   puckout: "var(--color-lane-puckout)",
   free_won: "var(--color-lane-free-won)",
+  mark: "var(--color-lane-mark)",
 };
 
 export type PuckoutWinner = "us" | "opposition" | "unclear";
@@ -449,10 +480,10 @@ function flip(outcome: StatOutcome): StatOutcome {
 /**
  * The outcome a row actually carries, relative to us.
  *
- * Three stats do not store one. A shot's outcome follows its result — and
+ * Four stats do not store one. A shot's outcome follows its result — and
  * whose shot it was, because their wide is good news. A free conceded is
  * inherently against us and a free won inherently for us, which is why
- * neither has a won/lost axis to log.
+ * neither has a won/lost axis to log, and a mark is good for whoever caught it.
  */
 export function effectiveOutcome(entry: StatEntry): StatOutcome | null {
   switch (entry.statType) {
@@ -461,6 +492,8 @@ export function effectiveOutcome(entry: StatEntry): StatOutcome | null {
       const forShooter = SHOT_RESULT_OUTCOME[entry.shotResult];
       return shotSide(entry) === "us" ? forShooter : flip(forShooter);
     }
+    case "mark":
+      return shotSide(entry) === "us" ? "positive" : "negative";
     case "free_conceded":
       return "negative";
     case "free_won":
@@ -550,6 +583,19 @@ export function describeStat(entry: StatEntry, code: GameCode): string {
     case "free_won":
       return "Free won";
 
+    case "mark": {
+      const ours = shotSide(entry) === "us";
+      const kind =
+        entry.markKind === "advanced"
+          ? "advanced mark"
+          : entry.markKind === "kickout"
+            ? `mark off a ${lower(t.restart)}`
+            : "mark";
+      const said = ours ? `${kind.charAt(0).toUpperCase()}${kind.slice(1)}` : `Their ${kind}`;
+      if (!entry.ledToScore) return said;
+      return `${said}, ${ours ? "we" : "they"} scored from it`;
+    }
+
     case "shot": {
       const phrase = shotPhrase(entry, t);
       if (shotSide(entry) === "us") return phrase;
@@ -629,7 +675,8 @@ export function jerseyNumber(value: unknown): number | null {
  * because a server action is reachable by POST whatever the form does.
  *
  * The code is the club's, read on the server: it words the refusals, and it
- * is what keeps a two-pointer off a sheet whose game has no arc.
+ * is what keeps a two-pointer off a sheet whose game has no arc, and a mark
+ * off one whose game has no mark.
  */
 export function normaliseEntry(draft: StatDraft, code: GameCode): NormalisedStat {
   const statType = draft.statType;
@@ -654,6 +701,7 @@ export function normaliseEntry(draft: StatDraft, code: GameCode): NormalisedStat
   let puckoutTakenBy: PuckoutSide | null = null;
   let puckoutLength: PuckoutLength | null = null;
   let pastSixtyFive: boolean | null = null;
+  let markKind: MarkKind | null = null;
 
   if (meta.outcomes.length) {
     const chosen = draft.outcome ?? null;
@@ -719,6 +767,19 @@ export function normaliseEntry(draft: StatDraft, code: GameCode): NormalisedStat
 
     case "free_won":
       break;
+
+    // Either side's, like a shot, and theirs names nobody for the same
+    // reason. Whether it was scored from is asked of both: a mark conceded
+    // inside our 45 that they put over is the defensive number.
+    case "mark":
+      if (!vocabulary.terms.marks) throw new Error("A mark is only given in football.");
+      side = draft.side == null ? "us" : oneOf(SIDES, draft.side);
+      if (!side) throw new Error("Whose mark was it?");
+      markKind = draft.markKind == null ? null : oneOf(MARK_KINDS, draft.markKind);
+      ledToScore = Boolean(draft.ledToScore);
+      outcome = effectiveOutcome({ statType, outcome: null, side });
+      if (side === "opposition") playerNumber = null;
+      break;
   }
 
   const half = draft.half === 1 || draft.half === 2 ? draft.half : null;
@@ -744,6 +805,7 @@ export function normaliseEntry(draft: StatDraft, code: GameCode): NormalisedStat
     puckoutTakenBy,
     puckoutLength,
     pastSixtyFive,
+    markKind,
   };
 }
 
@@ -1158,13 +1220,35 @@ export type SideShooting = {
   placedResults: Record<ShotResult, number>;
   /** What the attempts came from. `unrecorded` is anything logged without it. */
   sources: Record<AttemptSource | "unrecorded", SourceLine>;
+  /** Only in a code with the arc: attempts from each side of it. See `arcSideOf`. */
+  arc: Record<ArcSide, SourceLine> | null;
 };
+
+export type ArcSide = "outside" | "inside" | "unplaced";
+
+/**
+ * Which side of the arc an attempt was struck from, read off its mark. A
+ * two-pointer is outside by definition, wherever its dot was dropped; an
+ * attempt with no mark cannot be placed, and is counted as such rather than
+ * guessed into either.
+ */
+export function arcSideOf(entry: StatEntry): ArcSide {
+  if (entry.shotResult === "two_pointer") return "outside";
+  if (entry.originX == null || entry.originY == null) return "unplaced";
+  return outsideTwoPointArc(entry.originX, entry.originY) ? "outside" : "inside";
+}
 
 function emptyResults(): Record<ShotResult, number> {
   return Object.fromEntries(SHOT_RESULTS.map((r) => [r, 0])) as Record<ShotResult, number>;
 }
 
-export function summariseShooting(rows: readonly StatEntry[], side: Side): SideShooting {
+/**
+ * One side's shooting. Given the code, a code with the arc also gets its
+ * attempts split by it: once a score from out there is worth two, how often
+ * a team goes for two and how often it comes off is the question a football
+ * coach asks of every match.
+ */
+export function summariseShooting(rows: readonly StatEntry[], side: Side, code?: GameCode): SideShooting {
   const shots = rows.filter((r) => r.statType === "shot" && r.shotResult && shotSide(r) === side);
   const play = shots.filter((r) => r.shotKind !== "free");
   const placed = shots.filter((r) => r.shotKind === "free");
@@ -1186,6 +1270,20 @@ export function summariseShooting(rows: readonly StatEntry[], side: Side): SideS
     if (isScore(r.shotResult)) line.scored += 1;
   }
 
+  let arc: Record<ArcSide, SourceLine> | null = null;
+  if (code && termsFor(code).twoPointArc) {
+    arc = {
+      outside: { attempts: 0, scored: 0 },
+      inside: { attempts: 0, scored: 0 },
+      unplaced: { attempts: 0, scored: 0 },
+    };
+    for (const r of shots) {
+      const line = arc[arcSideOf(r)];
+      line.attempts += 1;
+      if (isScore(r.shotResult)) line.scored += 1;
+    }
+  }
+
   return {
     overall: shootingEfficiency(countShotRows(shots)),
     fromPlay: shootingEfficiency(countShotRows(play)),
@@ -1193,6 +1291,7 @@ export function summariseShooting(rows: readonly StatEntry[], side: Side): SideS
     playResults,
     placedResults,
     sources,
+    arc,
   };
 }
 
@@ -1221,6 +1320,15 @@ export type PuckoutSummary = {
   percent: number;
 };
 
+/** One side's marks. Empty in a code with no mark, since none can be logged. */
+export type MarkSummary = {
+  total: number;
+  byKind: Record<MarkKind | "unrecorded", number>;
+  /** How many were scored from, by whoever caught them. */
+  scoredFrom: number;
+  scoredFromPercent: number;
+};
+
 export type StatSummary = {
   entries: number;
   tackles: number;
@@ -1235,7 +1343,17 @@ export type StatSummary = {
   /** Split by whose restart it was; both counted by who won it. */
   ourPuckouts: PuckoutSummary;
   theirPuckouts: PuckoutSummary;
+  ourMarks: MarkSummary;
+  theirMarks: MarkSummary;
 };
+
+function summariseMarks(rows: readonly StatEntry[], side: Side): MarkSummary {
+  const marks = rows.filter((r) => r.statType === "mark" && shotSide(r) === side);
+  const byKind: MarkSummary["byKind"] = { kickout: 0, advanced: 0, unrecorded: 0 };
+  for (const r of marks) byKind[r.markKind ?? "unrecorded"] += 1;
+  const scoredFrom = marks.filter((r) => r.ledToScore).length;
+  return { total: marks.length, byKind, scoredFrom, scoredFromPercent: percentOf(scoredFrom, marks.length) };
+}
 
 function summarisePuckouts(rows: readonly StatEntry[], takenBy: PuckoutSide): PuckoutSummary {
   const taken = rows.filter((r) => r.statType === "puckout" && r.puckoutTakenBy === takenBy);
@@ -1288,6 +1406,8 @@ export function summariseStats(rows: readonly StatEntry[]): StatSummary {
     shooting: shootingEfficiency(countShots(rows)),
     ourPuckouts: summarisePuckouts(rows, "us"),
     theirPuckouts: summarisePuckouts(rows, "opposition"),
+    ourMarks: summariseMarks(rows, "us"),
+    theirMarks: summariseMarks(rows, "opposition"),
   };
 }
 
@@ -1374,6 +1494,8 @@ export type PlayerStatLine = {
   freesWon: number;
   /** A poc amach is credited to whoever won it, so this is always a plus. */
   puckoutsWon: number;
+  /** Marks caught, of either kind. Only ours are logged against a number. */
+  marks: number;
   /** Everything credited to them, for sorting the table by involvement. */
   entries: number;
 };
@@ -1394,6 +1516,7 @@ export function emptyStatLine(playerNumber: number): PlayerStatLine {
     freesConceded: 0,
     freesWon: 0,
     puckoutsWon: 0,
+    marks: 0,
     entries: 0,
   };
 }
@@ -1444,6 +1567,9 @@ export function playerStatLines(rows: readonly StatEntry[]): Map<number, PlayerS
         // Only a won poc amach names anybody: it is the receiver. Losing one
         // is a team failure, and guessing whose fault it was is not analysis.
         if (r.outcome === "positive") line.puckoutsWon += 1;
+        break;
+      case "mark":
+        line.marks += 1;
         break;
     }
 

@@ -8,7 +8,7 @@
  * between the codes follows the club from here rather than assuming one
  * code: the ball a new drill starts with, the words for the restart and the
  * placed balls on the stat sheet and the tags, which built-in tags are
- * offered at all, and football's two-point arc.
+ * offered at all, football's two-point arc and its mark.
  *
  * Dual clubs field a team in each code. Each team is its own space on Ardawn,
  * with its own code, panel and footage.
@@ -67,6 +67,12 @@ export type CodeTerms = {
    * camogie have no arc.
    */
   twoPointArc: boolean;
+  /**
+   * A clean catch that earns a free: from a kick-out, or the advanced mark
+   * from a long kick pass inside the opposition 45. Both football codes play
+   * it; hurling and camogie have no mark.
+   */
+  marks: boolean;
 };
 
 const STICK_TERMS = {
@@ -75,6 +81,7 @@ const STICK_TERMS = {
   line: "65",
   sideline: "Sideline cut",
   twoPointArc: false,
+  marks: false,
 } as const;
 
 const FOOTBALL_TERMS: CodeTerms = {
@@ -84,6 +91,7 @@ const FOOTBALL_TERMS: CodeTerms = {
   line: "45",
   sideline: "Sideline kick",
   twoPointArc: true,
+  marks: true,
 };
 
 const TERMS: Record<GameCode, CodeTerms> = {

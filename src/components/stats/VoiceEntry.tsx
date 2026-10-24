@@ -83,6 +83,7 @@ export type VoiceEntry = ReturnType<typeof useVoiceEntry>;
 
 export function useVoiceEntry({
   statType,
+  statTypes,
   detail,
   chooseType,
   setDetail,
@@ -90,6 +91,8 @@ export function useVoiceEntry({
   onRetake,
 }: {
   statType: StatType;
+  /** The stats this sheet logs, so a type the code lacks is never switched to. */
+  statTypes: readonly StatType[];
   detail: StatDetail;
   /** The form's own type switch, so a spoken type behaves like a pressed tab. */
   chooseType: (type: StatType) => void;
@@ -121,15 +124,15 @@ export function useVoiceEntry({
 
   // The engine's handlers outlive a render, so they read the form's latest
   // callbacks through a ref rather than the ones from when the mic opened.
-  const callbacks = useRef({ chooseType, onStart, onRetake });
+  const callbacks = useRef({ chooseType, onStart, onRetake, statTypes });
   useEffect(() => {
-    callbacks.current = { chooseType, onStart, onRetake };
+    callbacks.current = { chooseType, onStart, onRetake, statTypes };
   });
 
   const apply = (text: string) => {
     const b = base.current;
     if (!b) return;
-    const said = parseSpokenStat(text, b.type);
+    const said = parseSpokenStat(text, b.type, callbacks.current.statTypes);
     if (said.resets > resets.current) {
       resets.current = said.resets;
       pinned.current = {};

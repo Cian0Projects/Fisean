@@ -7,6 +7,7 @@ import {
   statShape,
   type AttemptSource,
   type Half,
+  type MarkKind,
   type PossessionKind,
   type PuckoutLength,
   type PuckoutSide,
@@ -40,6 +41,7 @@ export type StatRow = {
   puckoutTakenBy: PuckoutSide | null;
   puckoutLength: PuckoutLength | null;
   pastSixtyFive: boolean | null;
+  markKind: MarkKind | null;
   clipId: string | null;
   videoId: string | null;
   atMs: number | null;

@@ -110,6 +110,7 @@
   --color-lane-free: #cf8fa8;
   --color-lane-puckout: #6f8fd0;
   --color-lane-free-won: #c49bdf;
+  --color-lane-mark: #a3a8d4;
 
   /*
    * The two sides in a training drill, and the ball they play with. A side
@@ -179,6 +180,7 @@
   --color-lane-free: #a8506f;
   --color-lane-puckout: #3a5db0;
   --color-lane-free-won: #8e57b5;
+  --color-lane-mark: #535a99;
 
   --color-side-a: #1f2f96;
   --color-side-b: #a8506f;
@@ -792,6 +794,7 @@
     --color-lane-free: #a8506f;
     --color-lane-puckout: #3a5db0;
     --color-lane-free-won: #8e57b5;
+    --color-lane-mark: #535a99;
 
     --color-side-a: #1f2f96;
     --color-side-b: #a8506f;

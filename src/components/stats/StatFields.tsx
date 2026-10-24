@@ -25,6 +25,7 @@
 import type { StatDraft, StatVocabulary } from "@/lib/hurling/stats";
 import {
   ATTEMPT_SOURCES,
+  MARK_KINDS,
   MAX_JERSEY,
   OUTCOME_COLOURS,
   POSSESSION_KINDS,
@@ -39,6 +40,7 @@ import {
   puckoutWinner,
   type AttemptSource,
   type Half,
+  type MarkKind,
   type PossessionKind,
   type PuckoutLength,
   type PuckoutSide,
@@ -68,6 +70,7 @@ export type StatDetail = {
   puckoutTakenBy: PuckoutSide;
   puckoutLength: PuckoutLength | null;
   pastSixtyFive: boolean;
+  markKind: MarkKind | null;
 };
 
 export const EMPTY_DETAIL: StatDetail = {
@@ -86,6 +89,7 @@ export const EMPTY_DETAIL: StatDetail = {
   puckoutTakenBy: "us",
   puckoutLength: null,
   pastSixtyFive: false,
+  markKind: null,
 };
 
 /**
@@ -104,7 +108,7 @@ export function nextDetail(prev: StatDetail): StatDetail {
 
 /** Switching type keeps who and where; how it ended belongs to the old type. */
 export function detailForType(prev: StatDetail): StatDetail {
-  return { ...prev, outcome: null, shotResult: null, ledToScore: false, pastSixtyFive: false };
+  return { ...prev, outcome: null, shotResult: null, ledToScore: false, pastSixtyFive: false, markKind: null };
 }
 
 export function detailFromRow(row: StatRow): StatDetail {
@@ -124,16 +128,18 @@ export function detailFromRow(row: StatRow): StatDetail {
     puckoutTakenBy: row.puckoutTakenBy ?? "us",
     puckoutLength: row.puckoutLength,
     pastSixtyFive: Boolean(row.pastSixtyFive),
+    markKind: row.markKind,
   };
 }
 
 /**
  * Whether a player can be named at all. A restart names its receiver, so
- * only one we won; their shot names nobody, because the panel list is ours.
+ * only one we won; their shot or mark names nobody, because the panel list
+ * is ours.
  */
 export function playerAllowed(type: StatType, d: StatDetail): boolean {
   if (type === "puckout") return d.outcome === "positive";
-  if (type === "shot") return d.side === "us";
+  if (type === "shot" || type === "mark") return d.side === "us";
   return true;
 }
 
@@ -173,6 +179,7 @@ export function detailToDraft(type: StatType, d: StatDetail): StatDraft {
     puckoutTakenBy: d.puckoutTakenBy,
     puckoutLength: d.puckoutLength,
     pastSixtyFive: d.pastSixtyFive,
+    markKind: d.markKind,
   };
 }
 
@@ -191,6 +198,7 @@ const PLAYER_LABELS: Partial<Record<StatType, string>> = {
   tackle: "Tackle by",
   free_won: "Fouled",
   free_conceded: "Conceded by",
+  mark: "Caught by",
 };
 
 export function StatFields({
@@ -314,6 +322,33 @@ export function StatFields({
               label={`Worked out past our ${terms.line}`}
             />
           )}
+        </>
+      )}
+
+      {statType === "mark" && (
+        <>
+          <Choice
+            label="Whose mark"
+            options={[
+              { value: "us", label: "Ours", colour: OUTCOME_COLOURS.positive },
+              { value: "opposition", label: "Theirs", colour: OUTCOME_COLOURS.negative },
+            ]}
+            value={d.side}
+            onChange={(v) => onChange({ side: v as Side })}
+          />
+          <Choice
+            label="Kind"
+            options={MARK_KINDS.map((k) => ({ value: k, label: vocabulary.markKindLabels[k] }))}
+            value={d.markKind}
+            onChange={(v) => onChange({ markKind: v as MarkKind })}
+            clearable
+            onClear={() => onChange({ markKind: null })}
+          />
+          <Check
+            checked={d.ledToScore}
+            onChange={(v) => onChange({ ledToScore: v })}
+            label={d.side === "us" ? "We scored from it" : "They scored from it"}
+          />
         </>
       )}
 

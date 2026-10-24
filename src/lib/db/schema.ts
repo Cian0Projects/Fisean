@@ -22,6 +22,7 @@ import {
 // file outside the Next.js path aliases.
 import {
   ATTEMPT_SOURCES,
+  MARK_KINDS,
   POSSESSION_KINDS,
   PUCKOUT_LENGTHS,
   PUCKOUT_SIDES,
@@ -637,7 +638,10 @@ export const matchStats = sqliteTable(
      * the report is read — see `statTiming`.
      */
     half: integer("half").$type<Half>(),
-    /** Shots only: whose attempt. Null on rows from before both teams were logged, all ours. */
+    /**
+     * Shots and marks: whose attempt, whose catch. Null on shots from before
+     * both teams were logged, all ours.
+     */
     side: text("side", { enum: SIDES }),
     /** Shots only. A cúl or a cúilín also feeds the scoreline. */
     shotResult: text("shot_result", { enum: SHOT_RESULTS }),
@@ -646,8 +650,9 @@ export const matchStats = sqliteTable(
     /** Shots only, optional: what the attempt came from. */
     attemptSource: text("attempt_source", { enum: ATTEMPT_SOURCES }),
     /**
-     * Positive turnovers only. "Turnover leading to a score" is a flag rather
-     * than a stat type of its own — it is the same turnover described twice.
+     * Positive turnovers and marks only. "Turnover leading to a score" is a
+     * flag rather than a stat type of its own — it is the same turnover
+     * described twice. On a mark it is whoever caught it scoring from it.
      */
     ledToScore: integer("led_to_score", { mode: "boolean" }),
     /** Turnovers only: how the ball changed hands. */
@@ -662,6 +667,8 @@ export const matchStats = sqliteTable(
     puckoutLength: text("puckout_length", { enum: PUCKOUT_LENGTHS }),
     /** Our short poc amach that we won only: was it worked out past our 65. */
     pastSixtyFive: integer("past_sixty_five", { mode: "boolean" }),
+    /** Marks only, optional: off a kick-out, or an advanced mark. Football codes only. */
+    markKind: text("mark_kind", { enum: MARK_KINDS }),
     /** The clip covering this moment, when one already exists. */
     clipId: text("clip_id").references(() => clips.id, { onDelete: "set null" }),
     /**

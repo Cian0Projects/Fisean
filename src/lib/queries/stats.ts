@@ -34,6 +34,7 @@ export const statColumns = {
   puckoutTakenBy: matchStats.puckoutTakenBy,
   puckoutLength: matchStats.puckoutLength,
   pastSixtyFive: matchStats.pastSixtyFive,
+  markKind: matchStats.markKind,
   clipId: matchStats.clipId,
   videoId: matchStats.videoId,
   atMs: matchStats.atMs,

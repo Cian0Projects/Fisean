@@ -9,9 +9,10 @@
  * a row of red in the deliveries lane through the third quarter is the thing
  * a coach is actually looking for.
  *
- * Two lanes are in view and the rest scroll, because seven lanes plus the video
- * and the pad is more than the screen has. The lane label is the index, so the
- * colours are the second way of telling lanes apart and never the only one.
+ * Two lanes are in view and the rest scroll, because seven lanes (eight in
+ * football, with the mark) plus the video and the pad is more than the
+ * screen has. The lane label is the index, so the colours are the second way
+ * of telling lanes apart and never the only one.
  *
  * Marks keep the outcome colours — green won, red lost, amber unclear. The
  * lane's own colour names the *category*, which is why it is kept off those
@@ -22,7 +23,6 @@ import type { PlayerEngine } from "@/components/player/engine";
 import { formatClock } from "@/lib/hurling/notation";
 import type { GameCode } from "@/lib/hurling/codes";
 import {
-  STAT_TYPES,
   STAT_TYPE_COLOURS,
   statVocabulary,
   describeStat,
@@ -84,7 +84,7 @@ export function StatLanes({
   return (
     <div className="relative shrink-0 pr-3 pb-2" style={{ paddingLeft: 12 }}>
       <div className="overflow-y-auto" style={{ maxHeight: LANE_H * LANES_IN_VIEW }}>
-        {STAT_TYPES.map((type) => {
+        {statVocabulary(code).statTypes.map((type) => {
           const meta = statVocabulary(code).meta[type];
           const colour = STAT_TYPE_COLOURS[type];
           const here = type === focusType;
