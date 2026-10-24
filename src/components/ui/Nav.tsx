@@ -98,7 +98,7 @@ export function Nav({ user }: { user: SessionUser }) {
             <div className="text-[13px] font-semibold">{user.displayName}</div>
             {user.role !== "player" && (
               <div className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
-                {user.role === "admin" ? "Team admin" : "Coach"}
+                {user.role === "admin" ? "Club admin" : "Coach"}
               </div>
             )}
           </Link>

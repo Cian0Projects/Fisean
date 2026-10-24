@@ -1,4 +1,4 @@
-import { asc, desc, eq, sql } from "drizzle-orm";
+import { asc, count, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { clubs, matches, teams, users, videos } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/guard";
@@ -37,10 +37,15 @@ export default async function AdminPage() {
             id: teams.id,
             name: teams.name,
             code: teams.code,
-            people: sql<number>`(select count(*) from ${users} where ${users.teamId} = ${teams.id})`,
+            // A join and a count rather than a subquery: in a query from one
+            // table, Drizzle leaves column names unqualified, so a subquery's
+            // `team_id = id` read both from users and counted nobody.
+            people: count(users.id),
           })
           .from(teams)
+          .leftJoin(users, eq(users.teamId, teams.id))
           .where(eq(teams.clubId, user.clubId))
+          .groupBy(teams.id)
           .orderBy(asc(teams.createdAt))
       : [];
 

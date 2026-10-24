@@ -103,16 +103,30 @@ export function AdminPanels({
   return (
     <UploadProvider>
       <main className="sheet pt-10 pb-20 lg:pt-14">
-        <header className="flex flex-wrap items-end justify-between gap-x-12 gap-y-8">
-          <div className="flex items-end gap-5">
+        {/* On a wide screen the team code holds the top right whatever the
+            name's length: the row never wraps there, and a long name breaks
+            over two lines, a size smaller, instead of pushing the code down.
+            On a phone they stack, as they always did. */}
+        <header className="flex flex-wrap items-end justify-between gap-x-12 gap-y-8 lg:flex-nowrap">
+          <div className="flex min-w-0 items-end gap-5">
             {/* Only the admin changes the badge; everyone else just sees it. */}
-            {isAdmin ? (
-              <BadgeEditor initial={badgeVersion} />
-            ) : (
-              <ClubBadge version={badgeVersion} className="h-20 w-20" />
-            )}
-            <div>
-              <h1 className="display text-[clamp(2.75rem,6vw,4.5rem)]">{teamName}</h1>
+            <div className="shrink-0">
+              {isAdmin ? (
+                <BadgeEditor initial={badgeVersion} />
+              ) : (
+                <ClubBadge version={badgeVersion} className="h-20 w-20" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <h1
+                className={`display text-balance break-words ${
+                  teamName.length > 16
+                    ? "text-[clamp(2.25rem,4.5vw,3.5rem)]"
+                    : "text-[clamp(2.75rem,6vw,4.5rem)]"
+                }`}
+              >
+                {teamName}
+              </h1>
               <p className="mt-4 text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
                 {GAME_LABELS[code]}. {count(members.length, "person", "people")} on the panel,{" "}
                 {count(matches.length, "match", "matches")},{" "}
@@ -122,7 +136,11 @@ export function AdminPanels({
           </div>
           {/* Keyed by team, so going to another team shows that team's code
               rather than the one held in state from the last. */}
-          {isAdmin && <TeamCode key={teamId} initial={joinCode} />}
+          {isAdmin && (
+            <div className="shrink-0">
+              <TeamCode key={teamId} initial={joinCode} />
+            </div>
+          )}
         </header>
 
         <div className="mt-12 grid gap-x-16 gap-y-14 lg:grid-cols-[minmax(0,1fr)_25rem]">
@@ -468,7 +486,11 @@ function Panel({
     <section>
       <SectionHead
         title="The panel"
-        note="Everyone who has joined with the team code. You decide who is a player and who is a coach. Removing someone signs them out straight away."
+        note={`Everyone who has joined with the team code. You decide who is a player and who is a coach. ${
+          otherTeams.length > 0
+            ? "Use Move to team beside a name to put them on another of the club's teams."
+            : "To move someone to another of the club's teams, add that team under Teams in the club first."
+        } Removing someone signs them out straight away.`}
       />
       {sorted.length === 0 ? (
         <Empty>Nobody yet. Send the panel the team code; they sign up at /join.</Empty>
@@ -587,7 +609,7 @@ function MemberRow({
           aria-label={`Move ${member.displayName} to another team`}
         >
           <option value="" disabled>
-            Move to…
+            Move to team…
           </option>
           {otherTeams.map((t) => (
             <option key={t.id} value={t.id}>
