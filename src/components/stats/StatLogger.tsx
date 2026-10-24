@@ -33,12 +33,14 @@ import {
   describeStat,
   effectiveOutcome,
   liveGameTime,
+  resultFromWhere,
   statColour,
   statShape,
   statTiming,
   type StatType,
 } from "@/lib/hurling/stats";
 import {
+  ARC_NOTE,
   EMPTY_DETAIL,
   StatFields,
   detailForType,
@@ -118,6 +120,14 @@ export function StatLogger({
     voice.pin(p);
     setDetail((d) => ({ ...d, ...p }));
   };
+  // A point marked outside the arc is shown, and logged, as the two-pointer
+  // it is. Derived rather than stored, so moving the mark back inside the arc
+  // makes it a point again.
+  const shotResult = resultFromWhere(detail.shotResult, origin, code);
+  const shown = useMemo(
+    () => (shotResult === detail.shotResult ? detail : { ...detail, shotResult }),
+    [detail, shotResult],
+  );
 
   /** Keep the type and the context, drop the details — the next entry is a different moment. */
   const resetEntry = () => {
@@ -222,7 +232,7 @@ export function StatLogger({
     );
     if (!origin) return existing;
 
-    const draft = detailToDraft(statType, detail);
+    const draft = detailToDraft(statType, shown);
     const entry = { ...draft, outcome: draft.outcome ?? null };
     return [
       ...existing,
@@ -241,7 +251,7 @@ export function StatLogger({
         selected: true,
       },
     ];
-  }, [rows, statType, editingId, sheet, code, origin, dest, detail, named]);
+  }, [rows, statType, editingId, sheet, code, origin, dest, detail, shown, named]);
 
   /* ---------------------------------------------------------- submitting */
 
@@ -249,7 +259,7 @@ export function StatLogger({
     if (!ready || pending) return;
     voice.stop();
     const input = {
-      ...detailToDraft(statType, detail),
+      ...detailToDraft(statType, shown),
       originX: origin?.x ?? null,
       originY: origin?.y ?? null,
       destX: dest?.x ?? null,
@@ -440,10 +450,11 @@ export function StatLogger({
             <StatFields
               vocabulary={vocabulary}
               statType={statType}
-              detail={detail}
+              detail={shown}
               onChange={patch}
               sheet={sheet}
               idPrefix="stat"
+              resultNote={shown !== detail ? ARC_NOTE : undefined}
               halfNote={
                 clock.whistles.throwIn != null
                   ? "Set from the match clock when the entry starts."

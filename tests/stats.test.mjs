@@ -30,6 +30,7 @@ import {
   latestWhistle,
   streamDelayFrom,
   MAX_STREAM_DELAY_MS,
+  resultFromWhere,
   statTiming,
   statVocabulary,
   stepToStat,
@@ -754,6 +755,32 @@ test("only a code with the arc can log a two-pointer", () => {
     /only scored in football/,
   );
   assert.throws(() => normaliseEntry({ statType: "puckout", outcome: "positive" }, "football"), /Whose kick-out/);
+});
+
+test("a point marked outside the arc counts two, in a code with the arc", () => {
+  // 43.5 m out, straight in front, on the default 145 m pitch.
+  const outside = { statType: "shot", shotResult: "point", originX: 0.7, originY: 0.5 };
+  assert.equal(normaliseEntry(outside, "football").shotResult, "two_pointer");
+  assert.equal(normaliseEntry(outside, "ladies_football").shotResult, "two_pointer");
+  assert.equal(normaliseEntry({ ...outside, shotKind: "free" }, "football").shotResult, "two_pointer");
+  // Their score, at our end, counts the same.
+  assert.equal(
+    normaliseEntry({ ...outside, side: "opposition", originX: 0.3 }, "football").shotResult,
+    "two_pointer",
+  );
+  // Inside the arc, or with no mark at all, a point stays a point.
+  assert.equal(normaliseEntry({ ...outside, originX: 0.9 }, "football").shotResult, "point");
+  assert.equal(normaliseEntry({ statType: "shot", shotResult: "point" }, "football").shotResult, "point");
+  // Hurling has no arc, so distance never changes a point.
+  assert.equal(normaliseEntry(outside).shotResult, "point");
+  // A two-pointer said is kept, even with its mark dropped inside the arc.
+  assert.equal(
+    normaliseEntry({ ...outside, shotResult: "two_pointer", originX: 0.9 }, "football").shotResult,
+    "two_pointer",
+  );
+  // Only a point is moved: a wide from out there is still a wide.
+  assert.equal(resultFromWhere("wide", { x: 0.7, y: 0.5 }, "football"), "wide");
+  assert.equal(resultFromWhere(null, { x: 0.7, y: 0.5 }, "football"), null);
 });
 
 test("a two-pointer is one score worth two", () => {

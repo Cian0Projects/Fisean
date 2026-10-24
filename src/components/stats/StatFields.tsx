@@ -176,6 +176,9 @@ export function detailToDraft(type: StatType, d: StatDetail): StatDraft {
   };
 }
 
+/** Under the result when a point's mark has made it a two-pointer (see `resultFromWhere`). */
+export const ARC_NOTE = "Marked outside the arc, so it counts two.";
+
 const PUCKOUT_WINNERS: { value: PuckoutWinner; label: string }[] = [
   { value: "us", label: "We won it" },
   { value: "opposition", label: "They won it" },
@@ -198,6 +201,7 @@ export function StatFields({
   sheet,
   idPrefix,
   halfNote,
+  resultNote,
 }: {
   /** The club's words for this sheet. */
   vocabulary: StatVocabulary;
@@ -210,6 +214,8 @@ export function StatFields({
   idPrefix: string;
   /** Said under the half picker, e.g. that the video's markers set it. */
   halfNote?: string;
+  /** Said under a shot's result, e.g. that the mark made a point worth two. */
+  resultNote?: string;
 }) {
   const meta = vocabulary.meta[statType];
   const { terms } = vocabulary;
@@ -259,6 +265,7 @@ export function StatFields({
             })}
             value={d.shotResult}
             onChange={(v) => onChange({ shotResult: v as ShotResult })}
+            note={resultNote}
           />
           <Choice
             label="Came from"

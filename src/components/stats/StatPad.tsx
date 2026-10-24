@@ -36,12 +36,14 @@ import {
   statVocabulary,
   describeStat,
   effectiveOutcome,
+  resultFromWhere,
   statColour,
   statShape,
   stepToStat,
   type StatType,
 } from "@/lib/hurling/stats";
 import {
+  ARC_NOTE,
   EMPTY_DETAIL,
   StatFields,
   detailForType,
@@ -110,6 +112,14 @@ export function StatPad({
     voice.pin(p);
     setDetail((d) => ({ ...d, ...p }));
   };
+  // A point marked outside the arc is shown, and logged, as the two-pointer
+  // it is. Derived rather than stored, so moving the mark back inside the arc
+  // makes it a point again.
+  const shotResult = resultFromWhere(detail.shotResult, origin, code);
+  const shown = useMemo(
+    () => (shotResult === detail.shotResult ? detail : { ...detail, shotResult }),
+    [detail, shotResult],
+  );
   const halvesMarked = markers.throwIn != null;
 
   /**
@@ -222,7 +232,7 @@ export function StatPad({
     );
     if (!origin) return existing;
 
-    const draft = detailToDraft(statType, detail);
+    const draft = detailToDraft(statType, shown);
     const entry = { ...draft, outcome: draft.outcome ?? null };
     return [
       ...existing,
@@ -239,7 +249,7 @@ export function StatPad({
         selected: true,
       },
     ];
-  }, [rows, statType, editingId, sheet, code, origin, dest, detail, named]);
+  }, [rows, statType, editingId, sheet, code, origin, dest, detail, shown, named]);
 
   const submit = () => {
     if (!ready || pending) return;
@@ -248,7 +258,7 @@ export function StatPad({
     // default tab, hit straight away) still deserves a real timestamp.
     const atMs = stampMs ?? engine.snapshot.positionMs;
     const input = {
-      ...detailToDraft(statType, detail),
+      ...detailToDraft(statType, shown),
       half: halfAt(atMs) ?? detail.half,
       originX: origin?.x ?? null,
       originY: origin?.y ?? null,
@@ -365,11 +375,12 @@ export function StatPad({
         <StatFields
           vocabulary={vocabulary}
           statType={statType}
-          detail={detail}
+          detail={shown}
           onChange={patch}
           sheet={sheet}
           idPrefix="pad"
           halfNote={halvesMarked ? "Set from the video's half-time markers." : undefined}
+          resultNote={shown !== detail ? ARC_NOTE : undefined}
         />
 
         {meta.points > 0 && (

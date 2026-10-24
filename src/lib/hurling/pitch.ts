@@ -15,6 +15,7 @@
  * Normalising on the way in means a shot map does not need to know which way
  * the team was playing in a given half.
  */
+import { TWO_POINT_ARC_M } from "./codes";
 
 export type PitchSize = {
   lengthM: number;
@@ -103,6 +104,25 @@ export function distanceToGoalM(
   const dx = (1 - x) * size.lengthM;
   const dy = (y - 0.5) * size.widthM;
   return Math.hypot(dx, dy);
+}
+
+/**
+ * Whether a spot is outside football's two-point arc, a circle of 40 m about
+ * the centre of each goal line.
+ *
+ * Measured from the nearer goal rather than the one the team under review
+ * attacks: their shots come at our goal, and a coach logging off a turned
+ * map or an unnormalised half may drop a mark at either end. The two arcs
+ * are a whole pitch apart, so the nearer goal is always the one shot at.
+ * On the line counts as inside, so only a mark clearly past it scores two.
+ */
+export function outsideTwoPointArc(
+  x: number,
+  y: number,
+  size: PitchSize = DEFAULT_PITCH,
+): boolean {
+  const nearer = Math.min(distanceToGoalM(x, y, size), distanceToGoalM(1 - x, 1 - y, size));
+  return nearer > TWO_POINT_ARC_M;
 }
 
 /**

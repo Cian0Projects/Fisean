@@ -115,6 +115,7 @@ const RESTART = [
   "puckout", "puckouts", "puck out", "puck outs", "puck", "poc amach", "puc amach", "pock amach", "poc",
   "kickout", "kickouts", "kick out", "kick outs", "restart",
   "bookhouse", "book house", "bookhouses", "book out", "bookout", "buckhouse", "buck house", "puck house", "buck out",
+  "hookout", "hookouts", "hook house", "cookout", "cookouts", "cook out", "cook house", "pokemon", "pokemons", "pokeout", "poke house", "puke out", "pukeout",
 ];
 
 /**
@@ -154,7 +155,8 @@ const PHRASES: [string[], Meaning][] = [
   [fromA(["turnover", "turn over"]), { t: "source", v: "turnover" }],
 
   /* --------------------------------------------------------------- sides */
-  [["ours", "our", "us", "we", "our own"], { t: "side", v: "us" }],
+  // "Ours" said quickly is "hours" as often as not, and nobody logs an hour.
+  [["ours", "our", "us", "we", "our own", "hours", "hour"], { t: "side", v: "us" }],
   [["theirs", "their", "them", "they", "opposition", "opponents", "the opposition"], { t: "side", v: "opposition" }],
 
   /* ------------------------------------------------------------ outcomes */

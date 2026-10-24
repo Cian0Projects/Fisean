@@ -33,7 +33,7 @@ import {
   type Markers,
   type Score,
 } from "./notation";
-import { clampToPitch } from "./pitch";
+import { clampToPitch, outsideTwoPointArc } from "./pitch";
 
 /* ------------------------------------------------------------ vocabulary */
 
@@ -313,6 +313,30 @@ export function resultValue(result: ShotResult | null | undefined): number {
   if (result === "two_pointer") return 2;
   if (result === "point") return 1;
   return 0;
+}
+
+/**
+ * A score's result, given where it was struck from. In a code with the arc,
+ * a point marked outside it is a two-pointer, whether the coach pressed
+ * "Point" or said "point": people call anything over the bar a point, and
+ * the mark on the map is what settles what it was worth. This holds for a
+ * free or a 45 as much as for a score from play.
+ *
+ * Only a point is ever moved. One said or pressed as a two-pointer stays one
+ * when its mark sits inside the arc, because a dot dropped by hand is rougher
+ * than the word of someone who saw it go over. With no mark there is nothing
+ * to measure, and the result stands as given.
+ *
+ * Measured on the default pitch, which is the one every stat map is drawn
+ * on, so the arc a coach sees is the arc that decides.
+ */
+export function resultFromWhere<R extends ShotResult | null>(
+  result: R,
+  origin: { x: number; y: number } | null,
+  code: GameCode,
+): R | "two_pointer" {
+  if (result !== "point" || !origin || !termsFor(code).twoPointArc) return result;
+  return outsideTwoPointArc(origin.x, origin.y) ? "two_pointer" : result;
 }
 
 /** Legacy rows predate the side column, and every one of them was ours. */
@@ -666,6 +690,7 @@ export function normaliseEntry(draft: StatDraft, code: GameCode): NormalisedStat
             : "What came of it: a cúl, a cúilín or a wide, or something else?",
         );
       }
+      shotResult = resultFromWhere(shotResult, origin, code);
       side = draft.side == null ? "us" : oneOf(SIDES, draft.side);
       if (!side) throw new Error("Whose shot was it?");
       shotKind = draft.shotKind == null ? "play" : oneOf(SHOT_KINDS, draft.shotKind);

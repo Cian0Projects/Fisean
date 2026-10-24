@@ -6,6 +6,7 @@ import {
   distanceToGoalM,
   lineFractions,
   normaliseDirection,
+  outsideTwoPointArc,
   shotAngleDeg,
   zoneForX,
 } from "../src/lib/hurling/pitch.ts";
@@ -60,6 +61,19 @@ test("events flip so every shot map faces the same way", () => {
   // attacking one at the far end.
   assert.deepEqual(normaliseDirection(0.1, 0.3, "rl"), { x: 0.9, y: 0.7 });
   assert.deepEqual(normaliseDirection(0.1, 0.3, "lr"), { x: 0.1, y: 0.3 });
+});
+
+test("the two-point arc is 40 m from the centre of the nearer goal", () => {
+  // Straight in front, on the default 145 m pitch: 36.25 m in, 43.5 m out.
+  assert.equal(outsideTwoPointArc(0.75, 0.5), false);
+  assert.equal(outsideTwoPointArc(0.7, 0.5), true);
+  // Close in along the end line but out on the wing, 40.5 m across.
+  assert.equal(outsideTwoPointArc(0.99, 0.05), true);
+  // The same at our own end, where their shots come from.
+  assert.equal(outsideTwoPointArc(0.25, 0.5), false);
+  assert.equal(outsideTwoPointArc(0.3, 0.5), true);
+  // Midfield is outside both.
+  assert.equal(outsideTwoPointArc(0.5, 0.5), true);
 });
 
 test("clicks outside the pitch are pulled back onto it", () => {

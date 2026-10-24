@@ -80,13 +80,21 @@ test("won, as the engine writes it, is a win and not number 1", () => {
 });
 
 test("puck out as the engine hears it", () => {
-  for (const said of ["bookhouse ours long", "book house ours long", "Bookhouse, ours, long"]) {
+  for (const said of ["bookhouse ours long", "book house ours long", "Bookhouse, ours, long", "Pokemon ours long", "hookout ours long", "pokemon games ours long"]) {
     const p = parseSpokenStat(said, "shot");
     assert.equal(p.statType, "puckout", said);
     assert.equal(p.fields.puckoutLength, "long", said);
   }
   // Anywhere in the sentence, since it means nothing else.
   assert.equal(parseSpokenStat("shot 11 point from a bookhouse", "tackle").fields.attemptSource, "puckout");
+});
+
+test("a poc amach said in a hurry, as the engine wrote it", () => {
+  const p = parseSpokenStat("cook out first half hours sure we won it", "shot");
+  assert.equal(p.statType, "puckout");
+  assert.equal(p.fields.half, 1);
+  assert.equal(p.fields.puckoutTakenBy, "us");
+  assert.equal(p.fields.outcome, "positive");
 });
 
 test("a result names the type by itself", () => {
