@@ -101,7 +101,7 @@ function PublicHomepage() {
               name="Stats"
               title="Keep the stats."
               image="/home/stats-game.jpg"
-              imageSize={{ width: 852, height: 622 }}
+              imageFit="object-bottom"
               alt="A coach in the stand at a floodlit match, holding a tablet that shows the stat sheet with a pitch map and stat buttons while the game goes on behind it."
               flip
             >
@@ -246,7 +246,7 @@ function ScreenRow({
   title,
   image,
   alt,
-  imageSize = { width: 1920, height: 1080 },
+  imageFit = "object-center",
   flip = false,
   children,
 }: {
@@ -254,7 +254,7 @@ function ScreenRow({
   title: string;
   image: string;
   alt: string;
-  imageSize?: { width: number; height: number };
+  imageFit?: string;
   flip?: boolean;
   children: React.ReactNode;
 }) {
@@ -272,12 +272,12 @@ function ScreenRow({
       <Image
         src={image}
         alt={alt}
-        width={imageSize.width}
-        height={imageSize.height}
+        width={1920}
+        height={1080}
         sizes="(min-width: 1024px) 60vw, 100vw"
         data-reveal=""
         data-from={flip ? "left" : "right"}
-        className={`block h-auto w-full border border-line-strong ${flip ? "lg:order-1" : ""}`}
+        className={`block aspect-video h-auto w-full border border-line-strong object-cover ${imageFit} ${flip ? "lg:order-1" : ""}`}
       />
     </div>
   );
