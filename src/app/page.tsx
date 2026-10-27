@@ -100,11 +100,12 @@ function PublicHomepage() {
             <ScreenRow
               name="Stats"
               title="Keep the stats."
-              image="/home/stats.jpg"
-              alt="Logging stats against the video: six numbered stat buttons, a pitch with numbered player marks, and a lane for each stat along the timeline."
+              image="/home/stats-game.jpg"
+              imageSize={{ width: 852, height: 622 }}
+              alt="A coach in the stand at a floodlit match, holding a tablet that shows the stat sheet with a pitch map and stat buttons while the game goes on behind it."
               flip
             >
-              Log tackles, shots, turnovers and more, and see them on a pitch map.
+              Log tackles, shots, turnovers and more, live from the sideline or after the game from the footage, and see them on a pitch map.
             </ScreenRow>
 
             <ScreenRow
@@ -245,6 +246,7 @@ function ScreenRow({
   title,
   image,
   alt,
+  imageSize = { width: 1920, height: 1080 },
   flip = false,
   children,
 }: {
@@ -252,6 +254,7 @@ function ScreenRow({
   title: string;
   image: string;
   alt: string;
+  imageSize?: { width: number; height: number };
   flip?: boolean;
   children: React.ReactNode;
 }) {
@@ -269,8 +272,8 @@ function ScreenRow({
       <Image
         src={image}
         alt={alt}
-        width={1920}
-        height={1080}
+        width={imageSize.width}
+        height={imageSize.height}
         sizes="(min-width: 1024px) 60vw, 100vw"
         data-reveal=""
         data-from={flip ? "left" : "right"}
