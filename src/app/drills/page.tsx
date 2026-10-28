@@ -74,7 +74,7 @@ export default async function DrillsPage() {
                 {entries.map((e) => (
                   <article key={e.id}>
                     <Link href={`/drills/${e.id}`} className="block" aria-label={`Open ${e.title}`}>
-                      <DrillDiagram data={e.drill} uid={`d${e.id.slice(0, 8)}`} code={user.teamCode} />
+                      <DrillDiagram data={e.drill} uid={`d${e.id.slice(0, 8)}`} code={user.teamCode} badgeVersion={user.badgeVersion} />
                     </Link>
                     <Link
                       href={`/drills/${e.id}`}

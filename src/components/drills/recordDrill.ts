@@ -28,7 +28,7 @@ import {
   type DrillPiece,
   type Point,
 } from "@/lib/hurling/drill";
-import { pieceRadius } from "./DrillArt";
+import { BADGE_MARK, pieceRadius } from "./DrillArt";
 
 const W = 1920;
 const HEIGHT = 1080;
@@ -61,6 +61,7 @@ export async function recordDrill({
   data,
   title,
   teamName,
+  badge,
   speed,
   onProgress,
 }: {
@@ -69,6 +70,8 @@ export async function recordDrill({
   data: DrillData;
   title: string;
   teamName: string;
+  /** The club badge's URL, drawn faint in the pitch's corner; null for none. */
+  badge: string | null;
   speed: number;
   onProgress: (fraction: number) => void;
 }): Promise<RecordedDrill> {
@@ -101,6 +104,19 @@ export async function recordDrill({
   const k = pitchW / VIEW_W;
 
   const pitchImage = await rasterise(board, style, pitchW, pitchH);
+  const badgeImage = badge ? await loadBadge(badge) : null;
+  // Fitted into its square from the top-left, as the board's
+  // preserveAspectRatio="xMinYMin meet" does.
+  const badgeBox = badgeImage && (() => {
+    const side = BADGE_MARK.size * k;
+    const s = Math.min(side / badgeImage.naturalWidth, side / badgeImage.naturalHeight);
+    return {
+      x: px + BADGE_MARK.x * k,
+      y: py + BADGE_MARK.y * k,
+      w: badgeImage.naturalWidth * s,
+      h: badgeImage.naturalHeight * s,
+    };
+  })();
 
   const canvas = document.createElement("canvas");
   canvas.width = W;
@@ -132,6 +148,11 @@ export async function recordDrill({
     ctx.fillStyle = ink.pitch;
     ctx.fillRect(px, py, pitchW, pitchH);
     ctx.drawImage(pitchImage, px, py, pitchW, pitchH);
+    if (badgeImage && badgeBox) {
+      ctx.globalAlpha = BADGE_MARK.opacity;
+      ctx.drawImage(badgeImage, badgeBox.x, badgeBox.y, badgeBox.w, badgeBox.h);
+      ctx.globalAlpha = 1;
+    }
     ctx.strokeStyle = ink.line;
     ctx.lineWidth = 2;
     ctx.strokeRect(px + 1, py + 1, pitchW - 2, pitchH - 2);
@@ -238,6 +259,22 @@ async function rasterise(
     return img;
   } finally {
     URL.revokeObjectURL(url);
+  }
+}
+
+/**
+ * The badge from our own origin, so drawing it leaves the canvas readable by
+ * the recorder. A badge that will not load costs the video its watermark,
+ * not the whole export.
+ */
+async function loadBadge(url: string): Promise<HTMLImageElement | null> {
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    return img.naturalWidth && img.naturalHeight ? img : null;
+  } catch {
+    return null;
   }
 }
 

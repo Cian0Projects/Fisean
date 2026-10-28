@@ -214,6 +214,36 @@ function Ball({ kind, cx, cy, r }: { kind: BallKind; cx: number; cy: number; r: 
   );
 }
 
+/**
+ * Where the club's badge sits on the board: faint, in the top-left corner,
+ * between the end line and the 13 so it never lies over a line a drill is
+ * drawn against. Faint because it is a watermark, not a piece; a coach
+ * should read straight past it. The exported video draws it from the same
+ * numbers.
+ */
+export const BADGE_MARK = { x: 14, y: 14, size: 62, opacity: 0.2 };
+
+export function badgeUrl(version: number): string {
+  return `/api/badge?v=${version}`;
+}
+
+/** The badge on the board, or nothing for a club without one. */
+export function PitchBadge({ version }: { version: number | null }) {
+  if (version == null) return null;
+  return (
+    <image
+      href={badgeUrl(version)}
+      x={BADGE_MARK.x}
+      y={BADGE_MARK.y}
+      width={BADGE_MARK.size}
+      height={BADGE_MARK.size}
+      opacity={BADGE_MARK.opacity}
+      preserveAspectRatio="xMinYMin meet"
+      pointerEvents="none"
+    />
+  );
+}
+
 /** Metres to drawing units; the pitch drawing is the same scale both ways. */
 const M = VIEW_W / DEFAULT_PITCH.lengthM;
 const NET_DEPTH_M = 1.5;
@@ -304,12 +334,15 @@ export function DrillDiagram({
   data,
   uid,
   code,
+  badgeVersion,
   className,
 }: {
   data: DrillData;
   uid: string;
   /** The club's game, so a football diagram shows the two-point arc. */
   code: GameCode;
+  /** `badgeVersion` from the session; null draws no badge. */
+  badgeVersion: number | null;
   className?: string;
 }) {
   const first = data.steps[0].at;
@@ -329,6 +362,7 @@ export function DrillDiagram({
     >
       <DrillMarkers uid={uid} />
       <PitchMarkings code={code} />
+      <PitchBadge version={badgeVersion} />
       {data.kit.map((k) => (
         <KitMark key={k.id} item={k} />
       ))}

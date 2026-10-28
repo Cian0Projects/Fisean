@@ -59,7 +59,7 @@ import {
   type DrillSide,
   type Point,
 } from "@/lib/hurling/drill";
-import { DrillMarkers, H, KitHitArea, KitMark, Movement, Piece, SIDE_COLOUR } from "./DrillArt";
+import { DrillMarkers, H, KitHitArea, KitMark, Movement, Piece, PitchBadge, SIDE_COLOUR, badgeUrl } from "./DrillArt";
 import { recordDrill } from "./recordDrill";
 
 type Status = "saved" | "unsaved" | "saving" | "error";
@@ -71,6 +71,7 @@ export function DrillEditor({
   id,
   teamName,
   code,
+  badgeVersion,
   initial,
 }: {
   id: string;
@@ -78,6 +79,8 @@ export function DrillEditor({
   teamName: string;
   /** The club's game, so a football board shows the two-point arc. */
   code: GameCode;
+  /** `badgeVersion` from the session; null draws no badge. */
+  badgeVersion: number | null;
   initial: { title: string; notes: string; data: DrillData };
 }) {
   const uid = useId().replace(/:/g, "");
@@ -221,6 +224,7 @@ export function DrillEditor({
         data,
         title,
         teamName,
+        badge: badgeVersion == null ? null : badgeUrl(badgeVersion),
         speed,
         onProgress: setRecording,
       });
@@ -408,6 +412,9 @@ export function DrillEditor({
             <g data-export="">
               <PitchMarkings code={code} />
             </g>
+            {/* Not part of the export layer: an SVG drawn as an image may not
+                fetch the badge, so the video draws it onto the canvas itself. */}
+            <PitchBadge version={badgeVersion} />
 
             {/* Kit under everyone: the pitch the drill is played on. */}
             <g data-export="">
