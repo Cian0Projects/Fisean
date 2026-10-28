@@ -16,6 +16,11 @@ is used, how it is deployed).
 
 -->
 
+## Comments stop the clip; clips and playlists choose who sees them
+*2026-10-27*
+
+A comment is now made at a moment in the clip (the first frame or anywhere after it) and can carry a drawing on that frame: arrows, circles, highlighted areas, pen lines, a spotlight or a label. Watching back, in a playlist, on the review screen or on a phone, the clip pauses at each comment, shows it over the picture with its drawing, and plays on when asked; the drawing is on that one frame only and is gone the moment the clip plays. Before, a drawing was saved separately, showed for three seconds in playlists only, never reappeared on the review screen and could not be deleted. `comments` gained a `shapes` column, and a migration copied every old row of `annotations` across as a comment with no words; that table is no longer read and can be dropped once this is confirmed in production. Clips and playlists now share one rule for who sees them: everyone, just the maker, or any mix of all players, all coaches, all admins and named people (`share_roles` on both tables, the new `clip_shares` table, and `playlist_viewers` for named people on a playlist). A private clip is now truly private: the coaches no longer see players' private clips, and only a clip's or playlist's maker can change who sees it, so a coach cannot widen a player's choice. People newly reached by name, or by group on a clip, are emailed once; a new "clip shared with you" email links to `/review/<video>?clip=<id>`, which opens on that clip. New playlists start private, so a cut being built never reaches or emails the panel early. Someone else's private clip on a shared playlist, or with you tagged in it, stays hidden. The rules are in `src/lib/hurling/stops.ts` and `src/lib/auth/visibility.ts`, both tested.
+
 ## Set the match clock by its minute
 *2026-10-24*
 

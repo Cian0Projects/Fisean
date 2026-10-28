@@ -44,18 +44,20 @@ import { useHotkeys } from "@/lib/keyboard/useHotkeys";
 import type { Command, Mode } from "@/lib/keyboard/keymap";
 import { formatClock, markersFromRows, tallyScore, formatScore } from "@/lib/hurling/notation";
 import { createClip, deleteClip, setClipTags, updateClip } from "@/lib/actions/clips";
-import { saveAnnotation } from "@/lib/actions/review";
-import type { Shape } from "@/lib/db/schema";
+import { listComments } from "@/lib/actions/reads";
+import { StopCard } from "@/components/player/StopCard";
+import { shapesOf, useCommentStops } from "@/components/player/useCommentStops";
 import { StatPad } from "@/components/stats/StatPad";
 import { StatLanes } from "@/components/stats/StatLanes";
 import { numberSheet, type SheetEntry, type StatRow } from "@/components/stats/types";
 import { STAT_LEAD_IN_MS, footageMomentOf, type StatType } from "@/lib/hurling/stats";
 import type { GameCode } from "@/lib/hurling/codes";
 import { ClipList } from "./ClipList";
-import { ClipInspector } from "./ClipInspector";
+import { ClipInspector, type DrawingDraft } from "./ClipInspector";
 import {
   clipColour,
   type ClipRow,
+  type CommentRow,
   type EventTypeRow,
   type MatchInfo,
   type SquadMember,
@@ -79,6 +81,9 @@ const DEFAULT_POST_ROLL = 3000;
  */
 const LANE_GUTTER_PX = 120;
 
+/** Stands in for a drawing that has not been posted with its comment yet. */
+const UNPOSTED = "unposted-drawing";
+
 type Props = {
   video: VideoInfo;
   match: MatchInfo;
@@ -88,6 +93,8 @@ type Props = {
   code: GameCode;
   squad: SquadMember[];
   initialClips: ClipRow[];
+  /** Arrive parked on this clip, from a link that named it. */
+  openClipId?: string;
   markerRows: { kind: string; atMs: number }[];
   viewer: Viewer;
   /** Only present when the match has a stat sheet to log against: who wore what. */
@@ -102,6 +109,7 @@ export function ReviewWorkspace({
   code,
   squad,
   initialClips,
+  openClipId,
   markerRows,
   viewer,
   statNumbers,
@@ -144,10 +152,14 @@ export function ReviewWorkspace({
   const [toast, setToast] = useState<string | null>(null);
   const [preRoll, setPreRoll] = useState(DEFAULT_PRE_ROLL);
 
-  // Drawing state.
+  // Drawing state. A drawing is made on one frame of one clip and posted
+  // with a comment, so it remembers both until then.
   const [tool, setTool] = useState<Tool>("arrow");
   const [colour, setColour] = useState(COLOURS[0]);
-  const [draftShapes, setDraftShapes] = useState<Shape[]>([]);
+  const [drawingDraft, setDrawingDraft] = useState<(DrawingDraft & { clipId: string }) | null>(null);
+  // The selected clip's comments: the panel lists them, and the picture
+  // stops on them, so they are loaded here for both.
+  const [clipComments, setClipComments] = useState<{ clipId: string; rows: CommentRow[] } | null>(null);
 
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const undoStack = useRef<string[]>([]);
@@ -165,6 +177,48 @@ export function ReviewWorkspace({
   );
 
   const selected = clips.find((c) => c.id === selectedId) ?? null;
+  const draftHere = selected && drawingDraft?.clipId === selected.id ? drawingDraft : null;
+  const commentsHere = selected && clipComments?.clipId === selected.id ? clipComments.rows : null;
+  const selectedSaved = selected && !selected.pending ? selected.id : null;
+
+  useEffect(() => {
+    if (!selectedSaved) return;
+    let live = true;
+    void listComments(selectedSaved).then((rows) => {
+      if (live) setClipComments({ clipId: selectedSaved, rows });
+    });
+    return () => {
+      live = false;
+    };
+  }, [selectedSaved]);
+
+  // Playing a selected clip back stops on its comments, as it will for
+  // whoever watches it later. A drawing not yet posted rides along as one
+  // more stop, so it obeys the same rule as a posted one: on its frame
+  // while paused there, gone the moment the clip plays.
+  const stopComments = useMemo(() => {
+    if (!commentsHere || !draftHere?.shapes.length) return commentsHere;
+    const unposted: CommentRow = {
+      id: UNPOSTED,
+      body: "",
+      atMs: draftHere.atMs,
+      shapes: draftHere.shapes,
+      parentId: null,
+      createdAt: 0,
+      authorName: viewer.displayName,
+      userId: viewer.id,
+      editedAt: null,
+    };
+    return [...commentsHere, unposted];
+  }, [commentsHere, draftHere, viewer]);
+  const stop = useCommentStops(
+    engine,
+    selected && !selected.pending ? selected : null,
+    stopComments,
+    mode !== "annotate",
+  );
+  // The card is for what was said; the unposted drawing has no words yet.
+  const said = stop && { ...stop, comments: stop.comments.filter((c) => c.id !== UNPOSTED) };
 
   const flash = useCallback((message: string) => {
     setToast(message);
@@ -190,6 +244,22 @@ export function ReviewWorkspace({
     },
     [engine, selectedId],
   );
+
+  // Arriving from a link to one clip: park on its first frame once the file
+  // has loaded far enough to seek, without playing, so a comment on that
+  // frame is up before anything moves.
+  useEffect(() => {
+    const target = initialClips.find((c) => c.id === openClipId);
+    if (!target) return;
+    let done = false;
+    return engine.subscribe((t) => {
+      if (done || t.durationMs <= 0) return;
+      done = true;
+      setSelectedId(target.id);
+      engine.setBounds(target.startMs, target.endMs);
+      engine.seek(target.startMs, { exact: true });
+    });
+  }, [engine, initialClips, openClipId]);
 
   const returnToLive = useCallback(() => {
     setSelectedId(null);
@@ -218,7 +288,7 @@ export function ReviewWorkspace({
         startMs: Math.max(0, startMs),
         endMs,
         title,
-        visibility: "team",
+        audience: { visibility: "team", roles: [], userIds: [] },
         createdBy: viewer.id,
         authorName: viewer.displayName,
         eventTypeIds,
@@ -358,31 +428,38 @@ export function ReviewWorkspace({
     [flash],
   );
 
-  /* ----------------------------------------------------------- annotations */
+  /* --------------------------------------------------------------- drawing */
 
-  const commitAnnotation = useCallback(async () => {
-    if (!selected || !draftShapes.length) {
-      setMode("transport");
-      setDraftShapes([]);
+  /**
+   * Draw on the frame in front of you. The drawing is kept against that
+   * frame (relative to the clip's in point, so it survives the clip's edges
+   * being nudged later) until it is posted with its comment. Coming back to
+   * an unposted drawing returns to its frame, since that is the picture it
+   * was drawn on.
+   */
+  const toggleDrawing = useCallback(() => {
+    if (!selected || selected.pending) {
+      flash("Select a clip to draw on it.");
       return;
     }
-    // Annotations are stored relative to the clip's in point, so they survive
-    // the clip's boundaries being nudged later.
-    const atMs = Math.max(0, engine.snapshot.positionMs - selected.startMs);
-    try {
-      await saveAnnotation({ clipId: selected.id, atMs, shapes: draftShapes });
-      setClips((prev) =>
-        prev.map((c) =>
-          c.id === selected.id ? { ...c, annotationCount: c.annotationCount + 1 } : c,
-        ),
-      );
-      flash("Drawing saved");
-    } catch (err) {
-      flash((err as Error).message);
+    if (mode === "annotate") {
+      setMode("transport");
+      return;
     }
-    setDraftShapes([]);
+    engine.pause();
+    if (draftHere?.shapes.length) {
+      engine.seek(selected.startMs + draftHere.atMs, { exact: true });
+    } else {
+      const atMs = Math.max(0, Math.round(engine.snapshot.positionMs - selected.startMs));
+      setDrawingDraft({ clipId: selected.id, atMs, shapes: [] });
+    }
+    setMode("annotate");
+  }, [selected, mode, draftHere, engine, flash]);
+
+  const discardDrawing = useCallback(() => {
+    setDrawingDraft(null);
     setMode("transport");
-  }, [selected, draftShapes, engine, flash]);
+  }, []);
 
   /* -------------------------------------------------------------- keyboard */
 
@@ -452,8 +529,7 @@ export function ReviewWorkspace({
           break;
         case "cancel":
           if (mode === "annotate") {
-            setDraftShapes([]);
-            setMode("transport");
+            discardDrawing();
           } else if (selected) {
             // Leaving a focused clip returns you to the match, not just to
             // an unfocused view of wherever the clip happened to end.
@@ -468,15 +544,7 @@ export function ReviewWorkspace({
           void undoLast();
           break;
         case "annotate":
-          if (!selected) {
-            flash("Select a clip to draw on it.");
-            break;
-          }
-          if (mode === "annotate") void commitAnnotation();
-          else {
-            engine.pause();
-            setMode("annotate");
-          }
+          toggleDrawing();
           break;
         case "prev_clip":
           stepClip(-1);
@@ -507,7 +575,8 @@ export function ReviewWorkspace({
       selected,
       quickClip,
       commitInOut,
-      commitAnnotation,
+      toggleDrawing,
+      discardDrawing,
       tagSelectedOrQuickClip,
       undoLast,
       stepClip,
@@ -642,12 +711,15 @@ export function ReviewWorkspace({
             engine={engine}
             src={video.src}
             fps={video.fps ?? undefined}
-            shapes={draftShapes}
-            onShapesChange={setDraftShapes}
+            // While drawing, the pen's own work; otherwise whatever was drawn
+            // on the frame playback is stopped at, and nothing while it plays.
+            shapes={mode === "annotate" ? (draftHere?.shapes ?? []) : shapesOf(stop)}
+            onShapesChange={(shapes) => setDrawingDraft((d) => (d ? { ...d, shapes } : d))}
             drawing={mode === "annotate"}
             tool={tool}
             colour={colour}
             preloadMs={nextClipStart}
+            overlay={said && said.comments.length > 0 && <StopCard stop={said} onPlay={() => void engine.play()} />}
           />
 
           {mode === "annotate" && (
@@ -684,12 +756,26 @@ export function ReviewWorkspace({
                   />
                 ))}
               </div>
+              <span className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+                Then say what it shows in the comments, and post it.
+              </span>
               <div className="flex-1" />
-              <button onClick={() => setDraftShapes([])} className="btn-ghost text-xs">
+              <button
+                onClick={() => setDrawingDraft((d) => (d ? { ...d, shapes: d.shapes.slice(0, -1) } : d))}
+                disabled={!draftHere?.shapes.length}
+                className="btn-ghost text-xs"
+              >
+                Undo
+              </button>
+              <button
+                onClick={() => setDrawingDraft((d) => (d ? { ...d, shapes: [] } : d))}
+                disabled={!draftHere?.shapes.length}
+                className="btn-ghost text-xs"
+              >
                 Clear
               </button>
-              <button onClick={() => void commitAnnotation()} className="btn-primary text-xs">
-                Save drawing
+              <button onClick={toggleDrawing} className="btn-primary text-xs">
+                Done
               </button>
             </div>
           )}
@@ -846,6 +932,15 @@ export function ReviewWorkspace({
                   squad={squad}
                   viewer={viewer}
                   engine={engine}
+                  comments={commentsHere}
+                  onCommentsChange={(rows) => setClipComments({ clipId: selected.id, rows })}
+                  drawing={mode === "annotate"}
+                  drawingDraft={draftHere}
+                  onDraw={toggleDrawing}
+                  onDrawingPosted={() => {
+                    setDrawingDraft(null);
+                    if (mode === "annotate") setMode("transport");
+                  }}
                   onClipChange={(patch) =>
                     setClips((prev) =>
                       prev.map((c) => (c.id === selected.id ? { ...c, ...patch } : c)),

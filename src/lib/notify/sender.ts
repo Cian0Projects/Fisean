@@ -12,7 +12,19 @@
  */
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { clipPlayers, clips, matches, notifications, playlists, teams, users, videos } from "@/lib/db/schema";
+import {
+  clipPlayers,
+  clips,
+  matches,
+  notifications,
+  playlistViewers,
+  playlists,
+  teams,
+  users,
+  videos,
+} from "@/lib/db/schema";
+import { canSeePlaylist } from "@/lib/auth/visibility";
+import { visibleClipIds } from "@/lib/queries/clips";
 import { matchDate } from "@/lib/format";
 import { sendMail } from "@/lib/mail";
 import { digestMail } from "@/lib/mail/templates";
@@ -90,6 +102,16 @@ async function markSent(ids: string[]): Promise<void> {
   if (ids.length) await db.update(notifications).set({ sentAt: Date.now() }).where(inArray(notifications.id, ids));
 }
 
+const clipFields = {
+  id: clips.id,
+  videoId: clips.videoId,
+  title: clips.title,
+  visibility: clips.visibility,
+  shareRoles: clips.shareRoles,
+  createdBy: clips.createdBy,
+  opponent: matches.opponent,
+};
+
 /** What each share is now, with a title and a link, or nothing if it is gone. */
 async function describe(userId: string, rows: Pending[]): Promise<DigestItem[]> {
   const of = (kind: NotificationKind) => rows.filter((r) => r.kind === kind).map((r) => r.subjectId);
@@ -118,29 +140,66 @@ async function describe(userId: string, rows: Pending[]): Promise<DigestItem[]> 
   for (const kind of ["playlist-assigned", "team-playlist"] as const) {
     const ids = of(kind);
     if (!ids.length) continue;
+    // Joined to this person's place on the list, and checked again here,
+    // because a playlist can be made private or unshared before the email
+    // goes, and the email must not show what the page would not.
     const found = await db
-      .select({ id: playlists.id, title: playlists.title })
+      .select({
+        id: playlists.id,
+        title: playlists.title,
+        visibility: playlists.visibility,
+        shareRoles: playlists.shareRoles,
+        createdBy: playlists.createdBy,
+        chosen: playlistViewers.userId,
+        role: users.role,
+      })
       .from(playlists)
+      .innerJoin(users, eq(users.id, userId))
+      .leftJoin(
+        playlistViewers,
+        and(eq(playlistViewers.playlistId, playlists.id), eq(playlistViewers.userId, userId)),
+      )
       .where(inArray(playlists.id, ids));
-    for (const p of found) items.push({ kind, title: p.title, href: `/playlists/${p.id}` });
+    for (const p of found) {
+      if (!canSeePlaylist({ id: userId, role: p.role }, p, p.chosen != null)) continue;
+      items.push({ kind, title: p.title, href: `/playlists/${p.id}` });
+    }
   }
 
-  const clipIds = of("clip-tagged");
-  if (clipIds.length) {
+  const taggedIds = of("clip-tagged");
+  const sharedIds = of("clip-shared");
+  if (taggedIds.length || sharedIds.length) {
+    const [me] = await db.select({ id: users.id, role: users.role }).from(users).where(eq(users.id, userId));
     // Joined to clip_players for this person, so a clip they were taken out
     // of since does not come through.
-    const found = await db
-      .select({ id: clips.id, title: clips.title, visibility: clips.visibility, opponent: matches.opponent })
-      .from(clips)
-      .innerJoin(clipPlayers, and(eq(clipPlayers.clipId, clips.id), eq(clipPlayers.userId, userId)))
-      .innerJoin(videos, eq(videos.id, clips.videoId))
-      .leftJoin(matches, eq(matches.id, videos.matchId))
-      .where(inArray(clips.id, clipIds));
-    for (const c of found) {
-      if (c.visibility !== "team") continue;
-      const title = c.title || (c.opponent ? `v ${c.opponent}` : "a new clip");
+    const tagged = taggedIds.length
+      ? await db
+          .select(clipFields)
+          .from(clips)
+          .innerJoin(clipPlayers, and(eq(clipPlayers.clipId, clips.id), eq(clipPlayers.userId, userId)))
+          .innerJoin(videos, eq(videos.id, clips.videoId))
+          .leftJoin(matches, eq(matches.id, videos.matchId))
+          .where(inArray(clips.id, taggedIds))
+      : [];
+    const shared = sharedIds.length
+      ? await db
+          .select(clipFields)
+          .from(clips)
+          .innerJoin(videos, eq(videos.id, clips.videoId))
+          .leftJoin(matches, eq(matches.id, videos.matchId))
+          .where(inArray(clips.id, sharedIds))
+      : [];
+    // Made private, or unshared, since: left out, as the page would.
+    const seen = me ? await visibleClipIds(me, [...tagged, ...shared]) : new Set<string>();
+    const titleOf = (c: (typeof tagged)[number]) => c.title || (c.opponent ? `v ${c.opponent}` : "a new clip");
+    for (const c of tagged) {
       // The home page leads with a player's own clips.
-      items.push({ kind: "clip-tagged", title, href: "/" });
+      if (seen.has(c.id)) items.push({ kind: "clip-tagged", title: titleOf(c), href: "/" });
+    }
+    for (const c of shared) {
+      if (seen.has(c.id)) {
+        items.push({ kind: "clip-shared", title: titleOf(c), href: `/review/${c.videoId}?clip=${c.id}` });
+      }
     }
   }
 

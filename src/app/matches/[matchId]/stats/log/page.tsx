@@ -4,6 +4,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { clips, matches, videos } from "@/lib/db/schema";
 import { isCoach, requireUser } from "@/lib/auth/guard";
+import { visibleClipIds } from "@/lib/queries/clips";
 import { Nav } from "@/components/ui/Nav";
 import { StatLogger } from "@/components/stats/StatLogger";
 import { formatClock } from "@/lib/hurling/notation";
@@ -52,16 +53,22 @@ export default async function LogMatchStatsPage({
 
   // A stat may point at a clip that already covers the moment. Optional, and
   // only ever in that direction — the stat sheet does not need footage.
-  const clipRows = await db
+  // Only clips this coach can see: a player's private clip is not offered.
+  const allClips = await db
     .select({
       id: clips.id,
       title: clips.title,
       startMs: clips.startMs,
+      visibility: clips.visibility,
+      shareRoles: clips.shareRoles,
+      createdBy: clips.createdBy,
     })
     .from(clips)
     .innerJoin(videos, eq(videos.id, clips.videoId))
     .where(and(eq(videos.matchId, matchId), eq(clips.teamId, user.teamId)))
     .orderBy(asc(clips.startMs));
+  const seen = await visibleClipIds(user, allClips);
+  const clipRows = allClips.filter((c) => seen.has(c.id)).map(({ id, title, startMs }) => ({ id, title, startMs }));
 
   return (
     <>

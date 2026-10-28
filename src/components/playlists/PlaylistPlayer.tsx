@@ -8,20 +8,25 @@
  * list. Clips advance automatically, and because the next clip's in point is
  * handed to the video stage as a preload target, the element beside the
  * visible one is already parked there when the current clip ends.
+ *
+ * Each clip stops wherever someone commented on it, with the comment over
+ * the picture and anything drawn on that frame, and plays on when asked
+ * (src/lib/hurling/stops.ts). The comments come with the page rather than
+ * after it, so a comment on a clip's first frame is there before it plays.
  */
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { PlayerEngine } from "@/components/player/engine";
 import { VideoStage, Timecode } from "@/components/player/VideoStage";
-import { AnnotationLayer } from "@/components/player/AnnotationLayer";
+import { StopCard } from "@/components/player/StopCard";
+import { shapesOf, useCommentStops } from "@/components/player/useCommentStops";
 import { useHotkeys } from "@/lib/keyboard/useHotkeys";
 import type { Command } from "@/lib/keyboard/keymap";
 import { CommentItem } from "@/components/review/CommentItem";
 import { markPlaylistViewed } from "@/lib/actions/playlists";
 import { addComment } from "@/lib/actions/review";
-import { listComments } from "@/lib/actions/reads";
-import type { Shape } from "@/lib/db/schema";
-import type { CommentRow } from "@/components/review/types";
+import { inPlayingOrder } from "@/lib/hurling/stops";
+import type { CommentRow, Viewer } from "@/components/review/types";
 import type { TagTone } from "@/lib/hurling/events";
 import { TagMark } from "@/components/ui/TagMark";
 import { ChevronIcon, PauseIcon, PlayIcon } from "@/components/ui/Icon";
@@ -36,8 +41,12 @@ export type PlaylistClip = {
   startMs: number;
   endMs: number;
   tags: { label: string; tone: TagTone }[];
-  annotations: { atMs: number; durationMs: number; shapes: Shape[] }[];
+  comments: CommentRow[];
 };
+
+// One empty list, not a new one each frame, or the stops would be worked
+// out again on every render while the clip plays.
+const NO_COMMENTS: CommentRow[] = [];
 
 export function PlaylistPlayer({
   playlistId,
@@ -45,8 +54,8 @@ export function PlaylistPlayer({
   note,
   setBy,
   clips,
-  viewerName,
-  viewerId,
+  viewer,
+  audience,
 }: {
   playlistId: string;
   title: string;
@@ -54,19 +63,26 @@ export function PlaylistPlayer({
   note: string | null;
   setBy: string | null;
   clips: PlaylistClip[];
-  viewerName: string;
-  viewerId: string;
+  viewer: Viewer;
+  /** Who can see it, and the control to change that, for those who may. */
+  audience: ReactNode;
 }) {
   const engine = useMemo(() => new PlayerEngine(), []);
   const [index, setIndex] = useState(0);
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [positionMs, setPositionMs] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [comments, setComments] = useState<CommentRow[] | null>(null);
+  const [commentsByClip, setCommentsByClip] = useState<Record<string, CommentRow[]>>(() =>
+    Object.fromEntries(clips.map((c) => [c.clipId, c.comments])),
+  );
   const [draft, setDraft] = useState("");
   const [typing, setTyping] = useState(false);
 
   const current = clips[index];
+  const comments = (current && commentsByClip[current.clipId]) || NO_COMMENTS;
+  const setComments = (rows: CommentRow[]) =>
+    current && setCommentsByClip((prev) => ({ ...prev, [current.clipId]: rows }));
+  const stop = useCommentStops(engine, current ?? null, comments);
 
   // Record that this player watched it. Coaches ask who has.
   useEffect(() => {
@@ -77,7 +93,6 @@ export function PlaylistPlayer({
     (i: number) => {
       if (i < 0 || i >= clips.length) return;
       setIndex(i);
-      setComments(null);
     },
     [clips.length],
   );
@@ -104,11 +119,6 @@ export function PlaylistPlayer({
       }),
     [engine],
   );
-
-  useEffect(() => {
-    if (!current || comments !== null) return;
-    void listComments(current.clipId).then(setComments);
-  }, [current, comments]);
 
   useHotkeys(
     typing ? "text" : "transport",
@@ -146,11 +156,7 @@ export function PlaylistPlayer({
     );
   }
 
-  // Only the drawings whose window covers the playhead are on screen.
   const clipOffset = positionMs - current.startMs;
-  const visibleShapes: Shape[] = current.annotations
-    .filter((a) => clipOffset >= a.atMs && clipOffset <= a.atMs + a.durationMs)
-    .flatMap((a) => a.shapes);
 
   // Preload only works within one source file; a different match starts fresh.
   const upcoming = clips[index + 1];
@@ -167,7 +173,7 @@ export function PlaylistPlayer({
         body,
         atMs: Math.max(0, clipOffset),
       });
-      setComments((prev) => [...(prev ?? []), posted]);
+      setComments([...comments, posted]);
     } catch {
       setDraft(body);
     }
@@ -191,16 +197,21 @@ export function PlaylistPlayer({
             {setBy && <>Set by {setBy}.</>} {note}
           </p>
         )}
+        {audience}
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="relative aspect-video w-full bg-black">
-            <VideoStage engine={engine} src={current.src} preloadMs={preloadMs} />
-            {/* Saved drawings replay on top; they are never burned into the file. */}
-            <div className="pointer-events-none absolute inset-0">
-              <AnnotationLayer shapes={visibleShapes} />
-            </div>
+            {/* Drawings replay on top, only while stopped on their frame;
+                they are never burned into the file. */}
+            <VideoStage
+              engine={engine}
+              src={current.src}
+              preloadMs={preloadMs}
+              shapes={shapesOf(stop)}
+              overlay={stop && <StopCard stop={stop} onPlay={() => void engine.play()} />}
+            />
           </div>
 
           <div
@@ -267,24 +278,24 @@ export function PlaylistPlayer({
 
             <div>
               <h2 className="label mb-2">Comments</h2>
-              {comments === null ? (
-                <p className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-                  Loading…
-                </p>
-              ) : comments.length === 0 ? (
+              {comments.length === 0 ? (
                 <p className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
                   No comments on this clip yet.
                 </p>
               ) : (
                 <ul className="space-y-2.5">
-                  {comments.map((c) => (
+                  {inPlayingOrder(comments).map((c) => (
                     <CommentItem
                       key={c.id}
                       comment={c}
-                      viewerId={viewerId}
+                      viewer={viewer}
                       underlineTime
-                      onSeek={(atMs) => engine.seek(current.startMs + atMs, { exact: true })}
-                      onSaved={(u) => setComments((prev) => prev?.map((x) => (x.id === u.id ? u : x)) ?? prev)}
+                      onSeek={(atMs) => {
+                        engine.pause();
+                        engine.seek(current.startMs + atMs, { exact: true });
+                      }}
+                      onSaved={(u) => setComments(comments.map((x) => (x.id === u.id ? u : x)))}
+                      onDeleted={(d) => setComments(comments.filter((x) => x.id !== d.id && x.parentId !== d.id))}
                       onTextFocus={setTyping}
                     />
                   ))}
@@ -298,7 +309,7 @@ export function PlaylistPlayer({
                   onFocus={() => setTyping(true)}
                   onBlur={() => setTyping(false)}
                   rows={2}
-                  placeholder={`Comment as ${viewerName}…`}
+                  placeholder={`Pause on the moment, then comment as ${viewer.displayName}…`}
                   className="field resize-none"
                 />
                 <button onClick={() => void post()} className="btn-primary text-xs">

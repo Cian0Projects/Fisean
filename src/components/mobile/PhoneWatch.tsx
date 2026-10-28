@@ -24,7 +24,18 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PlayerEngine } from "@/components/player/engine";
 import { Timecode, VideoStage } from "@/components/player/VideoStage";
-import { createClip, deleteClip, setClipPlayers, setClipTags, updateClip } from "@/lib/actions/clips";
+import { StopCard } from "@/components/player/StopCard";
+import { shapesOf, useCommentStops } from "@/components/player/useCommentStops";
+import { listComments } from "@/lib/actions/reads";
+import {
+  createClip,
+  deleteClip,
+  setClipAudience,
+  setClipPlayers,
+  setClipTags,
+  updateClip,
+} from "@/lib/actions/clips";
+import { canShare } from "@/lib/auth/visibility";
 import { formatClock, markersFromRows, toGameTime } from "@/lib/hurling/notation";
 import { MIN_CLIP_MS } from "@/lib/hurling/clip-rules";
 import { matchDate } from "@/lib/format";
@@ -33,6 +44,7 @@ import {
   clipTone,
   eventLabelOf,
   type ClipRow,
+  type CommentRow,
   type EventTypeRow,
   type MatchInfo,
   type SquadMember,
@@ -99,7 +111,31 @@ export function PhoneWatch({
   }, [toast]);
 
   const focused = clips.find((c) => c.id === focusedId) ?? null;
-  const canEdit = (c: ClipRow) => !c.pending && (viewer.role !== "player" || c.createdBy === viewer.id);
+  // Whose clip the open sheet is about: only its maker says who sees it.
+  const sheetClip = sheet?.mode === "edit" ? (clips.find((c) => c.id === sheet.clipId) ?? null) : null;
+  const sheetMakerId = sheetClip ? sheetClip.createdBy : viewer.id;
+
+  // A clip watched on its own stops on its comments, with any drawing on the
+  // frame, as it does in a playlist. Watching the match runs straight on.
+  const [focusComments, setFocusComments] = useState<{ clipId: string; rows: CommentRow[] } | null>(null);
+  const focusedSaved = focused && !focused.pending ? focused.id : null;
+  useEffect(() => {
+    if (!focusedSaved) return;
+    let live = true;
+    void listComments(focusedSaved).then((rows) => {
+      if (live) setFocusComments({ clipId: focusedSaved, rows });
+    });
+    return () => {
+      live = false;
+    };
+  }, [focusedSaved]);
+  const stop = useCommentStops(
+    engine,
+    focusedSaved ? focused : null,
+    focusComments?.clipId === focusedSaved ? focusComments.rows : null,
+  );
+
+  const canEdit =(c: ClipRow) => !c.pending && (viewer.role !== "player" || c.createdBy === viewer.id);
   const labelOf = (c: ClipRow) => {
     if (c.title) return c.title;
     const first = eventTypes.find((e) => e.id === c.eventTypeIds[0]);
@@ -142,7 +178,14 @@ export function PhoneWatch({
     engine.pause();
     setSheet({
       mode: "new",
-      draft: { startMs, endMs, title: "", eventTypeIds: [], playerIds: [], visibility: "team" },
+      draft: {
+        startMs,
+        endMs,
+        title: "",
+        eventTypeIds: [],
+        playerIds: [],
+        audience: { visibility: "team", roles: [], userIds: [] },
+      },
     });
   };
 
@@ -219,8 +262,10 @@ export function PhoneWatch({
         title: draft.title,
         startMs: draft.startMs,
         endMs: draft.endMs,
-        visibility: draft.visibility,
       });
+      if (canShare(viewer, before) && JSON.stringify(before.audience) !== JSON.stringify(draft.audience)) {
+        await setClipAudience(clipId, draft.audience);
+      }
       if (!same(before.eventTypeIds, draft.eventTypeIds)) await setClipTags(clipId, draft.eventTypeIds);
       if (!same(before.playerIds, draft.playerIds)) await setClipPlayers(clipId, draft.playerIds);
       flash("Clip updated");
@@ -319,7 +364,13 @@ export function PhoneWatch({
         </header>
 
         <div ref={stageRef} className="relative flex aspect-video max-h-dvh w-full bg-black">
-          <VideoStage engine={engine} src={video.src} fps={video.fps ?? undefined} />
+          <VideoStage
+            engine={engine}
+            src={video.src}
+            fps={video.fps ?? undefined}
+            shapes={shapesOf(stop)}
+            overlay={stop && <StopCard stop={stop} onPlay={() => void engine.play()} />}
+          />
         </div>
 
         {video.codecWarning && (
@@ -458,7 +509,8 @@ export function PhoneWatch({
                         {", "}
                         {Math.round((c.endMs - c.startMs) / 1000)} s
                         {c.createdBy !== viewer.id && `, ${c.authorName}`}
-                        {c.visibility === "private" && ", only you"}
+                        {c.audience.visibility === "private" && ", private"}
+                        {c.audience.visibility === "assigned" && ", shared with some"}
                         {c.pending && ", saving"}
                       </span>
                     </span>
@@ -478,7 +530,7 @@ export function PhoneWatch({
                             title: c.title,
                             eventTypeIds: c.eventTypeIds,
                             playerIds: c.playerIds,
-                            visibility: c.visibility,
+                            audience: c.audience,
                           },
                         });
                       }}
@@ -504,6 +556,9 @@ export function PhoneWatch({
           halfLengthMin={match.halfLengthMin}
           eventTypes={eventTypes}
           squad={squad}
+          makerId={sheetMakerId}
+          maker={sheetMakerId === viewer.id ? "you" : (sheetClip?.authorName ?? "its maker")}
+          shareable={canShare(viewer, { createdBy: sheetMakerId })}
           onClose={closeSheet}
           onSave={(draft) => (sheet.mode === "edit" ? saveEdit(sheet.clipId, draft) : saveNew(draft))}
           onDelete={sheet.mode === "edit" ? () => remove(sheet.clipId) : undefined}

@@ -73,7 +73,7 @@ export async function requireAdmin(): Promise<SessionUser> {
 
 /**
  * A coach may edit anyone's clip; a player only their own. Used for clips,
- * playlists, comments and annotations alike.
+ * playlists and comments alike. Who may *see* them is src/lib/auth/visibility.ts.
  */
 export function canEditOwned(
   user: SessionUser,

@@ -3,6 +3,7 @@ import type { Shape } from "@/lib/db/schema";
 import { clipTagTone, type TagTone } from "@/lib/hurling/events";
 import { toneColour } from "@/components/ui/TagMark";
 import type { Markers } from "@/lib/hurling/notation";
+import type { Audience } from "@/lib/auth/visibility";
 
 export type EventTypeRow = {
   id: string;
@@ -27,12 +28,14 @@ export type ClipRow = {
   startMs: number;
   endMs: number;
   title: string;
-  visibility: "team" | "private";
+  /** Who can see it (src/lib/auth/visibility.ts). */
+  audience: Audience;
   createdBy: string | null;
   authorName: string;
   eventTypeIds: string[];
   playerIds: string[];
   commentCount: number;
+  /** How many of those comments carry a drawing. */
   annotationCount: number;
   /** Set while an optimistically-created clip is still being saved. */
   pending?: boolean;
@@ -42,20 +45,13 @@ export type CommentRow = {
   id: string;
   body: string;
   atMs: number | null;
+  /** Drawn on the frame at `atMs`, shown while playback is stopped there. */
+  shapes: Shape[] | null;
   parentId: string | null;
   createdAt: number;
   authorName: string;
   userId: string | null;
   editedAt: number | null;
-};
-
-export type AnnotationRow = {
-  id: string;
-  atMs: number;
-  durationMs: number;
-  shapes: Shape[];
-  authorName: string;
-  userId: string | null;
 };
 
 export type VideoInfo = {

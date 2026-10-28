@@ -16,6 +16,7 @@ export const NOTIFICATION_KINDS = [
   "match-footage",
   "team-playlist",
   "clip-tagged",
+  "clip-shared",
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
@@ -65,6 +66,10 @@ export function digestLines(items: DigestItem[]): DigestLine[] {
       text: clips.length === 1 ? `You are in a new clip: ${clips[0].title}` : `You are in ${clips.length} new clips`,
       href: clips[0].href,
     });
+  }
+  // Each one shared on purpose, so each gets its own line and its own link.
+  for (const i of items.filter((i) => i.kind === "clip-shared")) {
+    lines.push({ text: `A clip shared with you: ${i.title}`, href: i.href });
   }
   return lines;
 }

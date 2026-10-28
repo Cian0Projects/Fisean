@@ -6,6 +6,7 @@
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { notifications, users } from "@/lib/db/schema";
+import { reachOf, type Shared } from "@/lib/auth/visibility";
 import type { NotificationKind } from "./digest";
 
 type Share = { teamId: string; kind: NotificationKind; subjectId: string; actorId: string | null };
@@ -38,6 +39,35 @@ export async function notifyPanel(share: Share): Promise<void> {
           : eq(users.teamId, share.teamId),
       );
     await insert(share, everyone.map((u) => u.id));
+  } catch (err) {
+    console.error("Could not queue a notification:", err);
+  }
+}
+
+/**
+ * Everyone a clip or playlist can be seen by now and could not before, never
+ * the person who shared it, nor anyone in `skip` who has heard another way.
+ * Groups are worked out against the team as it is, so "all coaches" emails
+ * the coaches there are today.
+ */
+export async function notifyNewlyReached(
+  share: Share,
+  before: Shared,
+  namedBefore: string[],
+  after: Shared,
+  namedAfter: string[],
+  skip: string[] = [],
+): Promise<void> {
+  try {
+    const people = await db
+      .select({ id: users.id, role: users.role })
+      .from(users)
+      .where(eq(users.teamId, share.teamId));
+    const had = new Set(reachOf(people, before, namedBefore));
+    const reached = reachOf(people, after, namedAfter).filter(
+      (id) => !had.has(id) && id !== share.actorId && !skip.includes(id),
+    );
+    await insert(share, reached);
   } catch (err) {
     console.error("Could not queue a notification:", err);
   }

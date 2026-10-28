@@ -162,6 +162,27 @@
       "when": 1792840734967,
       "tag": "0022_club_approval_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1793141831381,
+      "tag": "0023_sharp_gravity",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1793141839207,
+      "tag": "0024_drawings_into_comments",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1793144320105,
+      "tag": "0025_share_with_groups",
+      "breakpoints": true
     }
   ]
 }

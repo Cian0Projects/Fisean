@@ -1,8 +1,11 @@
 import Link from "next/link";
-import { asc, desc, eq, inArray } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { clips, playlistItems, playlistViewers, playlists, users } from "@/lib/db/schema";
+import { clips, playlistItems, playlistViewers, users } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/guard";
+import { visibleClipIds } from "@/lib/queries/clips";
+import { describeAudience } from "@/lib/auth/visibility";
+import { visiblePlaylists } from "@/lib/queries/playlists";
 import { Nav } from "@/components/ui/Nav";
 import { formatClock } from "@/lib/hurling/notation";
 
@@ -12,36 +15,31 @@ const PREVIEW = 4;
 export default async function PlaylistsPage() {
   const user = await requireUser();
 
-  const rows = await db
-    .select({
-      id: playlists.id,
-      title: playlists.title,
-      description: playlists.description,
-      isOfficial: playlists.isOfficial,
-      authorName: users.displayName,
-    })
-    .from(playlists)
-    .leftJoin(users, eq(users.id, playlists.createdBy))
-    .where(eq(playlists.teamId, user.teamId))
-    .orderBy(desc(playlists.isOfficial), desc(playlists.createdAt));
-
+  const rows = await visiblePlaylists(user);
   const ids = rows.map((r) => r.id);
 
   // Every item on every playlist, in order: the preview, the clip count and
-  // the running time all come from the one list.
-  const itemRows = ids.length
+  // the running time all come from the one list. Someone else's private clip
+  // is left out here as it is on the playlist itself.
+  const allItems = ids.length
     ? await db
         .select({
           playlistId: playlistItems.playlistId,
+          id: clips.id,
           title: clips.title,
           startMs: clips.startMs,
           endMs: clips.endMs,
+          visibility: clips.visibility,
+          shareRoles: clips.shareRoles,
+          createdBy: clips.createdBy,
         })
         .from(playlistItems)
         .innerJoin(clips, eq(clips.id, playlistItems.clipId))
         .where(inArray(playlistItems.playlistId, ids))
         .orderBy(asc(playlistItems.playlistId), asc(playlistItems.sortOrder))
     : [];
+  const seen = await visibleClipIds(user, allItems);
+  const itemRows = allItems.filter((i) => seen.has(i.id));
 
   // Who a playlist was set for, and which of them have opened it. The count
   // is for everyone; the names of those still to watch are for the coaches,
@@ -50,6 +48,7 @@ export default async function PlaylistsPage() {
     ? await db
         .select({
           playlistId: playlistViewers.playlistId,
+          userId: playlistViewers.userId,
           name: users.displayName,
           viewedAt: playlistViewers.viewedAt,
         })
@@ -71,8 +70,14 @@ export default async function PlaylistsPage() {
 
   const entries: Entry[] = rows.map((r) => {
     const viewers = viewersBy.get(r.id) ?? [];
+    const names = new Map(viewers.map((v) => [v.userId, v.name]));
     return {
       ...r,
+      sharedWith: describeAudience(
+        { visibility: r.visibility, roles: r.shareRoles ?? [], userIds: viewers.map((v) => v.userId) },
+        (id) => (id === user.id ? "you" : names.get(id)),
+        r.createdBy === user.id ? "you" : (r.authorName ?? "its maker"),
+      ),
       items: itemsBy.get(r.id) ?? [],
       assigned: viewers.length,
       watched: viewers.filter((v) => v.viewedAt != null).length,
@@ -96,7 +101,8 @@ export default async function PlaylistsPage() {
             </p>
             <p className="caption mt-3 max-w-[30ch]">
               Build one from the review screen: select a clip and add it from the
-              details panel.
+              details panel. A new playlist is yours alone until you open it and
+              choose who can see it.
             </p>
 
             <p
@@ -119,7 +125,7 @@ export default async function PlaylistsPage() {
               {official.length > 0 && (
                 <Section
                   title="Set by the coaches"
-                  note="Published to the panel, and watched by name."
+                  note="Shared by name or with the whole team, and watched by name."
                   entries={official}
                 />
               )}
@@ -141,6 +147,8 @@ type Entry = {
   title: string;
   description: string | null;
   isOfficial: boolean;
+  /** Who can see it, in a sentence. */
+  sharedWith: string;
   authorName: string | null;
   items: Item[];
   assigned: number;
@@ -196,6 +204,7 @@ function PlaylistEntry({ entry: p }: { entry: Entry }) {
         {p.authorName ?? "Removed"}, {p.items.length} clip{p.items.length === 1 ? "" : "s"},{" "}
         {formatClock(runMs)} running
       </p>
+      <p className="caption mt-1">{p.sharedWith}</p>
 
       {p.assigned > 0 && <Watched watched={p.watched} assigned={p.assigned} />}
       {p.stillToWatch.length > 0 && (

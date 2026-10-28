@@ -24,7 +24,8 @@ some of these are not worth opening whole — `Grep` for the symbol instead.
 |---|---|
 | Schema, any new table | `src/lib/db/schema.ts` (571) — conventions in its header |
 | A server action | `src/lib/actions/clips.ts` (197) is the reference pattern |
-| Permissions | `src/lib/auth/guard.ts` (78) — whole file, it is short |
+| Permissions | `src/lib/auth/guard.ts` (78) — whole file, it is short; who may *see* or *share* a clip or playlist is `src/lib/auth/visibility.ts` (pure, tested); server lookups via `visibleClipIds` in `src/lib/queries/clips.ts`, never a bare `visibility = 'team'` filter |
+| Comments, drawings on the frame, playback stopping on them | `src/lib/hurling/stops.ts` (rules, tested); `src/components/player/useCommentStops.ts`; `StopCard.tsx`; `AnnotationLayer.tsx` (drawing tools). A drawing is `comments.shapes`; the `annotations` table is dead |
 | Sign-in (email code, no passwords) | `src/lib/auth/email-sign-in.ts` (164: issue, redeem, rate limits); `email-code.ts` beside it (pure, tested); `src/lib/actions/auth.ts` (`finish()` does what each request was for); pages under `src/app/login/` |
 | Sending email, share notifications | `src/lib/mail/` (`index.ts` driver choice, `zeptomail.ts`, `local.ts` outbox, `templates.ts` all wording); `src/lib/notify/` (`digest.ts` batching rules, `queue.ts` called from actions, `sender.ts` timer started in `src/instrumentation.ts`). How it fits together: `docs/AGENT-RECIPES.md`, "Email" |
 | Scoring, game clock | `src/lib/hurling/notation.ts` (181) |

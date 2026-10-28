@@ -15,14 +15,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Shape } from "@/lib/db/schema";
 
-export type Tool = "arrow" | "ellipse" | "freehand" | "spotlight" | "text";
+export type Tool = "arrow" | "ellipse" | "rect" | "freehand" | "spotlight" | "text";
 
-export const TOOLS: { tool: Tool; label: string; key: string }[] = [
-  { tool: "arrow", label: "Arrow", key: "1" },
-  { tool: "ellipse", label: "Circle", key: "2" },
-  { tool: "freehand", label: "Pen", key: "3" },
-  { tool: "spotlight", label: "Spotlight", key: "4" },
-  { tool: "text", label: "Label", key: "5" },
+export const TOOLS: { tool: Tool; label: string }[] = [
+  { tool: "arrow", label: "Arrow" },
+  { tool: "ellipse", label: "Circle" },
+  { tool: "rect", label: "Highlight" },
+  { tool: "freehand", label: "Pen" },
+  { tool: "spotlight", label: "Spotlight" },
+  { tool: "text", label: "Label" },
 ];
 
 export const COLOURS = ["#f0a92b", "#2fb56b", "#e5484d", "#38bdf8", "#ffffff"];
@@ -47,6 +48,8 @@ export function AnnotationLayer({
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [draft, setDraft] = useState<Shape | null>(null);
   const drawing = useRef(false);
+  // Where a highlight was started, so it can be dragged out in any direction.
+  const anchor = useRef<[number, number]>([0, 0]);
 
   // The overlay must track the video box exactly, including when the window
   // resizes or the player goes fullscreen.
@@ -84,14 +87,17 @@ export function AnnotationLayer({
       return;
     }
 
+    anchor.current = [x, y];
     const started: Shape =
       tool === "arrow"
         ? { type: "arrow", x1: x, y1: y, x2: x, y2: y, colour, width: 0.005 }
         : tool === "ellipse"
           ? { type: "ellipse", cx: x, cy: y, rx: 0, ry: 0, colour, width: 0.005 }
-          : tool === "spotlight"
-            ? { type: "spotlight", cx: x, cy: y, r: 0, colour }
-            : { type: "freehand", points: [[x, y]], colour, width: 0.005 };
+          : tool === "rect"
+            ? { type: "rect", x, y, w: 0, h: 0, colour, width: 0.003 }
+            : tool === "spotlight"
+              ? { type: "spotlight", cx: x, cy: y, r: 0, colour }
+              : { type: "freehand", points: [[x, y]], colour, width: 0.005 };
 
     setDraft(started);
   };
@@ -107,6 +113,10 @@ export function AnnotationLayer({
           return { ...d, x2: x, y2: y };
         case "ellipse":
           return { ...d, rx: Math.abs(x - d.cx), ry: Math.abs(y - d.cy) };
+        case "rect": {
+          const [ax, ay] = anchor.current;
+          return { ...d, x: Math.min(x, ax), y: Math.min(y, ay), w: Math.abs(x - ax), h: Math.abs(y - ay) };
+        }
         case "spotlight":
           return { ...d, r: Math.hypot(x - d.cx, y - d.cy) };
         case "freehand": {
@@ -130,6 +140,7 @@ export function AnnotationLayer({
     const meaningful =
       (draft.type === "arrow" && Math.hypot(draft.x2 - draft.x1, draft.y2 - draft.y1) > 0.01) ||
       (draft.type === "ellipse" && draft.rx > 0.01 && draft.ry > 0.01) ||
+      (draft.type === "rect" && draft.w > 0.01 && draft.h > 0.01) ||
       (draft.type === "spotlight" && draft.r > 0.02) ||
       (draft.type === "freehand" && draft.points.length > 2);
 
@@ -232,7 +243,10 @@ export function AnnotationLayer({
                 y={s.y * h}
                 width={s.w * w}
                 height={s.h * h}
-                fill="none"
+                // Tinted, not filled: a highlight marks an area of the pitch
+                // and the players in it still have to be seen.
+                fill={s.colour}
+                fillOpacity={0.22}
                 stroke={s.colour}
                 strokeWidth={s.width * unit}
               />

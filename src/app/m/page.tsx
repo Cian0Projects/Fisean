@@ -12,6 +12,7 @@ import {
   videos,
 } from "@/lib/db/schema";
 import { isCoach, requireUserFor } from "@/lib/auth/guard";
+import { visibleClipIds } from "@/lib/queries/clips";
 import { signOut } from "@/lib/actions/auth";
 import { Mark } from "@/components/ui/Mark";
 import { InstallHint } from "@/components/ui/InstallHint";
@@ -58,7 +59,9 @@ export default async function PhoneHome() {
     }
   }
 
-  const myClips = await db
+  // Being in a clip is not being shown it: someone's private clip with you
+  // tagged in it stays theirs, so only the ones you can see are listed.
+  const taggedIn = await db
     .select({
       id: clips.id,
       videoId: clips.videoId,
@@ -66,6 +69,9 @@ export default async function PhoneHome() {
       startMs: clips.startMs,
       endMs: clips.endMs,
       opponent: matches.opponent,
+      visibility: clips.visibility,
+      shareRoles: clips.shareRoles,
+      createdBy: clips.createdBy,
     })
     .from(clipPlayers)
     .innerJoin(clips, eq(clips.id, clipPlayers.clipId))
@@ -73,7 +79,9 @@ export default async function PhoneHome() {
     .leftJoin(matches, eq(matches.id, videos.matchId))
     .where(and(eq(clipPlayers.userId, user.id), eq(clips.teamId, user.teamId)))
     .orderBy(desc(clips.createdAt))
-    .limit(10);
+    .limit(30);
+  const seen = await visibleClipIds(user, taggedIn);
+  const myClips = taggedIn.filter((c) => seen.has(c.id)).slice(0, 10);
 
   // Set for you: the reason most of the panel opens the app between work and
   // training, so it leads, with the ones still to watch marked.

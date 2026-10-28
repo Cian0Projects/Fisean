@@ -22,6 +22,8 @@ import { PlayIcon } from "@/components/ui/Icon";
 import { eventLabelOf, type EventTypeRow, type SquadMember } from "@/components/review/types";
 import { TagMark } from "@/components/ui/TagMark";
 import { tagTone } from "@/lib/hurling/events";
+import { describeAudience, type Audience } from "@/lib/auth/visibility";
+import { AudiencePicker } from "@/components/ui/AudiencePicker";
 
 export type ClipDraft = {
   startMs: number;
@@ -29,7 +31,7 @@ export type ClipDraft = {
   title: string;
   eventTypeIds: string[];
   playerIds: string[];
-  visibility: "team" | "private";
+  audience: Audience;
 };
 
 type Props = {
@@ -41,6 +43,10 @@ type Props = {
   halfLengthMin: number;
   eventTypes: EventTypeRow[];
   squad: SquadMember[];
+  /** Who made the clip; only they say who sees it (canShare). */
+  makerId: string | null;
+  maker: string;
+  shareable: boolean;
   onSave: (draft: ClipDraft) => void;
   onClose: () => void;
   onDelete?: () => void;
@@ -57,6 +63,9 @@ export function ClipSheet({
   halfLengthMin,
   eventTypes,
   squad,
+  makerId,
+  maker,
+  shareable,
   onSave,
   onClose,
   onDelete,
@@ -184,17 +193,20 @@ export function ClipSheet({
 
           <fieldset className="mt-4">
             <legend className="label mb-1.5">Who can see it</legend>
-            <div className="grid grid-cols-2 gap-2">
-              <Chip on={draft.visibility === "team"} onClick={() => setDraft((d) => ({ ...d, visibility: "team" }))}>
-                The squad
-              </Chip>
-              <Chip
-                on={draft.visibility === "private"}
-                onClick={() => setDraft((d) => ({ ...d, visibility: "private" }))}
-              >
-                Only me
-              </Chip>
-            </div>
+            {shareable ? (
+              <AudiencePicker
+                value={draft.audience}
+                onChange={(audience) => setDraft((d) => ({ ...d, audience }))}
+                people={squad}
+                makerId={makerId}
+                maker={maker}
+              />
+            ) : (
+              <p className="text-[13px]" style={{ color: "var(--color-ink-dim)" }}>
+                {describeAudience(draft.audience, (id) => squad.find((m) => m.id === id)?.displayName, maker)} Only{" "}
+                {maker} can change that.
+              </p>
+            )}
           </fieldset>
         </div>
 

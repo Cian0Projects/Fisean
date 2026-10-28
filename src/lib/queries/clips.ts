@@ -1,20 +1,53 @@
 /**
- * The clips a viewer may see on one video, with their tags, players and
- * counts attached.
+ * The clips a viewer may see, and the lookups every screen needs to decide it.
  *
- * Shared by the desktop review workspace and the phone watch screen, because
- * the visibility rule has to be the same in both places: a player's private
- * clips are theirs alone, everything else is the squad's. Two copies of that
- * rule would drift, and the one that drifted would leak somebody's notes.
+ * Shared by the desktop review workspace, the phone, the playlists and the
+ * emails, because the visibility rule has to be the same in all of them. The
+ * rule itself is in src/lib/auth/visibility.ts; what lives here is reading
+ * who a clip was shared with by name, which the rule needs and cannot fetch.
  */
 import "server-only";
-import { asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { annotations, clipPlayers, clipTags, clips, comments, users } from "@/lib/db/schema";
-import type { SessionUser } from "@/lib/auth/session";
+import { clipPlayers, clipShares, clipTags, clips, comments, users } from "@/lib/db/schema";
+import { canSeeClip, type Shared, type Viewer } from "@/lib/auth/visibility";
 import type { ClipRow } from "@/components/review/types";
 
-export async function loadVisibleClips(videoId: string, user: SessionUser): Promise<ClipRow[]> {
+/** Which of these clips `viewer` may see. One query, however many clips. */
+export async function visibleClipIds(
+  viewer: Viewer,
+  rows: (Shared & { id: string })[],
+): Promise<Set<string>> {
+  const named = rows.filter((r) => r.visibility === "assigned").map((r) => r.id);
+  const chosen = named.length
+    ? new Set(
+        (
+          await db
+            .select({ clipId: clipShares.clipId })
+            .from(clipShares)
+            .where(and(eq(clipShares.userId, viewer.id), inArray(clipShares.clipId, named)))
+        ).map((r) => r.clipId),
+      )
+    : new Set<string>();
+  return new Set(rows.filter((r) => canSeeClip(viewer, r, chosen.has(r.id))).map((r) => r.id));
+}
+
+/** Whether `viewer` may see this one clip. */
+export async function canSeeClipRow(viewer: Viewer, row: Shared & { id: string }): Promise<boolean> {
+  return (await visibleClipIds(viewer, [row])).has(row.id);
+}
+
+/** The people each clip was shared with by name. */
+export async function sharesOf(clipIds: string[]): Promise<Map<string, string[]>> {
+  const byClip = new Map<string, string[]>();
+  if (!clipIds.length) return byClip;
+  const rows = await db.select().from(clipShares).where(inArray(clipShares.clipId, clipIds));
+  for (const r of rows) byClip.set(r.clipId, [...(byClip.get(r.clipId) ?? []), r.userId]);
+  return byClip;
+}
+
+/** The clips on one video the viewer may see, with tags, players and counts. */
+export async function loadVisibleClips(videoId: string, user: Viewer): Promise<ClipRow[]> {
   const clipRows = await db
     .select({
       id: clips.id,
@@ -22,6 +55,7 @@ export async function loadVisibleClips(videoId: string, user: SessionUser): Prom
       endMs: clips.endMs,
       title: clips.title,
       visibility: clips.visibility,
+      shareRoles: clips.shareRoles,
       createdBy: clips.createdBy,
       authorName: users.displayName,
     })
@@ -30,28 +64,27 @@ export async function loadVisibleClips(videoId: string, user: SessionUser): Prom
     .where(eq(clips.videoId, videoId))
     .orderBy(asc(clips.startMs));
 
-  const visible = clipRows.filter(
-    (c) => c.visibility === "team" || c.createdBy === user.id || user.role !== "player",
-  );
+  const seen = await visibleClipIds(user, clipRows);
+  const visible = clipRows.filter((c) => seen.has(c.id));
   const ids = visible.map((c) => c.id);
 
   // Fetch the child rows in four queries rather than per clip.
-  const [tagRows, playerRows, commentCounts, annotationCounts] = ids.length
+  const [tagRows, playerRows, commentCounts, shared] = ids.length
     ? await Promise.all([
         db.select().from(clipTags).where(inArray(clipTags.clipId, ids)),
         db.select().from(clipPlayers).where(inArray(clipPlayers.clipId, ids)),
         db
-          .select({ clipId: comments.clipId, n: sql<number>`count(*)` })
+          .select({
+            clipId: comments.clipId,
+            n: sql<number>`count(*)`,
+            drawn: sql<number>`count(${comments.shapes})`,
+          })
           .from(comments)
           .where(inArray(comments.clipId, ids))
           .groupBy(comments.clipId),
-        db
-          .select({ clipId: annotations.clipId, n: sql<number>`count(*)` })
-          .from(annotations)
-          .where(inArray(annotations.clipId, ids))
-          .groupBy(annotations.clipId),
+        sharesOf(ids),
       ])
-    : [[], [], [], []];
+    : [[], [], [], new Map<string, string[]>()];
 
   const tagsByClip = new Map<string, string[]>();
   for (const t of tagRows) {
@@ -62,14 +95,14 @@ export async function loadVisibleClips(videoId: string, user: SessionUser): Prom
     playersByClip.set(p.clipId, [...(playersByClip.get(p.clipId) ?? []), p.userId]);
   }
   const commentsByClip = new Map(commentCounts.map((r) => [r.clipId, Number(r.n)]));
-  const annotationsByClip = new Map(annotationCounts.map((r) => [r.clipId, Number(r.n)]));
+  const annotationsByClip = new Map(commentCounts.map((r) => [r.clipId, Number(r.drawn)]));
 
   return visible.map((c) => ({
     id: c.id,
     startMs: c.startMs,
     endMs: c.endMs,
     title: c.title,
-    visibility: c.visibility,
+    audience: { visibility: c.visibility, roles: c.shareRoles ?? [], userIds: shared.get(c.id) ?? [] },
     createdBy: c.createdBy,
     authorName: c.authorName ?? "Removed",
     eventTypeIds: tagsByClip.get(c.id) ?? [],

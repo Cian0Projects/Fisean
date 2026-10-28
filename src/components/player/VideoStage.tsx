@@ -39,6 +39,8 @@ type Props = {
   colour?: string;
   /** In point of the clip queued next, so the hidden element can pre-seek. */
   preloadMs?: number | null;
+  /** Drawn over the picture, inside the stage so it goes full screen with it. */
+  overlay?: React.ReactNode;
 };
 
 /** How long the full-screen bar stays up after the last touch while playing. */
@@ -55,6 +57,7 @@ export function VideoStage({
   tool = "arrow",
   colour,
   preloadMs = null,
+  overlay = null,
 }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -187,6 +190,8 @@ export function VideoStage({
         colour={colour}
         editable={drawing}
       />
+
+      {overlay}
 
       {skipped && (
         <div

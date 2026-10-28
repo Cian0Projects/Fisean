@@ -1,24 +1,33 @@
 "use client";
 
 /**
- * Detail panel for the selected clip: title, tags, who is in it, comments,
- * and adding it to a playlist.
+ * Detail panel for the selected clip: title, tags, who is in it, who can see
+ * it, comments, and adding it to a playlist.
  *
  * Every text field reports focus upward so the workspace can switch the
  * keyboard into text mode — otherwise typing "cúilín" into a comment would
  * fire the clip, comment and tag shortcuts as you went.
+ *
+ * A comment is made where the playhead is: pause on the moment, write the
+ * point, and perhaps draw on that frame first. Watching back, the clip stops
+ * there to show it (src/lib/hurling/stops.ts). The comments and the drawing
+ * in progress belong to the workspace, which needs them for the picture.
  */
 import { useEffect, useState, useTransition } from "react";
 import type { PlayerEngine } from "@/components/player/engine";
 import { formatClock } from "@/lib/hurling/notation";
+import { inPlayingOrder } from "@/lib/hurling/stops";
 import { CommentItem } from "./CommentItem";
 import { positionLabel } from "@/lib/hurling/positions";
 import { CATEGORY_LABELS, tagTone, type EventCategory } from "@/lib/hurling/events";
 import { TagMark } from "@/components/ui/TagMark";
-import { setClipPlayers, setClipTags, updateClip } from "@/lib/actions/clips";
+import { setClipAudience, setClipPlayers, setClipTags, updateClip } from "@/lib/actions/clips";
+import { canShare, describeAudience, type Audience } from "@/lib/auth/visibility";
+import { AudiencePicker } from "@/components/ui/AudiencePicker";
 import { addComment } from "@/lib/actions/review";
-import { listComments, listEditablePlaylists } from "@/lib/actions/reads";
+import { listEditablePlaylists } from "@/lib/actions/reads";
 import { addClipToPlaylist, createPlaylist } from "@/lib/actions/playlists";
+import type { Shape } from "@/lib/db/schema";
 import {
   eventLabelOf,
   type ClipRow,
@@ -28,12 +37,22 @@ import {
   type Viewer,
 } from "./types";
 
+/** A drawing made on one frame of this clip, waiting for its comment. */
+export type DrawingDraft = { atMs: number; shapes: Shape[] };
+
 type Props = {
   clip: ClipRow;
   eventTypes: EventTypeRow[];
   squad: SquadMember[];
   viewer: Viewer;
   engine: PlayerEngine;
+  /** Null while they load. */
+  comments: CommentRow[] | null;
+  onCommentsChange: (comments: CommentRow[]) => void;
+  drawing: boolean;
+  drawingDraft: DrawingDraft | null;
+  onDraw: () => void;
+  onDrawingPosted: () => void;
   onClipChange: (patch: Partial<ClipRow>) => void;
   onTextFocus: (focused: boolean) => void;
 };
@@ -44,24 +63,29 @@ export function ClipInspector({
   squad,
   viewer,
   engine,
+  comments,
+  onCommentsChange,
+  drawing,
+  drawingDraft,
+  onDraw,
+  onDrawingPosted,
   onClipChange,
   onTextFocus,
 }: Props) {
-  const [tab, setTab] = useState<"details" | "comments">("details");
+  const [chosenTab, setTab] = useState<"details" | "comments">("details");
   const [title, setTitle] = useState(clip.title);
-  const [comments, setComments] = useState<CommentRow[] | null>(null);
   const [draft, setDraft] = useState("");
-  const [pinTime, setPinTime] = useState(true);
+  const [posting, setPosting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [playlists, setPlaylists] = useState<{ id: string; title: string }[]>([]);
   const [pending, startTransition] = useTransition();
 
   // No effect is needed to reset state when the clip changes: ReviewWorkspace
   // renders this keyed by clip id, so it remounts with fresh state from props.
 
-  useEffect(() => {
-    if (tab !== "comments" || comments !== null) return;
-    void listComments(clip.id).then(setComments);
-  }, [tab, comments, clip.id]);
+  // A drawing is half a comment, so while one is in hand the words go with it.
+  const drawn = drawingDraft?.shapes.length ?? 0;
+  const tab = drawing || drawn > 0 ? "comments" : chosenTab;
 
   useEffect(() => {
     void listEditablePlaylists().then(setPlaylists);
@@ -96,17 +120,43 @@ export function ClipInspector({
     startTransition(() => void setClipPlayers(clip.id, next));
   };
 
+  // Saved on each tap, as tags are: the panel has no save button to forget.
+  // The picker already cleaned it the way the server will, so the reply is
+  // not applied; a slow one would otherwise undo a quicker later tap.
+  const setAudience = (audience: Audience) => {
+    const before = clip.audience;
+    onClipChange({ audience });
+    startTransition(async () => {
+      try {
+        await setClipAudience(clip.id, audience);
+      } catch {
+        onClipChange({ audience: before });
+      }
+    });
+  };
+
   const postComment = async () => {
     const body = draft.trim();
-    if (!body) return;
-    const atMs = pinTime ? Math.max(0, engine.snapshot.positionMs - clip.startMs) : null;
-    setDraft("");
+    const shapes = drawingDraft?.shapes ?? [];
+    if ((!body && !shapes.length) || posting) return;
+    // The drawing's frame if there is one, so the words land with it, even if
+    // the playhead has moved since; otherwise wherever the playhead is.
+    const atMs = drawingDraft?.atMs ?? Math.max(0, engine.snapshot.positionMs - clip.startMs);
+    setPosting(true);
+    setError(null);
     try {
-      const posted = await addComment({ clipId: clip.id, body, atMs });
-      setComments((prev) => [...(prev ?? []), posted]);
-      onClipChange({ commentCount: clip.commentCount + 1 });
-    } catch {
-      setDraft(body);
+      const posted = await addComment({ clipId: clip.id, body, atMs, shapes });
+      onCommentsChange([...(comments ?? []), posted]);
+      onClipChange({
+        commentCount: clip.commentCount + 1,
+        annotationCount: clip.annotationCount + (shapes.length ? 1 : 0),
+      });
+      setDraft("");
+      onDrawingPosted();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not post that.");
+    } finally {
+      setPosting(false);
     }
   };
 
@@ -221,6 +271,29 @@ export function ClipInspector({
             </div>
 
             <div>
+              <span className="label mb-1.5 block">Who can see it</span>
+              {canShare(viewer, clip) && !clip.pending ? (
+                <AudiencePicker
+                  value={clip.audience}
+                  onChange={setAudience}
+                  people={squad}
+                  makerId={clip.createdBy}
+                  maker={clip.createdBy === viewer.id ? "you" : clip.authorName}
+                  compact
+                />
+              ) : (
+                <p className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+                  {describeAudience(
+                    clip.audience,
+                    (id) => (id === viewer.id ? "you" : squad.find((m) => m.id === id)?.displayName),
+                    clip.authorName,
+                  )}{" "}
+                  Only {clip.authorName} can change that.
+                </p>
+              )}
+            </div>
+
+            <div>
               <span className="label mb-1.5 block">Add to playlist</span>
               <div className="flex flex-wrap gap-1">
                 {playlists.map((p) => (
@@ -270,44 +343,68 @@ export function ClipInspector({
               </div>
             ) : (
               <ul className="space-y-2.5">
-                {comments.map((c) => (
+                {inPlayingOrder(comments).map((c) => (
                   <CommentItem
                     key={c.id}
                     comment={c}
-                    viewerId={viewer.id}
-                    onSeek={(atMs) => engine.seek(clip.startMs + atMs, { exact: true })}
-                    onSaved={(u) => setComments((prev) => prev?.map((x) => (x.id === u.id ? u : x)) ?? prev)}
+                    viewer={viewer}
+                    onSeek={(atMs) => {
+                      engine.pause();
+                      engine.seek(clip.startMs + atMs, { exact: true });
+                    }}
+                    onSaved={(u) => onCommentsChange(comments.map((x) => (x.id === u.id ? u : x)))}
+                    onDeleted={(d) => {
+                      const gone = comments.filter((x) => x.id === d.id || x.parentId === d.id);
+                      onCommentsChange(comments.filter((x) => !gone.includes(x)));
+                      onClipChange({
+                        commentCount: Math.max(0, clip.commentCount - gone.length),
+                        annotationCount: Math.max(0, clip.annotationCount - (d.shapes?.length ? 1 : 0)),
+                      });
+                    }}
                     onTextFocus={onTextFocus}
                   />
                 ))}
               </ul>
             )}
 
-            <div className="space-y-2 pt-1">
+            <div className="space-y-2 border-t pt-3" style={{ borderColor: "var(--color-line)" }}>
+              <div className="flex items-baseline justify-between gap-2 text-[12px]">
+                <span style={{ color: "var(--color-ink-faint)" }}>
+                  The clip will stop at{" "}
+                  <span className="tabular font-semibold" style={{ color: "var(--color-ash)" }}>
+                    {drawingDraft ? formatClock(drawingDraft.atMs) : <Moment engine={engine} startMs={clip.startMs} />}
+                  </span>{" "}
+                  to show this.
+                </span>
+              </div>
               <textarea
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onFocus={() => onTextFocus(true)}
                 onBlur={() => onTextFocus(false)}
-                placeholder="Add a comment…"
+                placeholder={drawn ? "Say what the drawing shows…" : "Pause on the moment, then say what happened…"}
                 rows={3}
                 className="field resize-none"
               />
-              <div className="flex items-center justify-between">
-                <label
-                  className="flex items-center gap-1.5 text-[12px]"
-                  style={{ color: "var(--color-ink-faint)" }}
+              {error && (
+                <div className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+                  {error}
+                </div>
+              )}
+              <div className="flex items-center justify-between gap-2">
+                <button onClick={onDraw} className="btn-ghost text-xs">
+                  {drawing
+                    ? "Done drawing"
+                    : drawn
+                      ? `Drawing ready, ${drawn} mark${drawn === 1 ? "" : "s"}`
+                      : "Draw on this frame"}
+                </button>
+                <button
+                  onClick={() => void postComment()}
+                  disabled={posting || (!draft.trim() && !drawn)}
+                  className="btn-primary text-xs"
                 >
-                  <input
-                    type="checkbox"
-                    checked={pinTime}
-                    onChange={(e) => setPinTime(e.target.checked)}
-                    className="accent-[var(--color-ink)]"
-                  />
-                  Pin to this moment
-                </label>
-                <button onClick={() => void postComment()} className="btn-primary text-xs">
-                  Post
+                  {posting ? "Posting…" : "Post"}
                 </button>
               </div>
             </div>
@@ -316,4 +413,18 @@ export function ClipInspector({
       </div>
     </div>
   );
+}
+
+/**
+ * Where in the clip the playhead is, to the second, so the moment a comment
+ * will stop on is in front of whoever is writing it. Subscribes on its own,
+ * rather than re-rendering the whole panel every frame.
+ */
+function Moment({ engine, startMs }: { engine: PlayerEngine; startMs: number }) {
+  const [label, setLabel] = useState(() => formatClock(Math.max(0, engine.snapshot.positionMs - startMs)));
+  useEffect(
+    () => engine.subscribe((t) => setLabel(formatClock(Math.max(0, t.positionMs - startMs)))),
+    [engine, startMs],
+  );
+  return <>{label}</>;
 }

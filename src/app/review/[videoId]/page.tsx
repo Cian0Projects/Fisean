@@ -18,9 +18,11 @@ export default async function ReviewPage({
   searchParams,
 }: {
   params: Promise<{ videoId: string }>;
-  searchParams: Promise<{ full?: string }>;
+  /** `clip` opens on that clip, as the "shared with you" email links. */
+  searchParams: Promise<{ full?: string; clip?: string }>;
 }) {
   const { videoId } = await params;
+  const { full, clip } = await searchParams;
 
   // The workspace is a keyboard and a wide screen: a side panel that will not
   // narrow, and a timeline and transport that each keep their height. On a
@@ -28,8 +30,8 @@ export default async function ReviewPage({
   // built for it, whichever link it came in by. `?full=1` opts out, for the
   // odd tablet that calls itself a phone.
   const h = await headers();
-  if ((await searchParams).full !== "1" && isPhoneRequest(h.get("user-agent") ?? "", h.get("sec-ch-ua-mobile"))) {
-    redirect(`/m/watch/${videoId}`);
+  if (full !== "1" && isPhoneRequest(h.get("user-agent") ?? "", h.get("sec-ch-ua-mobile"))) {
+    redirect(`/m/watch/${videoId}${clip ? `?clip=${encodeURIComponent(clip)}` : ""}`);
   }
 
   const user = await requireUser();
@@ -106,6 +108,8 @@ export default async function ReviewPage({
       code={user.teamCode}
       squad={squad}
       initialClips={initialClips}
+      // Only a clip this viewer can see: the rest are not in the list.
+      openClipId={initialClips.some((c) => c.id === clip) ? clip : undefined}
       markerRows={markerRows}
       viewer={{ id: user.id, displayName: user.displayName, role: user.role }}
       statNumbers={statNumbers}

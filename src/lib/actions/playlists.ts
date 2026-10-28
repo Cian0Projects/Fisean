@@ -1,16 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, max, sql } from "drizzle-orm";
+import { and, eq, inArray, max, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { clips, playlistItems, playlistViewers, playlists } from "@/lib/db/schema";
+import { clips, playlistItems, playlistViewers, playlists, users } from "@/lib/db/schema";
 import {
   assertCanEditOwned,
   assertSameTeam,
   isCoach,
   requireUserOrThrow,
 } from "@/lib/auth/guard";
-import { notifyPanel, notifyUsers } from "@/lib/notify/queue";
+import { canShare, normaliseAudience, type Audience } from "@/lib/auth/visibility";
+import { notifyNewlyReached, notifyUsers } from "@/lib/notify/queue";
 
 export async function createPlaylist(input: {
   title: string;
@@ -36,7 +37,9 @@ export async function createPlaylist(input: {
       title,
       description: input.description?.trim() || null,
       isOfficial,
-      visibility: "team",
+      // Yours alone until you share it: a cut still being put together
+      // should not reach the panel, or email them, one clip at a time.
+      visibility: "private",
     })
     .returning();
 
@@ -48,12 +51,6 @@ export async function createPlaylist(input: {
         sortOrder: i,
       })),
     );
-  }
-
-  // Only the coaches' published cut goes to the whole panel. A player's own
-  // playlist is visible to the team but nobody needs an email about it.
-  if (isOfficial) {
-    await notifyPanel({ teamId: user.teamId, kind: "team-playlist", subjectId: playlist.id, actorId: user.id });
   }
 
   revalidatePath("/playlists");
@@ -161,12 +158,18 @@ export async function deletePlaylist(playlistId: string): Promise<void> {
 }
 
 /**
- * Assign a playlist to specific players. Coaches only — this is what turns a
- * pile of clips into homework for a named group.
+ * Who can open a playlist: everyone, its maker alone, or any mix of all
+ * players, all coaches, all admins and named people, by the same rule as a
+ * clip (src/lib/auth/visibility.ts). Its maker says, so a player can send
+ * their own cut to a teammate, and a coach can turn a pile of clips into
+ * homework for the half-back line, without anyone else widening either.
+ *
+ * The named people are kept as a diff rather than replaced, so someone who
+ * stays on the list keeps their "watched" record, and only people newly
+ * added get an email about it.
  */
-export async function assignPlaylist(playlistId: string, userIds: string[]): Promise<void> {
+export async function setPlaylistAudience(playlistId: string, input: Audience): Promise<void> {
   const user = await requireUserOrThrow();
-  if (!isCoach(user)) throw new Error("Only coaches and admins can assign playlists.");
 
   const [playlist] = await db
     .select()
@@ -175,18 +178,54 @@ export async function assignPlaylist(playlistId: string, userIds: string[]): Pro
     .limit(1);
   if (!playlist) throw new Error("That playlist no longer exists.");
   assertSameTeam(user, playlist);
+  if (!canShare(user, playlist)) throw new Error("Only whoever made the playlist can change who sees it.");
 
-  await db.delete(playlistViewers).where(eq(playlistViewers.playlistId, playlistId));
-  if (userIds.length) {
+  const audience = normaliseAudience(input, playlist.createdBy);
+  // Only people on this team: the ids came from a client.
+  const chosen = audience.userIds.length
+    ? (
+        await db
+          .select({ id: users.id })
+          .from(users)
+          .where(and(eq(users.teamId, playlist.teamId), inArray(users.id, audience.userIds)))
+      ).map((u) => u.id)
+    : [];
+
+  const before = (
     await db
-      .insert(playlistViewers)
-      .values(userIds.map((userId) => ({ playlistId, userId })));
-    await notifyUsers(
-      { teamId: playlist.teamId, kind: "playlist-assigned", subjectId: playlistId, actorId: user.id },
-      userIds,
-    );
+      .select({ userId: playlistViewers.userId })
+      .from(playlistViewers)
+      .where(eq(playlistViewers.playlistId, playlistId))
+  ).map((v) => v.userId);
+  const removed = before.filter((id) => !chosen.includes(id));
+  const added = chosen.filter((id) => !before.includes(id));
+
+  if (removed.length) {
+    await db
+      .delete(playlistViewers)
+      .where(and(eq(playlistViewers.playlistId, playlistId), inArray(playlistViewers.userId, removed)));
   }
+  if (added.length) {
+    await db.insert(playlistViewers).values(added.map((userId) => ({ playlistId, userId })));
+  }
+  const [after] = await db
+    .update(playlists)
+    .set({ visibility: audience.visibility, shareRoles: audience.roles.length ? audience.roles : null })
+    .where(eq(playlists.id, playlistId))
+    .returning();
+
+  const share = { teamId: playlist.teamId, subjectId: playlistId, actorId: user.id };
+  // Named people are each told it is for them.
+  if (added.length) await notifyUsers({ ...share, kind: "playlist-assigned" }, added);
+  // Whole groups are told only about the coaches' published cut. A player's
+  // own playlist opened to the team is there to find, not to be emailed.
+  if (playlist.isOfficial) {
+    await notifyNewlyReached({ ...share, kind: "team-playlist" }, playlist, before, after, chosen, chosen);
+  }
+
   revalidatePath(`/playlists/${playlistId}`);
+  revalidatePath("/playlists");
+  revalidatePath("/");
 }
 
 /**

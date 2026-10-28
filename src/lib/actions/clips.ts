@@ -3,10 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { clipPlayers, clipTags, clips, videos } from "@/lib/db/schema";
-import { assertCanEditOwned, assertSameTeam, requireUserOrThrow } from "@/lib/auth/guard";
+import { clipPlayers, clipShares, clipTags, clips, users, videos } from "@/lib/db/schema";
+import { assertCanEditOwned, assertSameTeam, Forbidden, requireUserOrThrow } from "@/lib/auth/guard";
+import { canShare, normaliseAudience, type Audience } from "@/lib/auth/visibility";
 import { MIN_CLIP_MS, MAX_CLIP_MS } from "@/lib/hurling/clip-rules";
-import { notifyUsers } from "@/lib/notify/queue";
+import { notifyNewlyReached, notifyUsers } from "@/lib/notify/queue";
 
 export type ClipInput = {
   videoId: string;
@@ -15,7 +16,8 @@ export type ClipInput = {
   title?: string;
   eventTypeIds?: string[];
   playerIds?: string[];
-  visibility?: "team" | "private";
+  /** Everyone, when not given. */
+  audience?: Audience;
   pitchX?: number | null;
   pitchY?: number | null;
 };
@@ -27,7 +29,7 @@ export type SavedClip = {
   title: string;
   eventTypeIds: string[];
   playerIds: string[];
-  visibility: "team" | "private";
+  audience: Audience;
   createdBy: string | null;
   authorName: string;
 };
@@ -56,6 +58,8 @@ export async function createClip(input: ClipInput): Promise<SavedClip> {
   if (endMs - startMs < MIN_CLIP_MS) throw new Error("That clip is too short to watch.");
   if (endMs - startMs > MAX_CLIP_MS) throw new Error("Clips are capped at ten minutes.");
 
+  const audience = normaliseAudience(input.audience ?? { visibility: "team", roles: [], userIds: [] }, user.id);
+
   const [clip] = await db
     .insert(clips)
     .values({
@@ -65,11 +69,13 @@ export async function createClip(input: ClipInput): Promise<SavedClip> {
       title: input.title?.trim() ?? "",
       startMs,
       endMs,
-      visibility: input.visibility ?? "team",
+      visibility: audience.visibility,
+      shareRoles: audience.roles.length ? audience.roles : null,
       pitchX: input.pitchX ?? null,
       pitchY: input.pitchY ?? null,
     })
     .returning();
+  const named = await writeShares(clip.id, user.teamId, audience.userIds);
 
   if (input.eventTypeIds?.length) {
     await db
@@ -81,13 +87,27 @@ export async function createClip(input: ClipInput): Promise<SavedClip> {
     await db
       .insert(clipPlayers)
       .values(input.playerIds.map((userId) => ({ clipId: clip.id, userId })));
-    // A private clip is someone's own review; nobody is told about it.
-    if (clip.visibility === "team") {
+    // A private clip is someone's own review; nobody is told about it. For
+    // one shared with some, the email checks again that each can see it.
+    if (clip.visibility !== "private") {
       await notifyUsers(
         { teamId: user.teamId, kind: "clip-tagged", subjectId: clip.id, actorId: user.id },
         input.playerIds,
       );
     }
+  }
+
+  // Shared with some rather than everyone is a deliberate send, so they are
+  // told; anyone in the clip has already heard about it above.
+  if (clip.visibility === "assigned") {
+    await notifyNewlyReached(
+      { teamId: user.teamId, kind: "clip-shared", subjectId: clip.id, actorId: user.id },
+      { visibility: "private", createdBy: user.id, shareRoles: null },
+      [],
+      clip,
+      named,
+      input.playerIds ?? [],
+    );
   }
 
   revalidatePath(`/review/${video.id}`);
@@ -99,15 +119,71 @@ export async function createClip(input: ClipInput): Promise<SavedClip> {
     title: clip.title,
     eventTypeIds: input.eventTypeIds ?? [],
     playerIds: input.playerIds ?? [],
-    visibility: clip.visibility,
+    audience: { ...audience, userIds: named },
     createdBy: clip.createdBy,
     authorName: user.displayName,
   };
 }
 
+/**
+ * Who can see a clip: everyone, its maker alone, or any mix of all players,
+ * all coaches, all admins and named people. Only its maker says (canShare).
+ * Only the people it newly reaches are emailed, and only when it
+ * was shared with some rather than opened to everyone, which every clip is
+ * by default and would be noise.
+ */
+export async function setClipAudience(clipId: string, input: Audience): Promise<Audience> {
+  const user = await requireUserOrThrow();
+  const [clip] = await db.select().from(clips).where(eq(clips.id, clipId)).limit(1);
+  if (!clip) throw new Error("That clip no longer exists.");
+  assertSameTeam(user, clip);
+  if (!canShare(user, clip)) throw new Forbidden("Only whoever made the clip can change who sees it.");
+
+  const audience = normaliseAudience(input, clip.createdBy);
+  const before = (await db.select().from(clipShares).where(eq(clipShares.clipId, clipId))).map((s) => s.userId);
+
+  const [after] = await db
+    .update(clips)
+    .set({
+      visibility: audience.visibility,
+      shareRoles: audience.roles.length ? audience.roles : null,
+      updatedAt: Date.now(),
+    })
+    .where(eq(clips.id, clipId))
+    .returning();
+  await db.delete(clipShares).where(eq(clipShares.clipId, clipId));
+  const named = await writeShares(clipId, clip.teamId, audience.userIds);
+
+  if (after.visibility === "assigned") {
+    await notifyNewlyReached(
+      { teamId: clip.teamId, kind: "clip-shared", subjectId: clipId, actorId: user.id },
+      clip,
+      before,
+      after,
+      named,
+    );
+  }
+
+  revalidatePath(`/review/${clip.videoId}`);
+  return { ...audience, userIds: named };
+}
+
+/** Record who a clip is shared with by name: people on its team only, since the ids came from a client. */
+async function writeShares(clipId: string, teamId: string, userIds: string[]): Promise<string[]> {
+  if (!userIds.length) return [];
+  const onTeam = (
+    await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.teamId, teamId), inArray(users.id, userIds)))
+  ).map((u) => u.id);
+  if (onTeam.length) await db.insert(clipShares).values(onTeam.map((userId) => ({ clipId, userId })));
+  return onTeam;
+}
+
 export async function updateClip(
   clipId: string,
-  patch: Partial<Pick<ClipInput, "title" | "startMs" | "endMs" | "visibility" | "pitchX" | "pitchY">>,
+  patch: Partial<Pick<ClipInput, "title" | "startMs" | "endMs" | "pitchX" | "pitchY">>,
 ): Promise<void> {
   const user = await requireUserOrThrow();
   const [clip] = await db.select().from(clips).where(eq(clips.id, clipId)).limit(1);
@@ -126,7 +202,6 @@ export async function updateClip(
       ...(patch.title !== undefined ? { title: patch.title.trim() } : {}),
       startMs: Math.max(0, Math.round(startMs)),
       endMs: Math.round(endMs),
-      ...(patch.visibility ? { visibility: patch.visibility } : {}),
       ...(patch.pitchX !== undefined ? { pitchX: patch.pitchX } : {}),
       ...(patch.pitchY !== undefined ? { pitchY: patch.pitchY } : {}),
       updatedAt: Date.now(),
@@ -176,8 +251,9 @@ export async function setClipPlayers(clipId: string, playerIds: string[]): Promi
   await db.delete(clipPlayers).where(eq(clipPlayers.clipId, clipId));
   if (playerIds.length) {
     await db.insert(clipPlayers).values(playerIds.map((userId) => ({ clipId, userId })));
-    // Anyone already told about this clip is skipped by the queue itself.
-    if (clip.visibility === "team") {
+    // Anyone already told about this clip is skipped by the queue itself,
+    // and anyone it is not shared with is skipped when the email is made.
+    if (clip.visibility !== "private") {
       await notifyUsers({ teamId: clip.teamId, kind: "clip-tagged", subjectId: clipId, actorId: user.id }, playerIds);
     }
   }

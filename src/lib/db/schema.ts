@@ -407,10 +407,16 @@ export const clips = sqliteTable(
     title: text("title").notNull().default(""),
     startMs: integer("start_ms").notNull(),
     endMs: integer("end_ms").notNull(),
-    /** "team" is visible to the squad; "private" is self-review only. */
-    visibility: text("visibility", { enum: ["team", "private"] })
+    /**
+     * Who can see it (src/lib/auth/visibility.ts): "team" everyone,
+     * "private" its maker alone, "assigned" its maker plus `shareRoles`
+     * and the people in clip_shares.
+     */
+    visibility: text("visibility", { enum: ["team", "private", "assigned"] })
       .notNull()
       .default("team"),
+    /** The whole groups an "assigned" clip is shared with. */
+    shareRoles: text("share_roles", { mode: "json" }).$type<Role[]>(),
     /** Where on the pitch it happened, normalised 0–1. Drives shot maps. */
     pitchX: real("pitch_x"),
     pitchY: real("pitch_y"),
@@ -460,6 +466,20 @@ export const clipPlayers = sqliteTable(
   ],
 );
 
+/** The people an "assigned" clip was shared with by name. */
+export const clipShares = sqliteTable(
+  "clip_shares",
+  {
+    clipId: text("clip_id")
+      .notNull()
+      .references(() => clips.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.clipId, t.userId] }), index("clip_shares_user").on(t.userId)],
+);
+
 /* -------------------------------------------------------------- playlists */
 
 export const playlists = sqliteTable(
@@ -475,9 +495,19 @@ export const playlists = sqliteTable(
     description: text("description"),
     /** Coach-published playlists sort above personal ones. */
     isOfficial: integer("is_official", { mode: "boolean" }).notNull().default(false),
+    /**
+     * Who can open it, by the same rule as a clip (src/lib/auth/visibility.ts):
+     * "private" is its maker alone, "team" everyone, "assigned" its maker plus
+     * `shareRoles` and the people in playlist_viewers. createPlaylist starts
+     * every one private, so a cut still being put together never reaches the
+     * panel; the column default is "team" only because that is what
+     * playlists made before this were.
+     */
     visibility: text("visibility", { enum: ["team", "private", "assigned"] })
       .notNull()
       .default("team"),
+    /** The whole groups an "assigned" playlist is shared with. */
+    shareRoles: text("share_roles", { mode: "json" }).$type<Role[]>(),
     createdAt: integer("created_at").notNull().default(now),
   },
   (t) => [index("playlists_team").on(t.teamId)],
@@ -499,7 +529,10 @@ export const playlistItems = sqliteTable(
   (t) => [index("playlist_items_order").on(t.playlistId, t.sortOrder)],
 );
 
-/** Assignment plus view tracking, so a selector can see who has watched. */
+/**
+ * The people an "assigned" playlist was shared with, and whether each has
+ * watched it, so a selector can see who has.
+ */
 export const playlistViewers = sqliteTable(
   "playlist_viewers",
   {
@@ -532,8 +565,18 @@ export const comments = sqliteTable(
     /** One level of threading; replies point at a top-level comment. */
     parentId: text("parent_id"),
     body: text("body").notNull(),
-    /** Optional offset within the clip, so a comment can pin to a moment. */
+    /**
+     * Offset within the clip where playback stops to show this comment (see
+     * src/lib/hurling/stops.ts). Null is the first frame: older comments
+     * could be posted without a moment.
+     */
     atMs: integer("at_ms"),
+    /**
+     * What was drawn on the video at `atMs`, if anything. A drawing belongs
+     * to a comment rather than standing alone, so it shows on that one frame
+     * while playback is stopped there, and the words say what it is for.
+     */
+    shapes: text("shapes", { mode: "json" }).$type<Shape[]>(),
     createdAt: integer("created_at").notNull().default(now),
     editedAt: integer("edited_at"),
   },
@@ -572,11 +615,19 @@ export type Shape =
       colour: string;
       width: number;
     }
+  /** A highlighted area: drawn as a tinted box, so what is under it still shows. */
   | { type: "rect"; x: number; y: number; w: number; h: number; colour: string; width: number }
   | { type: "freehand"; points: [number, number][]; colour: string; width: number }
   | { type: "spotlight"; cx: number; cy: number; r: number; colour: string }
   | { type: "text"; x: number; y: number; body: string; colour: string; size: number };
 
+/**
+ * No longer written or read. Drawings used to stand alone here, shown for a
+ * few seconds from `atMs`; each now belongs to a comment (comments.shapes),
+ * and the migration that added that column copied these rows across as
+ * comments with no words. Kept until that copy is confirmed in production,
+ * then to be dropped.
+ */
 export const annotations = sqliteTable(
   "annotations",
   {

@@ -87,9 +87,9 @@ export function ClipList({
                       <span className="tabular text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
                         {Math.round((c.endMs - c.startMs) / 1000)} s
                       </span>
-                      {c.visibility === "private" && (
+                      {c.audience.visibility !== "team" && (
                         <span className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-                          only you
+                          {c.audience.visibility === "private" ? "private" : "shared with some"}
                         </span>
                       )}
                     </div>

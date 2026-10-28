@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
   clipPlayers,
@@ -15,6 +15,7 @@ import {
 import { redirect } from "next/navigation";
 import { currentUser, waitingUser } from "@/lib/auth/session";
 import { requireUser } from "@/lib/auth/guard";
+import { visibleClipIds } from "@/lib/queries/clips";
 import { Nav } from "@/components/ui/Nav";
 import { formatClock, formatScore } from "@/lib/hurling/notation";
 import type { GameCode } from "@/lib/hurling/codes";
@@ -382,7 +383,9 @@ async function Dashboard() {
         .select({ matchId: videos.matchId, n: sql<number>`count(*)` })
         .from(clips)
         .innerJoin(videos, eq(videos.id, clips.videoId))
-        .where(inArray(videos.matchId, ids))
+        // The panel's clips and your own: a count that took in other
+        // people's private clips would say there is more than anyone can find.
+        .where(and(inArray(videos.matchId, ids), or(eq(clips.visibility, "team"), eq(clips.createdBy, user.id))))
         .groupBy(videos.matchId)
     : [];
 
@@ -455,13 +458,18 @@ async function Dashboard() {
     });
   }
 
-  const myClipRows = await db
+  // Being in a clip is not being shown it: someone's private clip with you
+  // tagged in it stays theirs, so only the ones you can see are listed.
+  const taggedIn = await db
     .select({
       id: clips.id,
       videoId: clips.videoId,
       title: clips.title,
       startMs: clips.startMs,
       opponent: matches.opponent,
+      visibility: clips.visibility,
+      shareRoles: clips.shareRoles,
+      createdBy: clips.createdBy,
     })
     .from(clipPlayers)
     .innerJoin(clips, eq(clips.id, clipPlayers.clipId))
@@ -469,7 +477,9 @@ async function Dashboard() {
     .leftJoin(matches, eq(matches.id, videos.matchId))
     .where(and(eq(clipPlayers.userId, user.id), eq(clips.teamId, user.teamId)))
     .orderBy(desc(clips.createdAt))
-    .limit(8);
+    .limit(24);
+  const seenClips = await visibleClipIds(user, taggedIn);
+  const myClipRows = taggedIn.filter((c) => seenClips.has(c.id)).slice(0, 8);
 
   // What the rest of the panel has been cutting. Team clips only — a private
   // clip is somebody's own notes.
