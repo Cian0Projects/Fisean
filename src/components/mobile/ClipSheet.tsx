@@ -9,19 +9,18 @@
  * desktop's drag handles because a thumb can tap four times far more
  * accurately than it can drag to a tenth of a second.
  *
- * Everything else is chips, not dropdowns — tags, then the players in it —
- * because a chip is one tap and a `<select>` on a phone is three and a
- * spinning wheel. Text inputs are set at 16 px on purpose: anything smaller
- * and iOS zooms the whole page in on focus and leaves it there.
+ * Then a title, in your own words (no event tags: what a clip is goes in its
+ * title), and who can see it, which is chips because a chip is one tap and a
+ * `<select>` on a phone is three and a spinning wheel. Text inputs are set at
+ * 16 px on purpose: anything smaller and iOS zooms the whole page in on focus
+ * and leaves it there.
  */
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { PlayerEngine } from "@/components/player/engine";
 import { formatClockPrecise, toGameTime, type Markers } from "@/lib/hurling/notation";
 import { nudgeEdge } from "@/lib/hurling/clip-rules";
 import { PlayIcon } from "@/components/ui/Icon";
-import { eventLabelOf, type EventTypeRow, type SquadMember } from "@/components/review/types";
-import { TagMark } from "@/components/ui/TagMark";
-import { tagTone } from "@/lib/hurling/events";
+import type { SquadMember } from "@/components/review/types";
 import { describeAudience, type Audience } from "@/lib/auth/visibility";
 import { AudiencePicker } from "@/components/ui/AudiencePicker";
 
@@ -29,8 +28,6 @@ export type ClipDraft = {
   startMs: number;
   endMs: number;
   title: string;
-  eventTypeIds: string[];
-  playerIds: string[];
   audience: Audience;
 };
 
@@ -41,7 +38,6 @@ type Props = {
   durationMs: number;
   markers: Markers;
   halfLengthMin: number;
-  eventTypes: EventTypeRow[];
   squad: SquadMember[];
   /** Who made the clip; only they say who sees it (canShare). */
   makerId: string | null;
@@ -61,7 +57,6 @@ export function ClipSheet({
   durationMs,
   markers,
   halfLengthMin,
-  eventTypes,
   squad,
   makerId,
   maker,
@@ -72,12 +67,6 @@ export function ClipSheet({
 }: Props) {
   const [draft, setDraft] = useState(initial);
 
-  const byCategory = useMemo(() => {
-    const groups = new Map<string, EventTypeRow[]>();
-    for (const e of eventTypes) groups.set(e.category, [...(groups.get(e.category) ?? []), e]);
-    return [...groups];
-  }, [eventTypes]);
-
   const nudge = (edge: "start" | "end", delta: number) => {
     const next = nudgeEdge(draft, edge, delta, durationMs);
     setDraft((d) => ({ ...d, ...next }));
@@ -86,12 +75,6 @@ export function ClipSheet({
     engine.setBounds(next.startMs, next.endMs);
     engine.seek(edge === "start" ? next.startMs : next.endMs, { exact: true });
   };
-
-  const toggle = (key: "eventTypeIds" | "playerIds", id: string) =>
-    setDraft((d) => ({
-      ...d,
-      [key]: d[key].includes(id) ? d[key].filter((x) => x !== id) : [...d[key], id],
-    }));
 
   const seconds = Math.round((draft.endMs - draft.startMs) / 100) / 10;
 
@@ -160,37 +143,6 @@ export function ClipSheet({
             onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
           />
 
-          {byCategory.map(([category, list]) => (
-            <fieldset key={category} className="mt-4">
-              <legend className="label mb-1.5">{sentence(category)}</legend>
-              <div className="flex flex-wrap gap-2">
-                {list.map((e) => (
-                  <Chip
-                    key={e.id}
-                    on={draft.eventTypeIds.includes(e.id)}
-                    onClick={() => toggle("eventTypeIds", e.id)}
-                  >
-                    <TagMark tone={tagTone(e.slug)} />
-                    {eventLabelOf(e)}
-                  </Chip>
-                ))}
-              </div>
-            </fieldset>
-          ))}
-
-          {squad.length > 0 && (
-            <fieldset className="mt-4">
-              <legend className="label mb-1.5">Who is in it</legend>
-              <div className="flex flex-wrap gap-2">
-                {squad.map((p) => (
-                  <Chip key={p.id} on={draft.playerIds.includes(p.id)} onClick={() => toggle("playerIds", p.id)}>
-                    {p.displayName}
-                  </Chip>
-                ))}
-              </div>
-            </fieldset>
-          )}
-
           <fieldset className="mt-4">
             <legend className="label mb-1.5">Who can see it</legend>
             {shareable ? (
@@ -233,28 +185,4 @@ export function ClipSheet({
       </div>
     </div>
   );
-}
-
-function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={onClick}
-      className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded border px-3 text-[14px] transition-colors"
-      style={{
-        background: on ? "var(--color-surface-3)" : "transparent",
-        borderColor: on ? "var(--color-ash)" : "var(--color-line-strong)",
-        color: on ? "var(--color-ink)" : "var(--color-ink-dim)",
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-/** "set_piece" to "Set piece": sentence case, as everywhere else. */
-function sentence(slug: string): string {
-  const words = slug.replace(/_/g, " ");
-  return words.charAt(0).toUpperCase() + words.slice(1);
 }

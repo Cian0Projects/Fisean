@@ -16,8 +16,8 @@
  *    as the `C` key.
  *  - "Mark start", then "End clip", for a passage whose length you choose.
  *
- * Either way the video pauses and the clip sheet rises to trim, tag and
- * credit it. Saves are optimistic, as on the desktop: the clip is in the list
+ * Either way the video pauses and the clip sheet rises to trim, title and
+ * share it. Saves are optimistic, as on the desktop: the clip is in the list
  * before the server has answered, and taken back out if it refuses.
  */
 import Link from "next/link";
@@ -27,22 +27,13 @@ import { Timecode, VideoStage } from "@/components/player/VideoStage";
 import { StopCard } from "@/components/player/StopCard";
 import { shapesOf, useCommentStops } from "@/components/player/useCommentStops";
 import { listComments } from "@/lib/actions/reads";
-import {
-  createClip,
-  deleteClip,
-  setClipAudience,
-  setClipPlayers,
-  setClipTags,
-  updateClip,
-} from "@/lib/actions/clips";
+import { createClip, deleteClip, setClipAudience, updateClip } from "@/lib/actions/clips";
 import { canShare } from "@/lib/auth/visibility";
 import { formatClock, markersFromRows, toGameTime } from "@/lib/hurling/notation";
 import { MIN_CLIP_MS } from "@/lib/hurling/clip-rules";
 import { matchDate } from "@/lib/format";
 import {
   clipColour,
-  clipTone,
-  eventLabelOf,
   type ClipRow,
   type CommentRow,
   type EventTypeRow,
@@ -54,7 +45,6 @@ import {
 import { PhoneScrubber } from "./PhoneScrubber";
 import { ClipSheet, type ClipDraft } from "./ClipSheet";
 import { ChevronIcon, PauseIcon, PlayIcon } from "@/components/ui/Icon";
-import { TagMark } from "@/components/ui/TagMark";
 
 /** The same pre- and post-roll as the desktop's quick-clip key. */
 const PRE_ROLL_MS = 8000;
@@ -63,7 +53,7 @@ const SKIP_MS = 10_000;
 /** Slow motion is the one speed change worth a button on a phone. */
 const RATES = [1, 0.5, 0.25] as const;
 
-type Filter = "all" | "mine" | "me";
+type Filter = "all" | "mine" | "shared";
 
 type Sheet =
   | { mode: "new"; draft: ClipDraft }
@@ -136,11 +126,7 @@ export function PhoneWatch({
   );
 
   const canEdit =(c: ClipRow) => !c.pending && (viewer.role !== "player" || c.createdBy === viewer.id);
-  const labelOf = (c: ClipRow) => {
-    if (c.title) return c.title;
-    const first = eventTypes.find((e) => e.id === c.eventTypeIds[0]);
-    return first ? eventLabelOf(first) : "Untitled clip";
-  };
+  const labelOf = (c: ClipRow) => c.title || "Untitled clip";
 
   const playClip = useCallback(
     (c: ClipRow) => {
@@ -182,9 +168,8 @@ export function PhoneWatch({
         startMs,
         endMs,
         title: "",
-        eventTypeIds: [],
-        playerIds: [],
-        audience: { visibility: "team", roles: [], userIds: [] },
+        // Yours alone until you share it.
+        audience: { visibility: "private", roles: [], userIds: [] },
       },
     });
   };
@@ -227,6 +212,8 @@ export function PhoneWatch({
       id: tempId,
       ...draft,
       title: draft.title.trim(),
+      eventTypeIds: [],
+      playerIds: [],
       createdBy: viewer.id,
       authorName: viewer.displayName,
       commentCount: 0,
@@ -256,7 +243,6 @@ export function PhoneWatch({
     if (focusedId === clipId) engine.setBounds(after.startMs, after.endMs);
     else engine.clearBounds();
 
-    const same = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
     try {
       await updateClip(clipId, {
         title: draft.title,
@@ -266,8 +252,6 @@ export function PhoneWatch({
       if (canShare(viewer, before) && JSON.stringify(before.audience) !== JSON.stringify(draft.audience)) {
         await setClipAudience(clipId, draft.audience);
       }
-      if (!same(before.eventTypeIds, draft.eventTypeIds)) await setClipTags(clipId, draft.eventTypeIds);
-      if (!same(before.playerIds, draft.playerIds)) await setClipPlayers(clipId, draft.playerIds);
       flash("Clip updated");
     } catch (err) {
       setClips((prev) => prev.map((c) => (c.id === clipId ? before : c)));
@@ -324,8 +308,14 @@ export function PhoneWatch({
     }
   };
 
+  // "Shared with me" is someone else's clip sent to some, you among them:
+  // the ones meant for you rather than the whole panel's.
   const shown = clips.filter((c) =>
-    filter === "mine" ? c.createdBy === viewer.id : filter === "me" ? c.playerIds.includes(viewer.id) : true,
+    filter === "mine"
+      ? c.createdBy === viewer.id
+      : filter === "shared"
+        ? c.createdBy !== viewer.id && c.audience.visibility === "assigned"
+        : true,
   );
 
   const ticks = useMemo(
@@ -461,7 +451,7 @@ export function PhoneWatch({
             [
               ["all", "All"],
               ["mine", "Mine"],
-              ["me", "I'm in"],
+              ["shared", "Shared with me"],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -497,11 +487,6 @@ export function PhoneWatch({
                     onClick={() => playClip(c)}
                     disabled={c.pending}
                   >
-                    {/* The clip's outcome in the shot map's mark, in a fixed
-                        column — not a coloured stripe down the row. */}
-                    <span className="flex w-3 shrink-0 justify-center">
-                      <TagMark tone={clipTone(c, eventTypes)} size={10} />
-                    </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[15px]">{labelOf(c)}</span>
                       <span className="block truncate text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
@@ -528,8 +513,6 @@ export function PhoneWatch({
                             startMs: c.startMs,
                             endMs: c.endMs,
                             title: c.title,
-                            eventTypeIds: c.eventTypeIds,
-                            playerIds: c.playerIds,
                             audience: c.audience,
                           },
                         });
@@ -554,7 +537,6 @@ export function PhoneWatch({
           durationMs={video.durationMs}
           markers={markers}
           halfLengthMin={match.halfLengthMin}
-          eventTypes={eventTypes}
           squad={squad}
           makerId={sheetMakerId}
           maker={sheetMakerId === viewer.id ? "you" : (sheetClip?.authorName ?? "its maker")}

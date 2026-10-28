@@ -27,8 +27,6 @@ import { markPlaylistViewed } from "@/lib/actions/playlists";
 import { addComment } from "@/lib/actions/review";
 import { inPlayingOrder } from "@/lib/hurling/stops";
 import type { CommentRow, Viewer } from "@/components/review/types";
-import type { TagTone } from "@/lib/hurling/events";
-import { TagMark } from "@/components/ui/TagMark";
 import { ChevronIcon, PauseIcon, PlayIcon } from "@/components/ui/Icon";
 
 export type PlaylistClip = {
@@ -40,7 +38,6 @@ export type PlaylistClip = {
   note: string | null;
   startMs: number;
   endMs: number;
-  tags: { label: string; tone: TagTone }[];
   comments: CommentRow[];
 };
 
@@ -260,19 +257,6 @@ export function PlaylistPlayer({
                 <p className="measure mt-1 text-[14px]" style={{ color: "var(--color-ink-dim)" }}>
                   {current.note}
                 </p>
-              )}
-              {current.tags.length > 0 && (
-                <div
-                  className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[13px]"
-                  style={{ color: "var(--color-ink-dim)" }}
-                >
-                  {current.tags.map((t, i) => (
-                    <span key={i} className="inline-flex items-center gap-1.5">
-                      <TagMark tone={t.tone} />
-                      {t.label}
-                    </span>
-                  ))}
-                </div>
               )}
             </div>
 

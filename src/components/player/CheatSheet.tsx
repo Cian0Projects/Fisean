@@ -5,19 +5,8 @@
  * so it cannot drift out of date the way hand-written shortcut docs do.
  */
 import { cheatsheet } from "@/lib/keyboard/keymap";
-import type { EventTypeRow } from "@/components/review/types";
-import { TagMark } from "@/components/ui/TagMark";
-import { tagTone } from "@/lib/hurling/events";
 
-export function CheatSheet({
-  open,
-  onClose,
-  hotkeyEvents,
-}: {
-  open: boolean;
-  onClose: () => void;
-  hotkeyEvents: EventTypeRow[];
-}) {
+export function CheatSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   if (!open) return null;
   const groups = cheatsheet();
 
@@ -35,7 +24,7 @@ export function CheatSheet({
           <div>
             <h2 className="text-lg font-semibold">Keyboard</h2>
             <p className="mt-1 text-sm" style={{ color: "var(--color-ink-dim)" }}>
-              Tag a full match without reaching for the mouse.
+              Clip a full match without reaching for the mouse.
             </p>
           </div>
           <button onClick={onClose} className="btn-ghost">
@@ -48,24 +37,12 @@ export function CheatSheet({
             <section key={group}>
               <h3 className="label mb-2">{group}</h3>
               <ul className="space-y-1.5">
-                {group === "Tagging"
-                  ? hotkeyEvents.map((e) => (
-                      <li key={e.id} className="flex items-center gap-2 text-[13px]">
-                        <span className="kbd">{e.hotkey}</span>
-                        <span className="flex w-2.5 justify-center">
-                          <TagMark tone={tagTone(e.slug)} />
-                        </span>
-                        <span style={{ color: "var(--color-ink-dim)" }}>
-                          {e.labelGa ?? e.labelEn}
-                        </span>
-                      </li>
-                    ))
-                  : items.map((b) => (
-                      <li key={b.keys + b.label} className="flex items-start gap-2 text-[13px]">
-                        <span className="kbd shrink-0">{b.keys}</span>
-                        <span style={{ color: "var(--color-ink-dim)" }}>{b.label}</span>
-                      </li>
-                    ))}
+                {items.map((b) => (
+                  <li key={b.keys + b.label} className="flex items-start gap-2 text-[13px]">
+                    <span className="kbd shrink-0">{b.keys}</span>
+                    <span style={{ color: "var(--color-ink-dim)" }}>{b.label}</span>
+                  </li>
+                ))}
               </ul>
             </section>
           ))}
@@ -77,8 +54,8 @@ export function CheatSheet({
         >
           The one to learn is <span className="kbd">C</span>. Watch at normal speed,
           and when something happens, press it. The clip covers the seconds{" "}
-          <em>before</em> you pressed, so you never have to scrub back. Follow it
-          with a number key to tag what it was.
+          <em>before</em> you pressed, so you never have to scrub back. Come back to
+          it later to give it a title and say what you saw.
         </p>
       </div>
     </div>

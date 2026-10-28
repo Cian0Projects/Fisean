@@ -1,13 +1,15 @@
 "use client";
 
+/**
+ * The clips on this video, in match order: when, how long, the title the
+ * coach gave it, and who can see it. No event tags: a clip is named in its
+ * title and discussed in its comments.
+ */
 import { toGameTime, type Markers } from "@/lib/hurling/notation";
-import { tagTone } from "@/lib/hurling/events";
-import { TagMark } from "@/components/ui/TagMark";
-import { clipTone, eventLabelOf, type ClipRow, type EventTypeRow, type Viewer } from "./types";
+import type { ClipRow, Viewer } from "./types";
 
 export function ClipList({
   clips,
-  eventTypes,
   selectedId,
   markers,
   halfLengthMin,
@@ -16,7 +18,6 @@ export function ClipList({
   viewer,
 }: {
   clips: ClipRow[];
-  eventTypes: EventTypeRow[];
   selectedId: string | null;
   markers: Markers;
   halfLengthMin: number;
@@ -51,9 +52,6 @@ export function ClipList({
       ) : (
         <ul className="min-h-0 flex-1 overflow-y-auto">
           {clips.map((c) => {
-            const tags = c.eventTypeIds
-              .map((id) => eventTypes.find((e) => e.id === id))
-              .filter((e): e is EventTypeRow => !!e);
             const selected = c.id === selectedId;
 
             return (
@@ -72,13 +70,6 @@ export function ClipList({
                     opacity: c.pending ? 0.55 : 1,
                   }}
                 >
-                  {/* The clip's outcome, in the mark a shot map would use.
-                      A fixed column, so titles line up whether or not a clip
-                      was won or lost. */}
-                  <span className="mt-[5px] flex w-2.5 shrink-0 justify-center">
-                    <TagMark tone={clipTone(c, eventTypes)} size={9} />
-                  </span>
-
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline gap-2">
                       <span className="tabular text-[12px] font-semibold">
@@ -94,23 +85,12 @@ export function ClipList({
                       )}
                     </div>
 
-                    {c.title && <div className="truncate text-[13px]">{c.title}</div>}
-
-                    {/* Tags as words, the way a match report names what
-                        happened — not as coloured chips. */}
-                    {tags.length > 0 && (
-                      <div
-                        className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[12px]"
-                        style={{ color: "var(--color-ink-dim)" }}
-                      >
-                        {tags.map((t) => (
-                          <span key={t.id} className="inline-flex items-center gap-1.5">
-                            <TagMark tone={tagTone(t.slug)} />
-                            {eventLabelOf(t)}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                    <div
+                      className="truncate text-[13px]"
+                      style={{ color: c.title ? undefined : "var(--color-ink-faint)" }}
+                    >
+                      {c.title || "Untitled clip"}
+                    </div>
 
                     {(c.createdBy !== viewer.id || c.commentCount > 0 || c.annotationCount > 0) && (
                       <div className="mt-1 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>

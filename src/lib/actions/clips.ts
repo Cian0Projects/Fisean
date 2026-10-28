@@ -16,7 +16,7 @@ export type ClipInput = {
   title?: string;
   eventTypeIds?: string[];
   playerIds?: string[];
-  /** Everyone, when not given. */
+  /** Its maker alone, when not given: a clip is shared on purpose, not by default. */
   audience?: Audience;
   pitchX?: number | null;
   pitchY?: number | null;
@@ -58,7 +58,7 @@ export async function createClip(input: ClipInput): Promise<SavedClip> {
   if (endMs - startMs < MIN_CLIP_MS) throw new Error("That clip is too short to watch.");
   if (endMs - startMs > MAX_CLIP_MS) throw new Error("Clips are capped at ten minutes.");
 
-  const audience = normaliseAudience(input.audience ?? { visibility: "team", roles: [], userIds: [] }, user.id);
+  const audience = normaliseAudience(input.audience ?? { visibility: "private", roles: [], userIds: [] }, user.id);
 
   const [clip] = await db
     .insert(clips)
@@ -128,9 +128,9 @@ export async function createClip(input: ClipInput): Promise<SavedClip> {
 /**
  * Who can see a clip: everyone, its maker alone, or any mix of all players,
  * all coaches, all admins and named people. Only its maker says (canShare).
- * Only the people it newly reaches are emailed, and only when it
- * was shared with some rather than opened to everyone, which every clip is
- * by default and would be noise.
+ * Only the people it newly reaches are emailed, and only when it was shared
+ * with some: opening a clip to everyone would email the whole panel about
+ * every clip anyone chose to show, which is noise.
  */
 export async function setClipAudience(clipId: string, input: Audience): Promise<Audience> {
   const user = await requireUserOrThrow();

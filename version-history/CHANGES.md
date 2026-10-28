@@ -16,6 +16,11 @@ is used, how it is deployed).
 
 -->
 
+## Clips are for commenting, and private until shared
+*2026-10-28*
+
+A clip no longer carries event tags or the players in it. The tag buttons and number-key tagging are gone from the review screen, the tags and "who is in it" from the clip panel and the phone's clip sheet, and the tags from the clip list and playlist player; the review header no longer works out a scoreline from tagged clips. What a clip is goes in its title, in the coach's own words, and the point goes in the comments, with a drawing on the frame. The clip panel is now one scrolling column (title, comments, who can see it, add to playlist) instead of two tabs. Every new clip starts private, its maker's alone, and is shared on purpose from the same picker as before; the phone's "I'm in" filter is now "Shared with me". Counting the match stays with the stat sheet. Existing tags and players on older clips are left in the database, unshown, and the tables are untouched.
+
 ## Comments stop the clip; clips and playlists choose who sees them
 *2026-10-27*
 

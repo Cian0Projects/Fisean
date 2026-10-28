@@ -38,8 +38,7 @@ export type Command =
   | "speed_down"
   | "speed_up"
   | "fullscreen"
-  | "help"
-  | `tag_${number}`;
+  | "help";
 
 export type Mode = "transport" | "annotate" | "text" | "stats";
 
@@ -48,7 +47,7 @@ export type Binding = {
   keys: string;
   command: Command;
   label: string;
-  group: "Transport" | "Precision" | "Clipping" | "Tagging" | "Review" | "View";
+  group: "Transport" | "Precision" | "Clipping" | "Review" | "View";
   /** Key repeat is right for nudging, wrong for a shuttle ramp. */
   allowRepeat?: boolean;
 };
@@ -107,16 +106,6 @@ export const BINDINGS: Record<string, Binding> = {
   "shift+/": { keys: "?", command: "help", label: "Show shortcuts", group: "View" },
 };
 
-/** Number keys tag the event bound to that hotkey in `event_types`. */
-for (let n = 0; n <= 9; n++) {
-  BINDINGS[String(n)] = {
-    keys: String(n),
-    command: `tag_${n}` as Command,
-    label: `Tag event ${n}`,
-    group: "Tagging",
-  };
-}
-
 export function buildCombo(e: KeyboardEvent): string {
   const key = e.key.toLowerCase();
   const parts: string[] = [];
@@ -136,11 +125,8 @@ export function resolve(e: KeyboardEvent, mode: Mode): Binding | null {
   const binding = BINDINGS[combo] ?? null;
   if (!binding) return null;
 
-  // In drawing mode the number keys pick a tool rather than tag an event.
-  if (mode === "annotate" && binding.group === "Tagging") return null;
-
   // The stat pad owns the keyboard for everything but moving the playhead:
-  // its own listener reads the number keys, and clip tagging/trimming has
+  // its own listener reads the number keys, and clip making/trimming has
   // no meaning while the aside is showing the stat sheet, not the clip list.
   if (mode === "stats" && !["Transport", "Precision", "View"].includes(binding.group)) {
     return null;
@@ -155,7 +141,6 @@ export function cheatsheet(): { group: Binding["group"]; items: Binding[] }[] {
     "Transport",
     "Precision",
     "Clipping",
-    "Tagging",
     "Review",
     "View",
   ];
@@ -172,6 +157,3 @@ export function cheatsheet(): { group: Binding["group"]; items: Binding[] }[] {
     }),
   }));
 }
-
-/** Tagging keys are listed from the event taxonomy, not from here. */
-export const TAG_KEY_ORDER = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];

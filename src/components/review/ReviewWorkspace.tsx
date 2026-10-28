@@ -5,30 +5,30 @@ import Link from "next/link";
 /**
  * The review workspace.
  *
- * This is the screen the product lives or dies on: a selector should be able
- * to open a 70-minute match and have it fully tagged in about 70 minutes,
- * without touching the mouse.
+ * This is the screen the product lives or dies on: a coach should be able to
+ * open a 70-minute match and clip what matters in about 70 minutes, without
+ * touching the mouse.
  *
- * Four things make that possible, and they are all visible in here:
+ * Three things make that possible, and they are all visible in here:
  *
  *  - Quick-clip (`C`). You press it *after* seeing the incident and the clip
  *    covers the pre-roll seconds you just watched, and playback keeps
  *    running live — no pausing, no scrubbing back.
  *  - Optimistic saves. A clip appears in the list on the keypress and is
- *    persisted behind the scenes, so tagging never waits on the network.
- *  - Number-key tagging straight from the hurling taxonomy, which is loaded
- *    from the database rather than hardcoded.
+ *    persisted behind the scenes, so clipping never waits on the network.
  *  - Selecting a clip focuses playback on just that range — the main
  *    timeline, shuttle and nudges all pin inside it — and shows drag
  *    handles to resize it. That's a deliberate split from quick-clip: you
- *    tag fast without stopping, then come back later to adjust the ones
- *    that weren't quite right.
+ *    clip fast without stopping, then come back to title it, comment on it,
+ *    draw on it and share it.
+ *
+ * Clips carry no event tags: what a clip is goes in its title, in the
+ * coach's own words. Counting the match is the stat sheet's job, in the
+ * stats panel beside this one.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PlayerEngine } from "@/components/player/engine";
 import { Mark } from "@/components/ui/Mark";
-import { TagMark } from "@/components/ui/TagMark";
-import { tagTone } from "@/lib/hurling/events";
 import {
   PlayToggle,
   RateBadge,
@@ -42,8 +42,8 @@ import { CheatSheet } from "@/components/player/CheatSheet";
 import { TOOLS, COLOURS, type Tool } from "@/components/player/AnnotationLayer";
 import { useHotkeys } from "@/lib/keyboard/useHotkeys";
 import type { Command, Mode } from "@/lib/keyboard/keymap";
-import { formatClock, markersFromRows, tallyScore, formatScore } from "@/lib/hurling/notation";
-import { createClip, deleteClip, setClipTags, updateClip } from "@/lib/actions/clips";
+import { formatClock, markersFromRows } from "@/lib/hurling/notation";
+import { createClip, deleteClip, updateClip } from "@/lib/actions/clips";
 import { listComments } from "@/lib/actions/reads";
 import { StopCard } from "@/components/player/StopCard";
 import { shapesOf, useCommentStops } from "@/components/player/useCommentStops";
@@ -168,13 +168,6 @@ export function ReviewWorkspace({
   // of stranding you at the clip's out point.
   const resumeMsRef = useRef<number | null>(null);
 
-  const hotkeyEvents = useMemo(
-    () =>
-      eventTypes
-        .filter((e) => e.hotkey)
-        .sort((a, b) => Number(a.hotkey === "0" ? 10 : a.hotkey) - Number(b.hotkey === "0" ? 10 : b.hotkey)),
-    [eventTypes],
-  );
 
   const selected = clips.find((c) => c.id === selectedId) ?? null;
   const draftHere = selected && drawingDraft?.clipId === selected.id ? drawingDraft : null;
@@ -278,20 +271,23 @@ export function ReviewWorkspace({
    * The row goes into local state immediately with a temporary id so the
    * timeline updates on the keypress. The real id replaces it when the
    * server responds; if the save fails, the optimistic row is rolled back and
-   * the coach is told, rather than silently losing the tag.
+   * the coach is told, rather than silently losing the clip.
+   *
+   * A new clip is its maker's alone until they share it, so a clip cut to
+   * think about never lands in front of the panel by accident.
    */
   const saveClip = useCallback(
-    async (startMs: number, endMs: number, eventTypeIds: string[] = [], title = "") => {
+    async (startMs: number, endMs: number) => {
       const tempId = `pending-${crypto.randomUUID()}`;
       const optimistic: ClipRow = {
         id: tempId,
         startMs: Math.max(0, startMs),
         endMs,
-        title,
-        audience: { visibility: "team", roles: [], userIds: [] },
+        title: "",
+        audience: { visibility: "private", roles: [], userIds: [] },
         createdBy: viewer.id,
         authorName: viewer.displayName,
-        eventTypeIds,
+        eventTypeIds: [],
         playerIds: [],
         commentCount: 0,
         annotationCount: 0,
@@ -304,8 +300,7 @@ export function ReviewWorkspace({
           videoId: video.id,
           startMs: optimistic.startMs,
           endMs,
-          title,
-          eventTypeIds,
+          audience: optimistic.audience,
         });
         setClips((prev) =>
           prev.map((c) => (c.id === tempId ? { ...optimistic, id: saved.id, pending: false } : c)),
@@ -322,21 +317,13 @@ export function ReviewWorkspace({
   );
 
   /** The `C` key. Captures backwards from the playhead. */
-  const quickClip = useCallback(
-    async (eventTypeIds: string[] = []) => {
-      const at = engine.snapshot.positionMs;
-      const start = Math.max(0, at - preRoll);
-      const end = Math.min(video.durationMs || at + DEFAULT_POST_ROLL, at + DEFAULT_POST_ROLL);
-      const label = eventTypeIds.length
-        ? (eventTypes.find((e) => e.id === eventTypeIds[0])?.labelGa ??
-          eventTypes.find((e) => e.id === eventTypeIds[0])?.labelEn ??
-          "")
-        : "";
-      await saveClip(start, end, eventTypeIds, label);
-      flash(label ? `Clip saved, tagged ${label}` : "Clip saved");
-    },
-    [engine, preRoll, video.durationMs, eventTypes, saveClip, flash],
-  );
+  const quickClip = useCallback(async () => {
+    const at = engine.snapshot.positionMs;
+    const start = Math.max(0, at - preRoll);
+    const end = Math.min(video.durationMs || at + DEFAULT_POST_ROLL, at + DEFAULT_POST_ROLL);
+    await saveClip(start, end);
+    flash("Clip saved");
+  }, [engine, preRoll, video.durationMs, saveClip, flash]);
 
   const commitInOut = useCallback(async () => {
     if (inMs == null) {
@@ -353,34 +340,6 @@ export function ReviewWorkspace({
     setOutMs(null);
     flash("Clip saved");
   }, [inMs, outMs, engine, saveClip, flash]);
-
-  const tagSelectedOrQuickClip = useCallback(
-    async (hotkey: string) => {
-      const event = hotkeyEvents.find((e) => e.hotkey === hotkey);
-      if (!event) return;
-
-      // With a clip selected, the number key tags it. Otherwise it creates a
-      // new quick-clip already tagged — which is the tagging loop proper.
-      if (selected && !selected.pending) {
-        const has = selected.eventTypeIds.includes(event.id);
-        const next = has
-          ? selected.eventTypeIds.filter((id) => id !== event.id)
-          : [...selected.eventTypeIds, event.id];
-        setClips((prev) =>
-          prev.map((c) => (c.id === selected.id ? { ...c, eventTypeIds: next } : c)),
-        );
-        try {
-          await setClipTags(selected.id, next);
-        } catch (err) {
-          flash((err as Error).message);
-        }
-        flash(`${event.labelGa ?? event.labelEn} ${has ? "removed" : "added"}`);
-      } else {
-        await quickClip([event.id]);
-      }
-    },
-    [hotkeyEvents, selected, quickClip, flash],
-  );
 
   const undoLast = useCallback(async () => {
     const id = undoStack.current.pop();
@@ -465,11 +424,6 @@ export function ReviewWorkspace({
 
   const onCommand = useCallback(
     (command: Command) => {
-      if (command.startsWith("tag_")) {
-        void tagSelectedOrQuickClip(command.slice(4));
-        return;
-      }
-
       switch (command) {
         case "toggle_play":
           engine.toggle();
@@ -577,7 +531,6 @@ export function ReviewWorkspace({
       commitInOut,
       toggleDrawing,
       discardDrawing,
-      tagSelectedOrQuickClip,
       undoLast,
       stepClip,
       returnToLive,
@@ -605,16 +558,6 @@ export function ReviewWorkspace({
       })),
     [clips, eventTypes],
   );
-
-  // The scoreline derives from the tags rather than being typed in twice.
-  const scoreline = useMemo(() => {
-    const scored = clips.flatMap((c) =>
-      c.eventTypeIds
-        .map((id) => eventTypes.find((e) => e.id === id))
-        .filter((e): e is EventTypeRow => !!e && e.scoreValue > 0),
-    );
-    return tallyScore(scored);
-  }, [clips, eventTypes]);
 
   const nextClipStart = useMemo(() => {
     const idx = clips.findIndex((c) => c.id === selectedId);
@@ -667,10 +610,7 @@ export function ReviewWorkspace({
             )}
           </div>
           <div className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-            {clips.length} clip{clips.length === 1 ? "" : "s"} tagged
-            {/* Only the scores somebody has clipped, which is not the final
-                score until every one of them has been — so it says so. */}
-            {scoreline.cul + scoreline.cuilin > 0 && <>, {formatScore(scoreline)} of the scores clipped</>}
+            {clips.length} clip{clips.length === 1 ? "" : "s"}
           </div>
         </div>
 
@@ -835,11 +775,7 @@ export function ReviewWorkspace({
           )}
 
           {viewMode === "clips" && (
-            <TagBar
-              events={hotkeyEvents}
-              onTag={(hotkey) => void tagSelectedOrQuickClip(hotkey)}
-              selectedTagIds={selected?.eventTypeIds ?? []}
-              hasSelection={!!selected}
+            <ClipBar
               preRoll={preRoll}
               onPreRollChange={setPreRoll}
               onQuickClip={() => void quickClip()}
@@ -907,7 +843,6 @@ export function ReviewWorkspace({
             <>
               <ClipList
                 clips={clips}
-                eventTypes={eventTypes}
                 selectedId={selectedId}
                 markers={markers}
                 halfLengthMin={match.halfLengthMin}
@@ -928,7 +863,6 @@ export function ReviewWorkspace({
                 <ClipInspector
                   key={selected.id}
                   clip={selected}
-                  eventTypes={eventTypes}
                   squad={squad}
                   viewer={viewer}
                   engine={engine}
@@ -970,18 +904,15 @@ export function ReviewWorkspace({
         </div>
       )}
 
-      <CheatSheet open={helpOpen} onClose={() => setHelpOpen(false)} hotkeyEvents={hotkeyEvents} />
+      <CheatSheet open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );
 }
 
-/* ------------------------------------------------------------------ tag bar */
+/* ----------------------------------------------------------------- clip bar */
 
-function TagBar({
-  events,
-  onTag,
-  selectedTagIds,
-  hasSelection,
+/** Making clips: quick clip with its pre-roll, and a saved in and out. */
+function ClipBar({
   preRoll,
   onPreRollChange,
   onQuickClip,
@@ -989,10 +920,6 @@ function TagBar({
   outMs,
   onCommit,
 }: {
-  events: EventTypeRow[];
-  onTag: (hotkey: string) => void;
-  selectedTagIds: string[];
-  hasSelection: boolean;
   preRoll: number;
   onPreRollChange: (ms: number) => void;
   onQuickClip: () => void;
@@ -1005,7 +932,7 @@ function TagBar({
       className="shrink-0 border-t px-3 py-2.5"
       style={{ borderColor: "var(--color-line)", background: "var(--color-surface)" }}
     >
-      <div className="mb-2 flex items-center gap-3">
+      <div className="flex items-center gap-3">
         <button onClick={onQuickClip} className="btn-primary text-xs">
           <span className="kbd" style={{ background: "transparent", borderColor: "currentColor", color: "inherit" }}>
             C
@@ -1041,45 +968,6 @@ function TagBar({
           </div>
         )}
       </div>
-
-      {/* The ten hotkeys, gathered the way they fall in a game: scores and
-          shots, restarts, turnovers and fouls. A gap between kinds, so ten
-          buttons read as four short runs rather than one long one. */}
-      <div className="flex flex-wrap gap-1.5">
-        {events.map((e, i) => {
-          const active = selectedTagIds.includes(e.id);
-          const newKind = i > 0 && kindOf(events[i - 1]) !== kindOf(e);
-          return (
-            <button
-              key={e.id}
-              onClick={() => onTag(e.hotkey!)}
-              title={
-                hasSelection
-                  ? `${active ? "Remove" : "Add"} ${e.labelGa ?? e.labelEn}`
-                  : `Quick clip tagged ${e.labelGa ?? e.labelEn}`
-              }
-              aria-pressed={hasSelection ? active : undefined}
-              className={`flex items-center gap-1.5 border px-2 py-1 text-[12px] transition-colors ${newKind ? "ml-3" : ""}`}
-              style={{
-                borderRadius: 2,
-                borderColor: active ? "var(--color-ink)" : "var(--color-line-strong)",
-                background: active ? "var(--color-surface-3)" : "transparent",
-                color: active ? "var(--color-ink)" : "var(--color-ink-dim)",
-              }}
-            >
-              <span className="kbd">{e.hotkey}</span>
-              <TagMark tone={tagTone(e.slug)} />
-              {e.labelGa ?? e.labelEn}
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
-}
-
-/** Scores and shots run together on a hurling tagger's keys; so do fouls and cards. */
-function kindOf(e: EventTypeRow): string {
-  if (e.category === "score" || e.category === "shot") return "attack";
-  return e.category;
 }

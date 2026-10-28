@@ -1,16 +1,7 @@
 import { notFound } from "next/navigation";
-import { asc, eq, inArray } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import {
-  clipTags,
-  clips,
-  eventTypes,
-  playlistItems,
-  playlistViewers,
-  playlists,
-  users,
-  videos,
-} from "@/lib/db/schema";
+import { clips, playlistItems, playlistViewers, playlists, users, videos } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/guard";
 import { canShare } from "@/lib/auth/visibility";
 import { visibleClipIds } from "@/lib/queries/clips";
@@ -19,8 +10,6 @@ import { loadComments } from "@/lib/queries/comments";
 import { store } from "@/lib/storage";
 import { PlaylistPlayer, type PlaylistClip } from "@/components/playlists/PlaylistPlayer";
 import { PlaylistAudience } from "@/components/playlists/PlaylistAudience";
-import { eventLabelOf } from "@/components/review/types";
-import { tagTone, tagsForCode } from "@/lib/hurling/events";
 
 export default async function PlaylistPage({
   params,
@@ -64,13 +53,7 @@ export default async function PlaylistPage({
   const items = rows.filter((i) => seen.has(i.clipId));
   const clipIds = items.map((i) => i.clipId);
 
-  const [tagRows, commentsByClip, events] = clipIds.length
-    ? await Promise.all([
-        db.select().from(clipTags).where(inArray(clipTags.clipId, clipIds)),
-        loadComments(clipIds),
-        db.select().from(eventTypes),
-      ])
-    : [[], new Map(), []];
+  const commentsByClip = await loadComments(clipIds);
 
   // Who set it, said in the header the way a coach would hand it over.
   const [setBy] = playlist.createdBy
@@ -81,9 +64,6 @@ export default async function PlaylistPage({
         .limit(1)
     : [];
 
-  // Only naming tags already on clips, so none is dropped; each is just said
-  // the way the club's code says it.
-  const eventById = new Map(tagsForCode(events, user.teamCode, { keepUnoffered: true }).map((e) => [e.id, e]));
   const media = await store();
 
   const playlistClips: PlaylistClip[] = items.map((i) => ({
@@ -95,11 +75,6 @@ export default async function PlaylistPage({
     note: i.note,
     startMs: i.startMs,
     endMs: i.endMs,
-    tags: tagRows
-      .filter((t) => t.clipId === i.clipId)
-      .map((t) => eventById.get(t.eventTypeId))
-      .filter((e): e is NonNullable<typeof e> => !!e)
-      .map((e) => ({ label: eventLabelOf(e), tone: tagTone(e.slug) })),
     comments: commentsByClip.get(i.clipId) ?? [],
   }));
 
