@@ -160,6 +160,9 @@ export function AnnotationLayer({
       className={`absolute inset-0 h-full w-full ${
         editable ? "cursor-crosshair" : "pointer-events-none"
       }`}
+      // Without this a finger drag is read as a page scroll, the browser
+      // cancels the pointer and a phone draws nothing past the first dot.
+      style={editable ? { touchAction: "none" } : undefined}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

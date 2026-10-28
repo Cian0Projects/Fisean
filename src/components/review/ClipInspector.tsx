@@ -303,7 +303,7 @@ export function ClipInspector({
  * will stop on is in front of whoever is writing it. Subscribes on its own,
  * rather than re-rendering the whole panel every frame.
  */
-function Moment({ engine, startMs }: { engine: PlayerEngine; startMs: number }) {
+export function Moment({ engine, startMs }: { engine: PlayerEngine; startMs: number }) {
   const [label, setLabel] = useState(() => formatClock(Math.max(0, engine.snapshot.positionMs - startMs)));
   useEffect(
     () => engine.subscribe((t) => setLabel(formatClock(Math.max(0, t.positionMs - startMs)))),

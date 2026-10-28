@@ -6,6 +6,11 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## Comments and drawings on the phone
+*2026-10-28*
+
+The phone could play a clip's comments but not make any: no way to write one, and no pen. Watching a clip now offers "Comment", which opens a sheet that leaves the video working above it, with second and frame steps to park on the moment, a text box, and a list of the clip's comments to edit or delete. "Draw on this frame" swaps the clip buttons for a pen bar (the same six tools and colours as the desktop) and posts the drawing with the comment through the same `addComment` action, so it stops the clip for everyone. The drawing layer also never set `touch-action: none`, so a finger drag scrolled the page instead of drawing; that is fixed for every screen that uses it. No schema change.
+
 <!-- Template:
 
 ## Title of the change

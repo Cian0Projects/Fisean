@@ -19,6 +19,11 @@
  * Either way the video pauses and the clip sheet rises to trim, title and
  * share it. Saves are optimistic, as on the desktop: the clip is in the list
  * before the server has answered, and taken back out if it refuses.
+ *
+ * A clip is for talking about, so once one is being watched "Comment" opens
+ * the comment sheet (CommentSheet.tsx) and, from there, the pen (DrawBar.tsx)
+ * to draw on the frame. Both post through the same addComment action as the
+ * desktop, so a comment made here stops the clip for everyone, everywhere.
  */
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -28,6 +33,9 @@ import { StopCard } from "@/components/player/StopCard";
 import { shapesOf, useCommentStops } from "@/components/player/useCommentStops";
 import { listComments } from "@/lib/actions/reads";
 import { createClip, deleteClip, setClipAudience, updateClip } from "@/lib/actions/clips";
+import { addComment } from "@/lib/actions/review";
+import { COLOURS, type Tool } from "@/components/player/AnnotationLayer";
+import type { Shape } from "@/lib/db/schema";
 import { canShare } from "@/lib/auth/visibility";
 import { formatClock, markersFromRows, toGameTime } from "@/lib/hurling/notation";
 import { MIN_CLIP_MS } from "@/lib/hurling/clip-rules";
@@ -44,6 +52,8 @@ import {
 } from "@/components/review/types";
 import { PhoneScrubber } from "./PhoneScrubber";
 import { ClipSheet, type ClipDraft } from "./ClipSheet";
+import { CommentSheet } from "./CommentSheet";
+import { DrawBar } from "./DrawBar";
 import { ChevronIcon, PauseIcon, PlayIcon } from "@/components/ui/Icon";
 
 /** The same pre- and post-roll as the desktop's quick-clip key. */
@@ -119,27 +129,49 @@ export function PhoneWatch({
       live = false;
     };
   }, [focusedSaved]);
-  const stop = useCommentStops(
-    engine,
-    focusedSaved ? focused : null,
-    focusComments?.clipId === focusedSaved ? focusComments.rows : null,
-  );
+  const commentRows = focusComments?.clipId === focusedSaved ? focusComments.rows : null;
+
+  // Commenting. The words and the drawing belong to this screen, not the
+  // sheet, so they survive the trip out to draw and back. The drawing is kept
+  // against the frame it was made on, as an offset into the clip.
+  const [commenting, setCommenting] = useState(false);
+  const [drawing, setDrawing] = useState(false);
+  const [drawingDraft, setDrawingDraft] = useState<{ atMs: number; shapes: Shape[] } | null>(null);
+  const [commentText, setCommentText] = useState("");
+  const [posting, setPosting] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
+  const [tool, setTool] = useState<Tool>("arrow");
+  const [colour, setColour] = useState(COLOURS[0]);
+  const marks = drawingDraft?.shapes.length ?? 0;
+
+  const endComposing = useCallback(() => {
+    setCommenting(false);
+    setDrawing(false);
+    setDrawingDraft(null);
+    setCommentText("");
+    setCommentError(null);
+  }, []);
+
+  // Off while drawing, so the playhead stays where the pen is.
+  const stop = useCommentStops(engine, focusedSaved ? focused : null, commentRows, !drawing);
 
   const canEdit =(c: ClipRow) => !c.pending && (viewer.role !== "player" || c.createdBy === viewer.id);
   const labelOf = (c: ClipRow) => c.title || "Untitled clip";
 
   const playClip = useCallback(
     (c: ClipRow) => {
+      endComposing();
       setFocusedId(c.id);
       engine.playRange(c.startMs, c.endMs);
     },
-    [engine],
+    [engine, endComposing],
   );
 
   const backToMatch = useCallback(() => {
+    endComposing();
     engine.clearBounds();
     setFocusedId(null);
-  }, [engine]);
+  }, [engine, endComposing]);
 
   // Arriving from "Clips you are in": park on that clip once the file has
   // loaded far enough to seek. It waits for a tap to play, because phones
@@ -275,6 +307,64 @@ export function PhoneWatch({
     }
   };
 
+  /* ------------------------------------------------------------ commenting */
+
+  const patchClip = (clipId: string, patch: Partial<ClipRow>) =>
+    setClips((prev) => prev.map((c) => (c.id === clipId ? { ...c, ...patch } : c)));
+
+  const openComment = () => {
+    if (!focused || focused.pending) return;
+    engine.pause();
+    setCommenting(true);
+  };
+
+  /** Draw on the frame in front of you, or go back to the one already drawn on. */
+  const startDrawing = () => {
+    if (!focused) return;
+    engine.pause();
+    if (drawingDraft?.shapes.length) {
+      engine.seek(focused.startMs + drawingDraft.atMs, { exact: true });
+    } else {
+      const atMs = Math.max(0, Math.round(engine.snapshot.positionMs - focused.startMs));
+      setDrawingDraft({ atMs, shapes: [] });
+    }
+    setDrawing(true);
+  };
+
+  const finishDrawing = () => {
+    setDrawing(false);
+    // Nothing drawn: let the comment follow the playhead again.
+    if (!drawingDraft?.shapes.length) setDrawingDraft(null);
+  };
+
+  const postComment = async () => {
+    if (!focused || focused.pending || posting) return;
+    const body = commentText.trim();
+    const shapes = drawingDraft?.shapes ?? [];
+    if (!body && !shapes.length) return;
+    // The drawing's frame if there is one, so the words land with it, even if
+    // the playhead has moved since; otherwise wherever the playhead is.
+    const atMs = drawingDraft?.atMs ?? Math.max(0, Math.round(engine.snapshot.positionMs - focused.startMs));
+    setPosting(true);
+    setCommentError(null);
+    try {
+      const posted = await addComment({ clipId: focused.id, body, atMs, shapes });
+      setFocusComments((prev) =>
+        prev && prev.clipId === focused.id ? { clipId: prev.clipId, rows: [...prev.rows, posted] } : prev,
+      );
+      patchClip(focused.id, {
+        commentCount: focused.commentCount + 1,
+        annotationCount: focused.annotationCount + (shapes.length ? 1 : 0),
+      });
+      endComposing();
+      flash("Comment posted");
+    } catch (err) {
+      setCommentError((err as Error).message || "Could not post that.");
+    } finally {
+      setPosting(false);
+    }
+  };
+
   /* ----------------------------------------------------------- transport */
 
   const cycleRate = () => {
@@ -358,8 +448,14 @@ export function PhoneWatch({
             engine={engine}
             src={video.src}
             fps={video.fps ?? undefined}
-            shapes={shapesOf(stop)}
-            overlay={stop && <StopCard stop={stop} onPlay={() => void engine.play()} />}
+            // The pen's own work while drawing or writing it up; otherwise
+            // whatever was drawn on the frame playback is stopped at.
+            shapes={drawing || (commenting && marks > 0) ? (drawingDraft?.shapes ?? []) : shapesOf(stop)}
+            onShapesChange={(shapes) => setDrawingDraft((d) => (d ? { ...d, shapes } : d))}
+            drawing={drawing}
+            tool={tool}
+            colour={colour}
+            overlay={stop && !commenting && <StopCard stop={stop} onPlay={() => void engine.play()} />}
           />
         </div>
 
@@ -376,7 +472,9 @@ export function PhoneWatch({
             ticks={ticks}
             focus={focused}
             inMs={inMs}
-            onScrubStart={() => focusedId && backToMatch()}
+            // Scrubbing leaves a watched clip, unless a comment is being
+            // written on it: then the bar moves within the clip instead.
+            onScrubStart={() => focusedId && !commenting && backToMatch()}
           />
           <div className="-mt-1 flex items-baseline justify-between">
             <Timecode engine={engine} markers={markers} halfLengthMin={match.halfLengthMin} />
@@ -404,29 +502,44 @@ export function PhoneWatch({
           </RoundButton>
         </div>
 
-        <div className="flex gap-2 border-b px-4 pb-3" style={{ borderColor: "var(--color-line)" }}>
-          {inMs == null ? (
-            <>
-              <button className="btn-primary min-h-12 flex-1 text-[16px]" onClick={clipThat}>
-                Clip that
-              </button>
-              <button className="btn-outline min-h-12 flex-1 text-[16px]" onClick={markStart}>
-                Mark start
-              </button>
-            </>
-          ) : (
-            <>
-              <button className="btn-ghost min-h-12 px-4 text-[16px]" onClick={() => setInMs(null)}>
-                Cancel
-              </button>
-              <button className="btn-primary min-h-12 flex-1 text-[16px]" onClick={endClip}>
-                End clip <RunningLength engine={engine} fromMs={inMs} />
-              </button>
-            </>
-          )}
-        </div>
+        {drawing ? (
+          <DrawBar
+            tool={tool}
+            colour={colour}
+            onTool={setTool}
+            onColour={setColour}
+            marks={marks}
+            onUndo={() => setDrawingDraft((d) => (d ? { ...d, shapes: d.shapes.slice(0, -1) } : d))}
+            onClear={() => setDrawingDraft((d) => (d ? { ...d, shapes: [] } : d))}
+            onDone={finishDrawing}
+          />
+        ) : commenting ? null : (
+          // The clip buttons step aside while a comment is written, so the
+          // picture and the sheet do not crowd a small screen.
+          <div className="flex gap-2 border-b px-4 pb-3" style={{ borderColor: "var(--color-line)" }}>
+            {inMs == null ? (
+              <>
+                <button className="btn-primary min-h-12 flex-1 text-[16px]" onClick={clipThat}>
+                  Clip that
+                </button>
+                <button className="btn-outline min-h-12 flex-1 text-[16px]" onClick={markStart}>
+                  Mark start
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="btn-ghost min-h-12 px-4 text-[16px]" onClick={() => setInMs(null)}>
+                  Cancel
+                </button>
+                <button className="btn-primary min-h-12 flex-1 text-[16px]" onClick={endClip}>
+                  End clip <RunningLength engine={engine} fromMs={inMs} />
+                </button>
+              </>
+            )}
+          </div>
+        )}
 
-        {focused && (
+        {focused && !drawing && (
           <div
             className="flex items-center gap-2 border-b px-4 py-2"
             style={{ borderColor: "var(--color-line)", background: "var(--color-surface)" }}
@@ -435,6 +548,11 @@ export function PhoneWatch({
               <span style={{ color: "var(--color-ink-faint)" }}>Watching </span>
               {labelOf(focused)}
             </span>
+            {!focused.pending && !commenting && (
+              <button className="btn-outline min-h-10 text-[14px]" onClick={openComment}>
+                Comment{focused.commentCount > 0 && ` (${focused.commentCount})`}
+              </button>
+            )}
             <button className="btn-ghost min-h-10 text-[14px]" onClick={backToMatch}>
               Back to the match
             </button>
@@ -493,6 +611,7 @@ export function PhoneWatch({
                         {toGameTime(c.startMs, markers, match.halfLengthMin).label}
                         {", "}
                         {Math.round((c.endMs - c.startMs) / 1000)} s
+                        {c.commentCount > 0 && `, ${c.commentCount} comment${c.commentCount === 1 ? "" : "s"}`}
                         {c.createdBy !== viewer.id && `, ${c.authorName}`}
                         {c.audience.visibility === "private" && ", private"}
                         {c.audience.visibility === "assigned" && ", shared with some"}
@@ -506,6 +625,7 @@ export function PhoneWatch({
                       style={{ color: "var(--color-ink-dim)" }}
                       onClick={() => {
                         engine.pause();
+                        endComposing();
                         setSheet({
                           mode: "edit",
                           clipId: c.id,
@@ -544,6 +664,26 @@ export function PhoneWatch({
           onClose={closeSheet}
           onSave={(draft) => (sheet.mode === "edit" ? saveEdit(sheet.clipId, draft) : saveNew(draft))}
           onDelete={sheet.mode === "edit" ? () => remove(sheet.clipId) : undefined}
+        />
+      )}
+
+      {commenting && !drawing && focused && !focused.pending && (
+        <CommentSheet
+          clip={focused}
+          viewer={viewer}
+          engine={engine}
+          comments={commentRows}
+          onCommentsChange={(rows) => setFocusComments({ clipId: focused.id, rows })}
+          onClipChange={(patch) => patchClip(focused.id, patch)}
+          text={commentText}
+          onText={setCommentText}
+          drawnAtMs={marks > 0 ? (drawingDraft?.atMs ?? null) : null}
+          marks={marks}
+          posting={posting}
+          error={commentError}
+          onDraw={startDrawing}
+          onPost={() => void postComment()}
+          onClose={endComposing}
         />
       )}
 
