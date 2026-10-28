@@ -92,6 +92,21 @@ export function ShareIcon(props: IconProps) {
   );
 }
 
+/** A pencil, to say a comment carries a drawing on its frame. */
+export function PenIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path
+        d="M10.5 2.5l3 3-8 8H2.5v-3zM9 4l3 3"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export function ChevronIcon({ direction, ...props }: IconProps & { direction: "left" | "right" }) {
   return (
     <Svg {...props}>

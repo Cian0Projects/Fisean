@@ -12,6 +12,7 @@
 import { useState } from "react";
 import { deleteComment, editComment } from "@/lib/actions/review";
 import { formatClock } from "@/lib/hurling/notation";
+import { PenIcon } from "@/components/ui/Icon";
 import type { CommentRow, Viewer } from "./types";
 
 export function CommentItem({
@@ -73,25 +74,31 @@ export function CommentItem({
 
   return (
     <li className="text-[13px]">
-      <div className="flex items-baseline gap-2">
-        <span className="font-medium">{comment.authorName}</span>
+      <div className="flex items-center gap-2">
+        <span className="min-w-0 truncate font-medium whitespace-nowrap">{comment.authorName}</span>
         {comment.parentId == null && (
           <button
             onClick={() => onSeek(comment.atMs ?? 0)}
             title="Go to this moment"
-            className={`tabular text-[12px]${underlineTime ? " underline" : ""}`}
-            style={{ color: "var(--color-ash)" }}
+            className={`tabular shrink-0 rounded-[2px] px-1.5 py-px text-[12px]${underlineTime ? " underline" : ""}`}
+            style={{ color: "var(--color-ash)", background: "var(--color-surface-3)" }}
           >
             {formatClock(comment.atMs ?? 0)}
           </button>
         )}
         {drawn && (
-          <span className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-            with a drawing
+          <span
+            role="img"
+            title="Has a drawing"
+            aria-label="Has a drawing"
+            className="shrink-0"
+            style={{ color: "var(--color-ink-faint)" }}
+          >
+            <PenIcon size={13} />
           </span>
         )}
         {!editing && (
-          <span className="ml-auto flex gap-3">
+          <span className="ml-auto flex shrink-0 gap-3">
             {mine && (
               <button
                 onClick={() => {
@@ -139,7 +146,16 @@ export function CommentItem({
           </div>
         </div>
       ) : comment.body ? (
-        <p className="mt-0.5 whitespace-pre-wrap" style={{ color: "var(--color-ink-dim)" }}>
+        // The comment itself sits in a box, so it reads as what was said and
+        // not as one more line of the heading above it.
+        <p
+          className="mt-1.5 rounded-[2px] border px-2.5 py-2 whitespace-pre-wrap"
+          style={{
+            color: "var(--color-ink)",
+            background: "var(--color-surface)",
+            borderColor: "var(--color-line)",
+          }}
+        >
           {comment.body}
           {comment.editedAt != null && (
             <span className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
