@@ -6,6 +6,11 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## GPS reports for a match
+*2026-10-28*
+
+A coach can attach a GPS export to a match and read it as a two page report. Matches on the Stats page gain "Upload GPS", which becomes "View GPS" once a CSV is attached. The CSV is the player table from StatSports, Catapult or any provider; columns are found by name, in any order (Name and Total Distance are required, HMLD, HSR, Max Speed, Percentage Speed, Accels and Decels are used when present), and a km/h top speed is converted to metres per second. Page one ranks every player by total distance and page two by high speed running, each with the club badge, a bar and tint on the ranked column, a top, average and lowest strip, and a short note on what each figure means; it prints as two pages. Coaches and admins only, since running load is health data. New `match_gps` table (migration 0026); names are kept as the provider spelled them and are not matched to users. Parsing and ranking are in `src/lib/hurling/gps.ts`, tested in `tests/gps.test.mjs`, and `docs/example gps data/example_gps.csv` is a sample to try it with.
+
 ## Comments and drawings on the phone
 *2026-10-28*
 

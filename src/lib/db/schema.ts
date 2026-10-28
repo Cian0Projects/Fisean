@@ -790,6 +790,43 @@ export const matchLineups = sqliteTable(
   ],
 );
 
+/* -------------------------------------------------------------------- gps */
+
+/**
+ * One player's GPS figures for one match, a row of the CSV a club exports
+ * from its GPS provider; see src/lib/hurling/gps.ts for what each means.
+ *
+ * Names are kept as the provider spelled them rather than matched to users:
+ * a pod's athlete is whatever the analyst typed into the provider's own
+ * software, and a wrong automatic match would put one player's load on
+ * another. Uploading again replaces every row for the match. Only the
+ * ranked columns are required; a provider that does not export the rest
+ * leaves them null.
+ */
+export const matchGps = sqliteTable(
+  "match_gps",
+  {
+    id: id(),
+    matchId: text("match_id")
+      .notNull()
+      .references(() => matches.id, { onDelete: "cascade" }),
+    /** Denormalised like `match_stats`, so every read can filter by team without a join. */
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    totalDistance: real("total_distance").notNull(),
+    hmld: real("hmld"),
+    hsr: real("hsr"),
+    maxSpeed: real("max_speed"),
+    percentSpeed: real("percent_speed"),
+    accels: integer("accels"),
+    decels: integer("decels"),
+    createdAt: integer("created_at").notNull().default(now),
+  },
+  (t) => [index("match_gps_match").on(t.matchId)],
+);
+
 /* ----------------------------------------------------------------- drills */
 
 /**

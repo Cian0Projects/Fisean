@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { count, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { matchStats, matches, videos } from "@/lib/db/schema";
+import { matchGps, matchStats, matches, videos } from "@/lib/db/schema";
 import { isCoach, requireUser } from "@/lib/auth/guard";
 import { Nav } from "@/components/ui/Nav";
 import { NewMatchForm } from "@/components/stats/NewMatchForm";
@@ -25,7 +25,7 @@ export default async function StatsPage() {
   const user = await requireUser();
   if (!isCoach(user)) redirect("/");
 
-  const [rows, counts, footage] = await Promise.all([
+  const [rows, counts, footage, gpsCounts] = await Promise.all([
     db
       .select({ id: matches.id, opponent: matches.opponent, playedOn: matches.playedOn, competition: matches.competition })
       .from(matches)
@@ -40,7 +40,13 @@ export default async function StatsPage() {
       .select({ matchId: videos.matchId })
       .from(videos)
       .where(eq(videos.teamId, user.teamId)),
+    db
+      .select({ matchId: matchGps.matchId })
+      .from(matchGps)
+      .where(eq(matchGps.teamId, user.teamId))
+      .groupBy(matchGps.matchId),
   ]);
+  const hasGps = new Set(gpsCounts.map((g) => g.matchId));
   const logged = new Map(counts.map((c) => [c.matchId, c.n]));
   const filmed = new Set(footage.map((v) => v.matchId));
 
@@ -94,6 +100,9 @@ export default async function StatsPage() {
                           Report
                         </Link>
                       )}
+                      <Link href={`/matches/${m.id}/gps`} className="btn-ghost text-xs">
+                        {hasGps.has(m.id) ? "View GPS" : "Upload GPS"}
+                      </Link>
                       <Link href={`/matches/${m.id}/stats/log`} className="btn-outline text-xs">
                         Log stats
                       </Link>

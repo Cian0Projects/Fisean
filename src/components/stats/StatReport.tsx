@@ -111,6 +111,11 @@ export function StatReport({
         <div className="no-print flex items-center gap-2">
           <PrintButton />
           {canLog && (
+            <Link href={`/matches/${match.id}/gps`} className="btn-outline text-xs">
+              GPS data
+            </Link>
+          )}
+          {canLog && (
             <Link href={`/matches/${match.id}/numbers`} className="btn-outline text-xs">
               Put names to numbers
             </Link>
