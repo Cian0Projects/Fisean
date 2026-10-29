@@ -12,6 +12,7 @@ import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { removeMatchGps, uploadMatchGps } from "@/lib/actions/gps";
+import { decodeCsvBytes } from "@/lib/hurling/gps";
 import { PrintButton } from "./PrintButton";
 
 type Note = { tone: "ok" | "error"; text: string };
@@ -35,7 +36,7 @@ export function GpsUpload({
     setNote(null);
     startTransition(async () => {
       try {
-        const text = await file.text();
+        const text = decodeCsvBytes(new Uint8Array(await file.arrayBuffer()));
         const r = await uploadMatchGps(matchId, text);
         const bits = [`${r.imported} ${r.imported === 1 ? "player" : "players"} imported.`];
         if (r.skipped > 0) bits.push(`${r.skipped} ${r.skipped === 1 ? "row was" : "rows were"} left out for missing a name or a distance.`);
@@ -116,8 +117,9 @@ export function GpsUpload({
         {matchLabel}
       </p>
       <p className="measure mt-5 text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
-        Export the player table from your GPS provider as a CSV and add it here. It becomes a two page report: every
-        player ranked by total distance, then by high speed running.
+        Export the player table from your GPS provider as a CSV and add it here. It becomes a two page report, one
+        sheet each: workload, with every player ranked by total distance, then speed, ranked by high speed running
+        with top speed beside it.
       </p>
 
       <div

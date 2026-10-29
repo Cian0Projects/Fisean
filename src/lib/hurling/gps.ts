@@ -101,6 +101,25 @@ function fold(header: string): string {
 }
 
 /**
+ * Turn a chosen file's bytes into text without losing the fadas.
+ *
+ * `File.text()` always assumes UTF-8, but Excel's plain "CSV" save is
+ * Windows-1252, where Ó is one byte that is not valid UTF-8 and comes out as a
+ * replacement character. So: honour a UTF-16 byte-order mark (Excel's
+ * "Unicode text"), try strict UTF-8 (Sonra, OpenField and Excel's "CSV UTF-8"),
+ * and only when that fails read it as Windows-1252.
+ */
+export function decodeCsvBytes(bytes: Uint8Array): string {
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) return new TextDecoder("utf-16le").decode(bytes);
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) return new TextDecoder("utf-16be").decode(bytes);
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return new TextDecoder("windows-1252").decode(bytes);
+  }
+}
+
+/**
  * Split CSV text into rows of cells. Handles quoted cells (with doubled
  * quotes and embedded commas or newlines), a byte-order mark, and the
  * semicolon or tab separators Excel uses in some locales.
@@ -255,6 +274,16 @@ export function summarise(players: readonly GpsPlayer[], key: GpsKey): GpsSummar
     average: total / ranked.length,
     count: ranked.length,
   };
+}
+
+/**
+ * High speed running as a percentage of total distance: how much of a
+ * player's work was at pace rather than just how much ground they covered.
+ * Null without an HSR figure, since a missing column is not a zero.
+ */
+export function hsrShare(p: Pick<GpsPlayer, "hsr" | "totalDistance">): number | null {
+  if (p.hsr == null || p.totalDistance <= 0) return null;
+  return (p.hsr / p.totalDistance) * 100;
 }
 
 /** How far along a bar a value sits, 0 to 1, against the biggest in the squad. */

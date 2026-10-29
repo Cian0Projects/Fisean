@@ -2,8 +2,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   barShare,
+  decodeCsvBytes,
   formatSpeed,
   groupThousands,
+  hsrShare,
   parseCsv,
   parseGpsCsv,
   parseNumber,
@@ -104,4 +106,25 @@ test("bar share and formatting", () => {
   assert.equal(groupThousands(1234567.456), "1,234,567.46");
   assert.equal(groupThousands(480), "480");
   assert.deepEqual(formatSpeed(8.9), { ms: "8.9", kmh: "32" });
+});
+
+test("HSR share is high speed running over total distance, and absent without HSR", () => {
+  assert.equal(hsrShare({ hsr: 500, totalDistance: 5000 }), 10);
+  assert.equal(hsrShare({ hsr: 0, totalDistance: 5000 }), 0);
+  assert.equal(hsrShare({ hsr: null, totalDistance: 5000 }), null);
+  assert.equal(hsrShare({ hsr: 500, totalDistance: 0 }), null);
+});
+
+test("fadas survive whichever way Excel saved the file", () => {
+  const csv = "Name,Total Distance\nCian Ó Cathasaigh,3519\nSeán Ó Néill,6000";
+  // Excel "CSV UTF-8" and most providers.
+  assert.equal(decodeCsvBytes(new TextEncoder().encode("\uFEFF" + csv)).replace(/^\uFEFF/, ""), csv);
+  assert.equal(decodeCsvBytes(new TextEncoder().encode(csv)), csv);
+  // Excel's plain "CSV" is Windows-1252: Ó is the single byte 0xD3, É is 0xC9.
+  const ansi = Uint8Array.from(csv, (c) => (c === "Ó" ? 0xd3 : c.charCodeAt(0)));
+  assert.equal(decodeCsvBytes(ansi), csv);
+  assert.equal(parseGpsCsv(decodeCsvBytes(ansi)).players[0].name, "Cian Ó Cathasaigh");
+  // Excel's "Unicode text" is UTF-16 with a byte-order mark.
+  const utf16 = new Uint8Array([0xff, 0xfe, ...[...csv].flatMap((c) => [c.charCodeAt(0) & 0xff, c.charCodeAt(0) >> 8])]);
+  assert.equal(decodeCsvBytes(utf16).replace(/^\uFEFF/, ""), csv);
 });

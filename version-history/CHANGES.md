@@ -6,6 +6,11 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## GPS report: one sheet per page, and a speed page
+*2026-10-29*
+
+Each GPS report page spilled over a portrait page when printed, so the two pages came out as four, wrapped in the browser's own date and address header and footer. Each is now one fixed sheet of A4 on a named print page with no margin (which is what removes the browser's header and footer), with its own header (badge, title, opponent, date) and footer (page number, coaches only). Rows tighten with the size of the squad so a full panel still fits one sheet. The pages are also split by question rather than repeating every column: page one is workload (total distance, HMLD, accelerations, decelerations) and page two is speed (HSR, top speed in m/s and km/h, % speed, and HSR share, the part of a player's distance that was at pace). No schema change.
+
 ## GPS reports for a match
 *2026-10-28*
 

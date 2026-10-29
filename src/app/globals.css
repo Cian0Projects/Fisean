@@ -850,4 +850,28 @@
   h3 {
     break-after: avoid;
   }
+
+  /*
+   * One sheet of A4 per GPS report page (src/components/stats/GpsReport.tsx).
+   * A named page with no margin is what stops the browser printing its own
+   * date, address and page numbers round the edge; the margin is put back as
+   * padding, and the page draws its own header and footer. 296 mm, not 297,
+   * so rounding never tips a page over onto a blank one.
+   */
+  .gps-page {
+    page: gps;
+    box-sizing: border-box;
+    width: 210mm;
+    height: 296mm;
+    padding: 11mm 12mm 9mm;
+    overflow: hidden;
+  }
+  .gps-page + .gps-page {
+    break-before: page;
+  }
+}
+
+@page gps {
+  size: A4 portrait;
+  margin: 0;
 }

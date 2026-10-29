@@ -47,7 +47,7 @@ export default async function MatchGpsPage({ params }: { params: Promise<{ match
   return (
     <>
       <Nav user={user} />
-      <main className="sheet pt-8 pb-16 print:pt-0">
+      <main className="sheet pt-8 pb-16 print:max-w-none print:p-0">
         <GpsUpload
           matchId={match.id}
           hasData={players.length > 0}
