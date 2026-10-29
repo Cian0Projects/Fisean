@@ -6,7 +6,7 @@ import { db } from "@/lib/db/client";
 import { eventTypes, matches, users, videoMarkers, videos } from "@/lib/db/schema";
 import { loadNumberSheet, loadStatRows } from "@/lib/queries/stats";
 import { whistlesOf } from "@/lib/hurling/stats";
-import { requireUser } from "@/lib/auth/guard";
+import { isCoach, requireUser } from "@/lib/auth/guard";
 import { store } from "@/lib/storage";
 import { codecWarning } from "@/lib/media/probe";
 import { ReviewWorkspace } from "@/components/review/ReviewWorkspace";
@@ -78,7 +78,9 @@ export default async function ReviewPage({
   // The live stat pad needs the sheet already logged for this match, same as
   // the standalone logging page — only fetched when there is a match to log
   // against, since a training clip with no match cannot carry a stat sheet.
-  const [statRows, statNumbers] = match
+  // Coaches only: nobody else sees the pad, and a draft sheet sent to a
+  // player's browser is a draft they can read.
+  const [statRows, statNumbers] = match && isCoach(user)
     ? await Promise.all([loadStatRows(match.id, user.teamId), loadNumberSheet(match.id, user.teamId)])
     : [[], []];
 

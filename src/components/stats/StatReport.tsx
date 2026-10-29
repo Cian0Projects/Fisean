@@ -72,6 +72,8 @@ export function StatReport({
   rows,
   numbers,
   canLog,
+  banner,
+  moments,
 }: {
   teamName: string;
   /** The club's code: every heading and label is said its way. */
@@ -81,6 +83,10 @@ export function StatReport({
   /** Who wore what in this match. Entries are logged by number; this names them. */
   numbers: SheetEntry[];
   canLog: boolean;
+  /** The coaches' bar saying whether the panel can see the sheet yet. */
+  banner?: React.ReactNode;
+  /** The sheet watched back on the footage. Screen only: it does not print. */
+  moments?: React.ReactNode;
 }) {
   const vocabulary = statVocabulary(code);
   const { terms } = vocabulary;
@@ -108,7 +114,12 @@ export function StatReport({
             {[match.competition, match.venue].filter(Boolean).join(" at ") || "a friendly"}
           </p>
         </div>
-        <div className="no-print flex items-center gap-2">
+        <div className="no-print flex flex-wrap items-center gap-2">
+          {moments && rows.length > 0 && (
+            <a href="#moments" className="btn-outline text-xs">
+              Watch it back
+            </a>
+          )}
           <PrintButton />
           {canLog && (
             <Link href={`/matches/${match.id}/gps`} className="btn-outline text-xs">
@@ -127,6 +138,8 @@ export function StatReport({
           )}
         </div>
       </header>
+
+      {banner}
 
       {rows.length === 0 ? (
         <section className="py-16">
@@ -295,6 +308,19 @@ export function StatReport({
           >
             <PlayerTable rows={rows} players={players} vocabulary={vocabulary} />
           </Section>
+
+          {/* ------------------------------------------------- the footage */}
+          {moments && (
+            <div className="no-print">
+              <Section
+                id="moments"
+                title="Watch it back"
+                note="Every entry on the sheet, played from ten seconds before it happened. Pick a player, a half or a kind of moment, then play them all or one at a time."
+              >
+                {moments}
+              </Section>
+            </div>
+          )}
         </>
       )}
     </main>

@@ -184,6 +184,48 @@ export async function deleteMatchStat(statId: string): Promise<void> {
   revalidateStats(existing.matchId);
 }
 
+/* ------------------------------------------------------ putting it out */
+
+/**
+ * Put the stat sheet out to the panel, or take it back.
+ *
+ * Any coach may, like keeping time: the one who logged most of it may not be
+ * the one at the laptop on Monday. Taking it back is for corrections; the
+ * entries stay as they are, and coaches can still edit a submitted sheet, so
+ * a typo spotted afterwards does not need it taken back at all. Every page
+ * that shows a scoreline or a link to the sheet is revalidated with it.
+ */
+export async function setStatsSubmitted(
+  matchId: string,
+  submitted: boolean,
+): Promise<{ statsSubmittedAt: number | null }> {
+  const user = await requireCoach();
+
+  const [match] = await db
+    .select({ id: matches.id, teamId: matches.teamId })
+    .from(matches)
+    .where(eq(matches.id, matchId))
+    .limit(1);
+  if (!match) throw new Error("That match no longer exists.");
+  assertSameTeam(user, match);
+
+  const [row] = await db
+    .update(matches)
+    .set(
+      submitted
+        ? { statsSubmittedAt: Date.now(), statsSubmittedBy: user.id }
+        : { statsSubmittedAt: null, statsSubmittedBy: null },
+    )
+    .where(eq(matches.id, match.id))
+    .returning({ statsSubmittedAt: matches.statsSubmittedAt });
+
+  revalidateStats(match.id);
+  revalidatePath("/");
+  revalidatePath("/m");
+  revalidatePath("/stats");
+  return row;
+}
+
 /* ------------------------------------------------------- the match clock */
 
 const WHISTLE_COLUMNS = {

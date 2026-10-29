@@ -12,6 +12,7 @@ import {
   videos,
 } from "@/lib/db/schema";
 import { isCoach, requireUserFor } from "@/lib/auth/guard";
+import { canReadStats } from "@/lib/auth/visibility";
 import { visibleClipIds } from "@/lib/queries/clips";
 import { signOut } from "@/lib/actions/auth";
 import { Mark } from "@/components/ui/Mark";
@@ -101,19 +102,21 @@ export default async function PhoneHome() {
 
   const [latest, ...earlier] = matchRows;
   const latestVideo = latest ? watchable.get(latest.id) : undefined;
-  const latestResult = latest
-    ? matchResult(
-        (await db
-          .select({
-            statType: matchStats.statType,
-            outcome: matchStats.outcome,
-            shotResult: matchStats.shotResult,
-            side: matchStats.side,
-          })
-          .from(matchStats)
-          .where(eq(matchStats.matchId, latest.id))) as StatEntry[],
-      )
-    : null;
+  // The score comes off the stat sheet, so a player gets it once the sheet is out.
+  const latestResult =
+    latest && canReadStats(user, latest)
+      ? matchResult(
+          (await db
+            .select({
+              statType: matchStats.statType,
+              outcome: matchStats.outcome,
+              shotResult: matchStats.shotResult,
+              side: matchStats.side,
+            })
+            .from(matchStats)
+            .where(eq(matchStats.matchId, latest.id))) as StatEntry[],
+        )
+      : null;
 
   return (
     <div

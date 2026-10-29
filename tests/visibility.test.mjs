@@ -1,6 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { canSee, canShare, describeAudience, normaliseAudience, reachOf } from "../src/lib/auth/visibility.ts";
+import {
+  canReadStats,
+  canSee,
+  canShare,
+  describeAudience,
+  normaliseAudience,
+  reachOf,
+} from "../src/lib/auth/visibility.ts";
 
 const maker = { id: "maker", role: "player" };
 const player = { id: "p2", role: "player" };
@@ -75,4 +82,13 @@ test("the summary names groups first, then people", () => {
     said({ visibility: "assigned", roles: ["coach"], userIds: ["p2", "p3"] }),
     "Shared with all coaches, Seán and Aoife.",
   );
+});
+
+test("a stat sheet is the coaches' draft until it is submitted, then everyone's", () => {
+  const draft = { statsSubmittedAt: null };
+  const submitted = { statsSubmittedAt: Date.UTC(2026, 9, 19) };
+  assert.equal(canReadStats(player, draft), false);
+  assert.equal(canReadStats(coach, draft), true);
+  assert.equal(canReadStats(admin, draft), true);
+  assert.equal(canReadStats(player, submitted), true);
 });

@@ -238,6 +238,20 @@ export const matches = sqliteTable(
     halfTimeAt: integer("half_time_at"),
     secondHalfAt: integer("second_half_at"),
     fullTimeAt: integer("full_time_at"),
+    /**
+     * When a coach put the stat sheet out to the panel. Until then the sheet
+     * is a draft: several people may be logging the one game, and a half-done
+     * sheet tells a player the wrong thing about their match. Coaches see it
+     * throughout; players see it, and every stat on it, only once this is
+     * set. Cleared again to take it back for corrections.
+     *
+     * Who submitted it is a bare user id, not a foreign key: SQLite can only
+     * add a referencing column without its ON DELETE rule, so a reference
+     * here would stop that coach ever being removed from the club. A name
+     * that no longer resolves is simply not shown.
+     */
+    statsSubmittedAt: integer("stats_submitted_at"),
+    statsSubmittedBy: text("stats_submitted_by"),
     createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: integer("created_at").notNull().default(now),
   },

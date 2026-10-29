@@ -15,6 +15,7 @@ import {
 import { redirect } from "next/navigation";
 import { currentUser, waitingUser } from "@/lib/auth/session";
 import { requireUser } from "@/lib/auth/guard";
+import { canReadStats } from "@/lib/auth/visibility";
 import { visibleClipIds } from "@/lib/queries/clips";
 import { Nav } from "@/components/ui/Nav";
 import { formatClock, formatScore } from "@/lib/hurling/notation";
@@ -354,8 +355,10 @@ async function Dashboard() {
 
   // Every stat on every listed sheet, in one pass: the counts per match and
   // each fixture's scoreline both come out of it, and a season of sheets is a
-  // few thousand small rows at most.
-  const statRows = ids.length
+  // few thousand small rows at most. A player's list leaves out the sheets not
+  // submitted yet, scoreline and all, since a half-logged sheet gets it wrong.
+  const statIds = matchRows.filter((m) => canReadStats(user, m)).map((m) => m.id);
+  const statRows = statIds.length
     ? await db
         .select({
           id: matchStats.id,
@@ -375,7 +378,7 @@ async function Dashboard() {
           playerNumber: matchStats.playerNumber,
         })
         .from(matchStats)
-        .where(inArray(matchStats.matchId, ids))
+        .where(inArray(matchStats.matchId, statIds))
     : [];
 
   const clipCounts = ids.length
@@ -554,6 +557,7 @@ async function Dashboard() {
             shotMarks={shotMarks(latestStats)}
             code={user.teamCode}
             statCount={latestStats.length}
+            sheetOpen={canReadStats(user, latest)}
             isCoach={isCoach}
           />
         ) : (
@@ -659,9 +663,11 @@ async function Dashboard() {
                                 Watch
                               </Link>
                             )}
-                            <Link href={`/matches/${m.id}/stats`} className="btn-ghost text-xs">
-                              Stat sheet
-                            </Link>
+                            {canReadStats(user, m) && (
+                              <Link href={`/matches/${m.id}/stats`} className="btn-ghost text-xs">
+                                Stat sheet
+                              </Link>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -780,6 +786,7 @@ function LeadMatch({
   shotMarks,
   code,
   statCount,
+  sheetOpen,
   isCoach,
 }: {
   match: typeof matches.$inferSelect;
@@ -795,6 +802,8 @@ function LeadMatch({
   shotMarks: PitchMark[];
   code: GameCode;
   statCount: number;
+  /** Whether this viewer may open the stat sheet yet; see `canReadStats`. */
+  sheetOpen: boolean;
   isCoach: boolean;
 }) {
   // Watch the file that was just added, not whichever angle happens to be first.
@@ -849,9 +858,11 @@ function LeadMatch({
                 <span className="tabular font-normal opacity-80">{formatClock(ready.durationMs)}</span>
               </Link>
             )}
-            <Link href={`/matches/${match.id}/stats`} className="btn-outline px-4 py-2.5 text-[14px]">
-              Stat sheet
-            </Link>
+            {sheetOpen && (
+              <Link href={`/matches/${match.id}/stats`} className="btn-outline px-4 py-2.5 text-[14px]">
+                Stat sheet
+              </Link>
+            )}
             {isCoach && (
               <Link href={`/matches/${match.id}/stats/log`} className="btn-ghost px-4 py-2.5 text-[14px]">
                 Log stats

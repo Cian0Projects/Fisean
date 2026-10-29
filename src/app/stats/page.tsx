@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { matchGps, matchStats, matches, videos } from "@/lib/db/schema";
+import { matchGps, matchLineups, matchStats, matches, videos } from "@/lib/db/schema";
 import { isCoach, requireUser } from "@/lib/auth/guard";
+import type { SessionUser } from "@/lib/auth/session";
+import { involves } from "@/lib/hurling/moments";
 import { Nav } from "@/components/ui/Nav";
 import { NewMatchForm } from "@/components/stats/NewMatchForm";
 import { matchDate } from "@/lib/format";
@@ -18,16 +19,22 @@ import { matchDate } from "@/lib/format";
  * by another coach. Everyone logging the same game opens the same match, so
  * their stats land on one sheet.
  *
- * Coaches only, like the logging itself. A player reads the stat sheet from
- * the match instead.
+ * A player gets the other half: every sheet a coach has submitted, with how
+ * many of its moments are theirs to watch back. Logging stays with coaches.
  */
 export default async function StatsPage() {
   const user = await requireUser();
-  if (!isCoach(user)) redirect("/");
+  if (!isCoach(user)) return <PlayerStats user={user} />;
 
   const [rows, counts, footage, gpsCounts] = await Promise.all([
     db
-      .select({ id: matches.id, opponent: matches.opponent, playedOn: matches.playedOn, competition: matches.competition })
+      .select({
+        id: matches.id,
+        opponent: matches.opponent,
+        playedOn: matches.playedOn,
+        competition: matches.competition,
+        statsSubmittedAt: matches.statsSubmittedAt,
+      })
       .from(matches)
       .where(eq(matches.teamId, user.teamId))
       .orderBy(desc(matches.playedOn), desc(matches.createdAt)),
@@ -88,6 +95,7 @@ export default async function StatsPage() {
                         {[
                           m.competition,
                           n === 0 ? "No stats yet" : `${n} ${n === 1 ? "stat" : "stats"} logged`,
+                          n === 0 ? null : m.statsSubmittedAt ? "submitted" : "not submitted yet",
                           filmed.has(m.id) ? "footage added" : null,
                         ]
                           .filter(Boolean)
@@ -107,6 +115,95 @@ export default async function StatsPage() {
                         Log stats
                       </Link>
                     </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      </main>
+    </>
+  );
+}
+
+/**
+ * The submitted sheets, newest first. Drafts are left out altogether rather
+ * than listed as coming: a coach may never submit a sheet for a challenge
+ * match, and a list of promises is worse than a short list.
+ */
+async function PlayerStats({ user }: { user: SessionUser }) {
+  const rows = await db
+    .select({ id: matches.id, opponent: matches.opponent, playedOn: matches.playedOn, competition: matches.competition })
+    .from(matches)
+    .where(and(eq(matches.teamId, user.teamId), isNotNull(matches.statsSubmittedAt)))
+    .orderBy(desc(matches.playedOn), desc(matches.createdAt));
+  const ids = rows.map((m) => m.id);
+
+  // The number this player wore in each match, then every entry it touches:
+  // credited to them, or a delivery aimed at them, as the sheet itself counts.
+  const [worn, entries] = ids.length
+    ? await Promise.all([
+        db
+          .select({ matchId: matchLineups.matchId, number: matchLineups.number })
+          .from(matchLineups)
+          .where(and(eq(matchLineups.userId, user.id), inArray(matchLineups.matchId, ids))),
+        db
+          .select({ matchId: matchStats.matchId, playerNumber: matchStats.playerNumber, targetNumber: matchStats.targetNumber })
+          .from(matchStats)
+          .where(and(eq(matchStats.teamId, user.teamId), inArray(matchStats.matchId, ids))),
+      ])
+    : [[], []];
+  const numberIn = new Map(worn.map((w) => [w.matchId, w.number]));
+  const mine = new Map<string, number>();
+  for (const e of entries) {
+    const n = numberIn.get(e.matchId);
+    if (n != null && involves(e, n)) mine.set(e.matchId, (mine.get(e.matchId) ?? 0) + 1);
+  }
+
+  return (
+    <>
+      <Nav user={user} />
+      <main className="mx-auto max-w-3xl px-4 pt-8 pb-16">
+        <h1 className="display text-[clamp(2rem,5vw,2.75rem)]">Stats</h1>
+        <p className="measure mt-2 text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
+          The stat sheet for every match the coaches have finished. Open one to read it, and watch any moment on it
+          back from ten seconds before it happened: yours, or anyone else&rsquo;s.
+        </p>
+
+        <section className="mt-10">
+          <h2 className="title border-b pb-2 text-base" style={{ borderColor: "var(--color-line-strong)" }}>
+            Matches
+          </h2>
+          {rows.length === 0 ? (
+            <p className="py-6 text-[14px]" style={{ color: "var(--color-ink-faint)" }}>
+              No stat sheets out yet. Once a coach submits one, it shows up here.
+            </p>
+          ) : (
+            <ul>
+              {rows.map((m) => {
+                const n = mine.get(m.id) ?? 0;
+                return (
+                  <li key={m.id} className="fixture flex flex-wrap items-center gap-x-4 gap-y-1 py-3">
+                    <div
+                      className="tabular w-[4.5rem] shrink-0 whitespace-nowrap text-[13px]"
+                      style={{ color: "var(--color-ink-faint)" }}
+                    >
+                      {matchDate(m.playedOn)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[15px] font-semibold">{m.opponent}</div>
+                      <div className="caption truncate">
+                        {[
+                          m.competition,
+                          numberIn.has(m.id) ? `${n} ${n === 1 ? "moment" : "moments"} of yours` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(", ")}
+                      </div>
+                    </div>
+                    <Link href={`/matches/${m.id}/stats`} className="btn-outline text-xs">
+                      Stat sheet
+                    </Link>
                   </li>
                 );
               })}

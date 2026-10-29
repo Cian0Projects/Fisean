@@ -102,3 +102,16 @@ export function describeAudience(
   const list = parts.length <= 1 ? parts.join("") : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
   return `Shared with ${list}.`;
 }
+
+/**
+ * Who may read a match's stat sheet, and everything worked out from it: the
+ * report, the scoreline on the match list, the moments watched back.
+ *
+ * Not the clip rule. A sheet has no maker who owns it, since several coaches
+ * log the one game, and it is never private to anyone: once it is submitted
+ * the whole panel reads all of it, every player's numbers included. Before
+ * that it is a draft, read by the coaches putting it together and nobody else.
+ */
+export function canReadStats(viewer: { role: Role }, match: { statsSubmittedAt: number | null }): boolean {
+  return viewer.role !== "player" || match.statsSubmittedAt != null;
+}

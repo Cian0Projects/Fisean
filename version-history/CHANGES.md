@@ -6,6 +6,11 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## Stat sheets are submitted to the panel, and watched back moment by moment
+*2026-10-29*
+
+A stat sheet is now the coaches' draft until one of them submits it. A game is often logged by two or three people, and a half-finished sheet gave players a wrong scoreline and wrong numbers. The coaches' bar at the top of the sheet says who has logged how many entries, and has "Submit to the panel" (and "Take it back", for corrections; a submitted sheet can still be edited). Until then a player sees no stat sheet, no scoreline from it on the home page or the phone, and no draft entries sent to the review workspace. Once it is out, everyone reads all of it, every player's numbers included. Players now have a Stats tab listing the submitted sheets with how many moments of each are theirs. Every sheet gains "Watch it back": filter by player, half, outcome and kind of stat, and each entry plays from ten seconds before it was logged to three after. Entries logged on the line are found on the footage through the match's whistles and the file's half markers. Overlapping passages (a turnover and the point off it) play as one, and entries that cannot be placed are counted rather than silently dropped. Nothing is stored for the reel: it is worked out when the page is read, so a number put to a name later moves with it. Schema: `matches.stats_submitted_at` and `stats_submitted_by`, the latter a bare id since SQLite cannot add a referencing column with its ON DELETE rule.
+
 ## GPS report: one sheet per page, and a speed page
 *2026-10-29*
 
