@@ -93,6 +93,15 @@ export type GameTime = {
 };
 
 /** mm:ss, or h:mm:ss past an hour. */
+/**
+ * The game clock as a referee's watch reads it: minutes keep counting past
+ * the hour, so the 62nd minute of 35-minute halves is 61:30, never 1:01:30.
+ */
+export function formatGameClock(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
 export function formatClock(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
   const h = Math.floor(total / 3600);
@@ -184,7 +193,7 @@ export function toGameTime(
     }
     const halfMs = fileMs - secondHalf;
     const gameMs = halfLengthMs + halfMs;
-    return { phase: "second_half", half: 2, halfMs, gameMs, label: `2nd ${formatClock(gameMs)}` };
+    return { phase: "second_half", half: 2, halfMs, gameMs, label: `2nd ${formatGameClock(gameMs)}` };
   }
 
   // The interval.
@@ -199,7 +208,7 @@ export function toGameTime(
   }
 
   const halfMs = fileMs - throwIn;
-  return { phase: "first_half", half: 1, halfMs, gameMs: halfMs, label: `1st ${formatClock(halfMs)}` };
+  return { phase: "first_half", half: 1, halfMs, gameMs: halfMs, label: `1st ${formatGameClock(halfMs)}` };
 }
 
 /** Turn the marker rows for a video into the shape `toGameTime` wants. */

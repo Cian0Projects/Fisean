@@ -3,15 +3,14 @@
  *
  * A stat already knows when it happened, one of two ways. Logged against the
  * footage, it carries the file position it was logged at. Logged on the line,
- * it carries the real-world moment it was seen, which the match's whistles
- * and the footage's own half markers turn into a file position
- * (`footageMomentOf`). Either way the passage is worked out when the sheet is
+ * it carries its half and how far into it, which the footage's own half
+ * markers turn into a file position (`lineEntryMoment`). Either way the passage is worked out when the sheet is
  * read, never stored: a number put to a name afterwards, or a marker nudged,
  * moves every passage with it, and there is no second copy to go stale.
  *
  * Pure, so the rules are tested rather than the page.
  */
-import { effectiveOutcome, footageMomentOf, type StatEntry, type StatOutcome, type StatType } from "./stats";
+import { effectiveOutcome, lineEntryMoment, type StatEntry, type StatOutcome, type StatType } from "./stats";
 import type { Markers } from "./notation";
 
 /**
@@ -37,7 +36,13 @@ export type Footage = {
 };
 
 /** What placing reads of a stat row. */
-export type Timed = { videoId?: string | null; atMs?: number | null; seenAt?: number | null };
+export type Timed = {
+  videoId?: string | null;
+  atMs?: number | null;
+  half?: number | null;
+  halfMs?: number | null;
+  seenAt?: number | null;
+};
 
 /**
  * Where in the footage a stat happened, or null when it cannot be said.
@@ -58,11 +63,9 @@ export function placeStat(
     const file = footage.find((f) => f.id === row.videoId);
     if (file) return { videoId: file.id, atMs: file.durationMs > 0 ? Math.min(row.atMs, file.durationMs) : row.atMs };
   }
-  if (row.seenAt != null) {
-    for (const file of footage) {
-      const atMs = footageMomentOf(row.seenAt, whistles, file.markers, halfLengthMin, file.durationMs || Infinity);
-      if (atMs != null) return { videoId: file.id, atMs };
-    }
+  for (const file of footage) {
+    const atMs = lineEntryMoment(row, whistles, file.markers, halfLengthMin, file.durationMs || Infinity);
+    if (atMs != null) return { videoId: file.id, atMs };
   }
   return null;
 }

@@ -81,7 +81,7 @@ export default async function ReviewPage({
   // Coaches only: nobody else sees the pad, and a draft sheet sent to a
   // player's browser is a draft they can read.
   const [statRows, statNumbers] = match && isCoach(user)
-    ? await Promise.all([loadStatRows(match.id, user.teamId), loadNumberSheet(match.id, user.teamId)])
+    ? await Promise.all([loadStatRows(match.id, user.teamId, user.id), loadNumberSheet(match.id, user.teamId)])
     : [[], []];
 
   const media = await store();

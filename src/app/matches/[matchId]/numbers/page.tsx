@@ -44,7 +44,7 @@ export default async function MatchNumbersPage({
 
   const [numbers, rows, panel] = await Promise.all([
     loadNumberSheet(matchId, user.teamId),
-    loadStatRows(matchId, user.teamId),
+    loadStatRows(matchId, user.teamId, user.id),
     db
       .select({ id: users.id, displayName: users.displayName, role: users.role })
       .from(users)

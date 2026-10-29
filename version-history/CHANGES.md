@@ -6,6 +6,11 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## Each stat logger keeps their own clock, and submits their own stats
+*2026-10-29*
+
+Logging on the line or off a stream used to share one match clock: any coach could tap a whistle and every phone's clock moved, entries were stamped with the time of day and given a minute later from those shared whistles, and a stream needed its delay measured and set. It confused even the person who built it. Now each logger has their own clock and only ever sees the game clock. Throw-in starts it, then Half time, Second half and Full time, one button at a time, with an undo for the last. Stats can only be logged while a half is on, so the form stays faded until throw-in and again over the break, and the half is taken from the clock, never picked. On a stream the logger taps each whistle as the stream shows it, so there is no delay to set. "Clock wrong?" sets the clock by what the game clock reads, and moves that half's entries with it. Each entry now stores its half and how far into it (`match_stats.half_ms`), and the pitch turns round by itself at the restart. A logger's entries are drafts that only they can see (`match_stats.draft`, clocks in the new `stat_clocks` table) until they press Submit at full time. Then the other coaches see them on the sheet, and the sheet still goes to the players separately when a coach submits it to the panel. Entries from before keep their minutes from the old shared whistles.
+
 ## Players added by name, before they have an account
 *2026-10-29*
 

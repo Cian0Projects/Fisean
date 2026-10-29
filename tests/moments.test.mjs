@@ -44,6 +44,8 @@ test("a match filmed a file per half finds each half in its own file", () => {
     videoId: "b",
     atMs: 72_000,
   });
+  // Timed by its logger's own clock, the same: no shared whistles needed.
+  assert.deepEqual(placeStat({ half: 2, halfMs: 60_000 }, [first, second], {}), { videoId: "b", atMs: 72_000 });
 });
 
 test("a stat logged against a file that is gone falls back to the line", () => {

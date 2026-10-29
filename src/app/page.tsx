@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { visibleStat } from "@/lib/queries/stats";
 import { db } from "@/lib/db/client";
 import {
   clipPlayers,
@@ -378,7 +379,7 @@ async function Dashboard() {
           playerNumber: matchStats.playerNumber,
         })
         .from(matchStats)
-        .where(inArray(matchStats.matchId, statIds))
+        .where(and(inArray(matchStats.matchId, statIds), visibleStat(user.id)))
     : [];
 
   const clipCounts = ids.length

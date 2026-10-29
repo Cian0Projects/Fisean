@@ -52,7 +52,7 @@ import { shapesOf, useCommentStops } from "@/components/player/useCommentStops";
 import { StatPad } from "@/components/stats/StatPad";
 import { StatLanes } from "@/components/stats/StatLanes";
 import { numberSheet, type SheetEntry, type StatRow } from "@/components/stats/types";
-import { STAT_LEAD_IN_MS, footageMomentOf, type StatType } from "@/lib/hurling/stats";
+import { STAT_LEAD_IN_MS, lineEntryMoment, type StatType } from "@/lib/hurling/stats";
 import type { GameCode } from "@/lib/hurling/codes";
 import { ClipList } from "./ClipList";
 import { ClipInspector, type DrawingDraft } from "./ClipInspector";
@@ -142,17 +142,17 @@ export function ReviewWorkspace({
   // same entries as ticks, so both have to read from one list.
   const [statRows, setStatRows] = useState<StatRow[]>(initialStatRows ?? []);
   const [statType, setStatType] = useState<StatType>("tackle");
-  // Stats logged on the line, before this video existed, carry the moment
-  // they were seen rather than a place in the file. Once the video's
-  // throw-in is marked, the match whistles put them on it, so they tick on
+  // Stats logged on the line, before this video existed, carry their half
+  // and how far into it rather than a place in the file. Once the video's
+  // halves are marked, that puts them on it, so they tick on
   // the timeline and play back like any other. Worked out, never stored:
   // moving a marker moves them. Editing one in the pad does pin it to its
   // place in this file, which by then is the right place.
   const placedStatRows = useMemo(
     () =>
       statRows.map((r) => {
-        if (r.atMs != null || r.seenAt == null) return r;
-        const atMs = footageMomentOf(r.seenAt, match.whistles ?? {}, markers, halfLengthMin, video.durationMs);
+        if (r.atMs != null) return r;
+        const atMs = lineEntryMoment(r, match.whistles ?? {}, markers, halfLengthMin, video.durationMs);
         return atMs == null ? r : { ...r, atMs };
       }),
     [statRows, match.whistles, markers, halfLengthMin, video.durationMs],

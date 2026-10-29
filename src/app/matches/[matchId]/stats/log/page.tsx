@@ -8,8 +8,7 @@ import { visibleClipIds } from "@/lib/queries/clips";
 import { Nav } from "@/components/ui/Nav";
 import { StatLogger } from "@/components/stats/StatLogger";
 import { formatClock } from "@/lib/hurling/notation";
-import { loadNumberSheet, loadStatRows } from "@/lib/queries/stats";
-import { whistlesOf } from "@/lib/hurling/stats";
+import { loadNumberSheet, loadOwnStatRows, loadStatClock } from "@/lib/queries/stats";
 
 /**
  * Logging the stat sheet.
@@ -46,9 +45,12 @@ export default async function LogMatchStatsPage({
     );
   }
 
-  const [rows, numbers] = await Promise.all([
-    loadStatRows(matchId, user.teamId),
+  // Only this coach's own entries and their own clock: on the line, each
+  // logger keeps to their own sheet until they submit it.
+  const [rows, numbers, clock] = await Promise.all([
+    loadOwnStatRows(matchId, user.teamId, user.id),
     loadNumberSheet(matchId, user.teamId),
+    loadStatClock(matchId, user.id),
   ]);
 
   // A stat may point at a clip that already covers the moment. Optional, and
@@ -82,7 +84,7 @@ export default async function LogMatchStatsPage({
           playedOn: match.playedOn,
         }}
         code={user.teamCode}
-        whistles={whistlesOf(match)}
+        clock={clock}
         halfLengthMin={match.halfLengthMin}
         numbers={numbers}
         initialRows={rows}

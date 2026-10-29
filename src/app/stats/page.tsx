@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { and, count, desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { visibleStat } from "@/lib/queries/stats";
 import { db } from "@/lib/db/client";
 import { matchGps, matchLineups, matchStats, matches, videos } from "@/lib/db/schema";
 import { isCoach, requireUser } from "@/lib/auth/guard";
@@ -41,7 +42,7 @@ export default async function StatsPage() {
     db
       .select({ matchId: matchStats.matchId, n: count() })
       .from(matchStats)
-      .where(eq(matchStats.teamId, user.teamId))
+      .where(and(eq(matchStats.teamId, user.teamId), visibleStat(user.id)))
       .groupBy(matchStats.matchId),
     db
       .select({ matchId: videos.matchId })
@@ -150,7 +151,7 @@ async function PlayerStats({ user }: { user: SessionUser }) {
         db
           .select({ matchId: matchStats.matchId, playerNumber: matchStats.playerNumber, targetNumber: matchStats.targetNumber })
           .from(matchStats)
-          .where(and(eq(matchStats.teamId, user.teamId), inArray(matchStats.matchId, ids))),
+          .where(and(eq(matchStats.teamId, user.teamId), inArray(matchStats.matchId, ids), visibleStat(user.id))),
       ])
     : [[], []];
   const numberIn = new Map(worn.map((w) => [w.matchId, w.number]));

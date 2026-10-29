@@ -211,6 +211,13 @@
       "when": 1793282776611,
       "tag": "0029_opposition_number",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1793300683629,
+      "tag": "0030_powerful_nehzno",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, asc, count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { matchStats, matches, teams, users, videos } from "@/lib/db/schema";
 import { isCoach, requireUser } from "@/lib/auth/guard";
@@ -62,10 +62,11 @@ export default async function MatchStatsPage({
     .limit(1);
 
   // Every map is split by half, so each row's half is settled here: from the
-  // footage's markers where it was logged against video, from the match's
-  // whistles where it was logged on the line, otherwise as the coach set it.
+  // footage's markers where it was logged against video, from its logger's
+  // own clock where it was logged on the line (or the match's old shared
+  // whistles, for entries from before), otherwise as the coach set it.
   const [stored, markers, numbers, footage, loggers, submitter] = await Promise.all([
-    loadStatRows(matchId, user.teamId),
+    loadStatRows(matchId, user.teamId, user.id),
     loadMatchMarkers(matchId),
     loadNumberSheet(matchId, user.teamId),
     db
@@ -74,9 +75,11 @@ export default async function MatchStatsPage({
       .where(and(eq(videos.matchId, matchId), eq(videos.teamId, user.teamId), eq(videos.status, "ready")))
       .orderBy(asc(videos.createdAt)),
     // Who logged what, for the coach deciding whether the sheet is finished.
+    // Counted with their drafts, so someone still logging shows as such;
+    // the entries themselves stay theirs until they submit.
     coach
       ? db
-          .select({ name: users.displayName, n: count() })
+          .select({ name: users.displayName, n: count(), drafts: sql<number>`sum(${matchStats.draft})` })
           .from(matchStats)
           .innerJoin(users, eq(users.id, matchStats.createdBy))
           .where(and(eq(matchStats.matchId, matchId), eq(matchStats.teamId, user.teamId)))

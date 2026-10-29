@@ -41,7 +41,7 @@ import {
   type StatVocabulary,
 } from "@/lib/hurling/stats";
 import type { GameCode } from "@/lib/hurling/codes";
-import { formatClock, formatScore } from "@/lib/hurling/notation";
+import { formatGameClock, formatScore } from "@/lib/hurling/notation";
 import { positionByNumber } from "@/lib/hurling/positions";
 import { matchDateLong } from "@/lib/format";
 import { ResultBox } from "@/components/matches/ResultBox";
@@ -618,7 +618,7 @@ function OppositionRuns({
                 return (
                   <tr key={r.id} style={{ borderBottom: "1px solid var(--color-line)" }}>
                     {timed && (
-                      <td className="tabular px-2 py-1.5">{r.gameMs != null ? formatClock(r.gameMs) : <Dash />}</td>
+                      <td className="tabular px-2 py-1.5">{r.gameMs != null ? formatGameClock(r.gameMs) : <Dash />}</td>
                     )}
                     {halved && <td className="tabular px-2 py-1.5">{r.half ?? <Dash />}</td>}
                     <td className="px-2 py-1.5">{vocabulary.shotKindLabels[r.shotKind ?? "play"]}</td>

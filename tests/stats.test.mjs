@@ -27,11 +27,9 @@ import {
   statColour,
   statShape,
   footageMomentOf,
+  lineEntryMoment,
   liveGameTime,
   whistlesForClock,
-  latestWhistle,
-  streamDelayFrom,
-  MAX_STREAM_DELAY_MS,
   resultFromWhere,
   statTiming,
   statVocabulary,
@@ -600,6 +598,20 @@ test("a stat seen on the line lands on footage from each half's own marker", () 
   assert.equal(footageMomentOf(day + 10 * 60_000, whistles, video, 30, 5 * 60_000), null);
 });
 
+test("an entry timed by its logger's own clock carries its half and the time into it", () => {
+  // 12 minutes into the second half of 35-minute halves reads 47:00.
+  assert.deepEqual(statTiming({ half: 2, halfMs: 12 * 60_000 }, undefined, 35), { half: 2, gameMs: 47 * 60_000 });
+  assert.deepEqual(statTiming({ half: 1, halfMs: 90_000 }, undefined, 30), { half: 1, gameMs: 90_000 });
+  // Footage still wins where both exist.
+  assert.equal(statTiming({ half: 2, halfMs: 0, atMs: 60_000 }, { throwIn: 0 }, 30).half, 1);
+
+  // And lands on the footage from that half's own marker, whatever the match's shared whistles say.
+  const video = { throwIn: 47_000, secondHalf: 34 * 60_000 };
+  assert.equal(lineEntryMoment({ half: 2, halfMs: 60_000 }, {}, video, 30), 35 * 60_000);
+  assert.equal(lineEntryMoment({ half: 1, halfMs: 60_000 }, {}, { secondHalf: 1 }, 30), null);
+  assert.equal(lineEntryMoment({ half: 1 }, {}, video, 30), null);
+});
+
 test("chronological orders by half, then by clock only when the whole half has one", () => {
   const rows = [
     { id: "a", half: 2, gameMs: 40, createdAt: 1 },
@@ -895,18 +907,6 @@ test("a two-pointer counts at face value for its scorer, frees and all", () => {
   const player = playerStatLines([scorer("two_pointer"), scorer("wide")]).get(14);
   assert.equal(player.twoPointers, 1);
   assert.equal(player.missed, 1);
-});
-
-test("a stream's delay is measured against the last whistle blown, and kept within reason", () => {
-  assert.equal(latestWhistle({}), null);
-  assert.deepEqual(latestWhistle({ throwIn: 1000, halfTime: null }), { key: "throwIn", at: 1000 });
-  assert.deepEqual(latestWhistle({ throwIn: 1000, halfTime: 5000, secondHalf: 9000 }), { key: "secondHalf", at: 9000 });
-
-  assert.equal(streamDelayFrom(100_000, 135_400), 35_400);
-  // Tapped before the whistle was even set on the line: no delay, not a negative one.
-  assert.equal(streamDelayFrom(100_000, 90_000), 0);
-  // Seen an hour later is a mistake, not a stream.
-  assert.equal(streamDelayFrom(0, 3_600_000), MAX_STREAM_DELAY_MS);
 });
 
 test("the clock set by its minute is worked back to the whistle it counts from", () => {

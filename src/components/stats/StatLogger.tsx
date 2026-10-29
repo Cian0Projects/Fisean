@@ -1,7 +1,14 @@
 "use client";
 
 /**
- * Logging the stat sheet after a match.
+ * Logging the stat sheet on the line, or off a stream.
+ *
+ * Each coach logging keeps their own clock (MatchClock) and their own
+ * entries: nothing here shows or touches anyone else's. The form is locked
+ * until throw-in is tapped, and again over half time and after full time, so
+ * every entry has a half and a time from that clock, and the half is never
+ * picked by hand. The entries stay this coach's own until they submit them
+ * at full time; after that the other coaches see them, fixes included.
  *
  * The form follows how the notebook is actually read back: a type, an
  * outcome, sometimes a name, sometimes a place. A tackle is two clicks; a
@@ -32,7 +39,6 @@ import {
   statVocabulary,
   describeStat,
   effectiveOutcome,
-  liveGameTime,
   resultFromWhere,
   statColour,
   statShape,
@@ -61,9 +67,10 @@ import {
   type StatRow,
 } from "./types";
 import { matchDateLong } from "@/lib/format";
-import { formatClock, type Markers } from "@/lib/hurling/notation";
+import { formatGameClock } from "@/lib/hurling/notation";
 import type { GameCode } from "@/lib/hurling/codes";
-import { MatchClock, useMatchClock } from "./MatchClock";
+import { clockOf, clockShift, shiftedHalfMs } from "@/lib/hurling/live-clock";
+import { MatchClock, useMatchClock, type LoggerClock } from "./MatchClock";
 import { HalfLength } from "./HalfLength";
 import { VoiceBar, useVoiceEntry } from "./VoiceEntry";
 
@@ -75,17 +82,18 @@ export function StatLogger({
   numbers,
   initialRows,
   clips,
-  whistles,
+  clock: initialClock,
   halfLengthMin: initialHalfLengthMin,
 }: {
   match: StatMatchInfo;
   /** The club's code: it words the sheet, and decides whether a two-pointer can be logged. */
   code: GameCode;
-  /** The match's whistles as they stood when the page loaded. */
-  whistles: Markers;
+  /** This logger's own clock as it stood when the page loaded. */
+  clock: LoggerClock;
   halfLengthMin: number;
   /** Who wore what in this match, so far. */
   numbers: SheetEntry[];
+  /** This logger's own entries: nobody else's are shown or touched here. */
   initialRows: StatRow[];
   clips: ClipOption[];
 }) {
@@ -102,17 +110,28 @@ export function StatLogger({
     videoId: null,
     atMs: null,
   });
-  // When this entry was seen, on the server's clock: stamped by the first
-  // thing the coach does towards it, not when they press log, because
-  // describing it takes a few seconds and the play has moved on by then.
-  const [seenAt, setSeenAt] = useState<number | null>(null);
-  const clock = useMatchClock(match.id, whistles, halfLengthMin);
-  const [turned, turn] = useEndsSwapped(match.id);
+  // When this entry was seen, as its half and how far into it by this
+  // logger's clock: stamped by the first thing the coach does towards it,
+  // not when they press log, because describing it takes a few seconds and
+  // the play has moved on by then.
+  const [seen, setSeen] = useState<{ half: 1 | 2; halfMs: number } | null>(null);
+  // An entry from before each logger kept their own clock carries the time
+  // of day it was seen instead. Edited here, that is carried through as is.
+  const [keptSeenAt, setKeptSeenAt] = useState<number | null>(null);
+  const clock = useMatchClock(initialClock, halfLengthMin);
+  const [swapped, turn] = useEndsSwapped(match.id);
+  // The teams change ends at half time, so the pitch turns round by itself
+  // for the second half. Swap ends is only for which side of the ground
+  // this logger stands on.
+  const turned = swapped !== (clock.whistles.secondHalf != null);
   const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
   const [dest, setDest] = useState<{ x: number; y: number } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // Nothing new can be logged until a half is on. Fixing an entry already
+  // logged can happen any time.
+  const locked = !editingId && !clock.open;
 
   const vocabulary = statVocabulary(code);
   const meta = vocabulary.meta[statType];
@@ -137,7 +156,8 @@ export function StatLogger({
     setDetail(nextDetail);
     setClipId("");
     setEntryVideo({ videoId: null, atMs: null });
-    setSeenAt(null);
+    setSeen(null);
+    setKeptSeenAt(null);
     setOrigin(null);
     setDest(null);
     setEditingId(null);
@@ -152,16 +172,12 @@ export function StatLogger({
   };
 
   /**
-   * Stamp the entry the first time the coach touches it, and with the match
-   * clock running, settle its half too. Left alone when editing: an old entry
-   * keeps the moment it was seen.
+   * Stamp the entry the first time the coach touches it. Left alone when
+   * editing: an old entry keeps the moment it was seen.
    */
   const startEntry = () => {
-    if (editingId || seenAt !== null) return;
-    const at = clock.now();
-    setSeenAt(at);
-    const half = liveGameTime(at, clock.whistles, halfLengthMin)?.half;
-    if (half) setDetail((d) => ({ ...d, half }));
+    if (editingId || seen !== null) return;
+    setSeen(clock.momentNow());
   };
 
   const voice = useVoiceEntry({
@@ -261,9 +277,20 @@ export function StatLogger({
 
   const submit = () => {
     if (!ready || pending) return;
+    // Logged without touching anything first (the type already showing,
+    // straight to log): now is the best there is.
+    const when = editingId ? seen : (seen ?? clock.momentNow());
+    if (!editingId && !when) {
+      setError("Tap the next whistle first. Stats are logged while a half is on.");
+      return;
+    }
     voice.stop();
+    const draft = detailToDraft(statType, shown);
     const input = {
-      ...detailToDraft(statType, shown),
+      ...draft,
+      // The half is the clock's, never picked: it was settled by the whistles.
+      half: when?.half ?? draft.half,
+      halfMs: when?.halfMs ?? null,
       originX: origin?.x ?? null,
       originY: origin?.y ?? null,
       destX: dest?.x ?? null,
@@ -271,9 +298,7 @@ export function StatLogger({
       clipId: clipId || null,
       videoId: entryVideo.videoId,
       atMs: entryVideo.atMs,
-      // Logged without touching anything first (the type already showing,
-      // straight to log): now is the best there is.
-      seenAt: editingId ? seenAt : (seenAt ?? clock.now()),
+      seenAt: editingId ? keptSeenAt : null,
       voiceHeard: voice.heard || null,
     };
 
@@ -300,7 +325,8 @@ export function StatLogger({
     setDetail(detailFromRow(row));
     setClipId(row.clipId ?? "");
     setEntryVideo({ videoId: row.videoId, atMs: row.atMs });
-    setSeenAt(row.seenAt);
+    setSeen(row.half && row.halfMs != null ? { half: row.half, halfMs: row.halfMs } : null);
+    setKeptSeenAt(row.seenAt);
     setOrigin(row.originX != null && row.originY != null ? { x: row.originX, y: row.originY } : null);
     setDest(row.destX != null && row.destY != null ? { x: row.destX, y: row.destY } : null);
     setError(null);
@@ -347,7 +373,22 @@ export function StatLogger({
       </header>
 
       <div className="mt-3">
-        <MatchClock matchId={match.id} clock={clock} />
+        <MatchClock
+          matchId={match.id}
+          clock={clock}
+          onClockSet={(before, after) => {
+            // The server moved the same entries by the same amount.
+            const shift = clockShift(before, after);
+            setRows((prev) =>
+              prev.map((r) =>
+                r.videoId == null && r.half && r.halfMs != null
+                  ? { ...r, halfMs: shiftedHalfMs(r.halfMs, shift[r.half]) }
+                  : r,
+              ),
+            );
+          }}
+          onSubmitted={() => setRows((prev) => prev.map((r) => ({ ...r, draft: false })))}
+        />
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="text-[12px]" style={{ color: "var(--color-ink-dim)" }}>
             Halves of
@@ -378,13 +419,18 @@ export function StatLogger({
         style={{ "--pitch-ratio": String(VIEW_W / pitchViewHeight()) } as CSSProperties}
       >
         {/* ------------------------------------------------------ the pitch */}
-        <section className="min-w-0">
+        <section
+          className="min-w-0 transition-opacity"
+          // Faded and out of reach until a whistle starts a half.
+          inert={locked}
+          style={{ opacity: locked ? 0.35 : 1 }}
+        >
           <div className="mb-1.5 flex items-center gap-3">
             <span className="label">Where on the pitch</span>
             <button
               onClick={turn}
               aria-pressed={turned}
-              title="Teams changed ends? Turn the pitch round."
+              title="Standing on the other side of the ground? Turn the pitch round. It turns again by itself for the 2nd half."
               className="btn-ghost px-2 py-1 text-xs"
             >
               Swap ends
@@ -422,8 +468,9 @@ export function StatLogger({
 
         {/* ---------------------------------------------------- the details */}
         <section
-          className="@container flex min-w-0 flex-col lg:border-l lg:pl-6"
-          style={{ borderColor: "var(--color-line)" }}
+          className="@container flex min-w-0 flex-col transition-opacity lg:border-l lg:pl-6"
+          inert={locked}
+          style={{ borderColor: "var(--color-line)", opacity: locked ? 0.35 : 1 }}
         >
           {/* Type first: it decides what the rest of the panel even asks.
               Each button only as wide as its name, so they share rows. */}
@@ -476,13 +523,8 @@ export function StatLogger({
               sheet={sheet}
               idPrefix="stat"
               resultNote={shown !== detail ? ARC_NOTE : undefined}
-              halfNote={
-                clock.whistles.throwIn != null
-                  ? "Set from the match clock when the entry starts."
-                  : detail.half
-                    ? undefined
-                    : "Pick it once; it stays set for the entries after."
-              }
+              // The whistles settle the half; there is nothing to pick.
+              halfFixed
             />
 
             {clips.length > 0 && (
@@ -546,9 +588,9 @@ export function StatLogger({
                 Pick how it ended first
               </span>
             )}
-            {seenAt != null && (
+            {seen != null && (
               <span className="tabular ml-auto text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
-                {seenLabel(seenAt, clock.whistles, halfLengthMin)}
+                {seenLabel(seen, halfLengthMin)}
               </span>
             )}
           </div>
@@ -561,11 +603,16 @@ export function StatLogger({
           className="flex items-baseline justify-between border-b pb-2"
           style={{ borderColor: "var(--color-line-strong)" }}
         >
-          <h2 className="title text-base">Logged so far</h2>
+          <h2 className="title text-base">Your stats so far</h2>
           <span className="tabular text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
             {rows.length}
           </span>
         </div>
+        {rows.some((r) => r.draft) && (
+          <p className="pt-2 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+            Only you can see these until you submit them at full time.
+          </p>
+        )}
 
         {newest.length === 0 ? (
           <p className="py-6 text-[14px]" style={{ color: "var(--color-ink-faint)" }}>
@@ -574,7 +621,7 @@ export function StatLogger({
         ) : (
           <ul className="grid gap-x-8 sm:grid-cols-2 xl:grid-cols-3">
             {newest.map((r) => {
-              const timing = statTiming(r, undefined, halfLengthMin, clock.whistles);
+              const timing = statTiming(r, undefined, halfLengthMin);
               const half = timing.half ?? r.half;
               // A tackle has no outcome axis, so it gets a plain mark rather
               // than borrowing the one that means "unclear".
@@ -605,9 +652,8 @@ export function StatLogger({
                     <div className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
                       {whoLabel(r, sheet)}
                       {half && `, ${half === 1 ? "1st" : "2nd"} half`}
-                      {timing.gameMs != null && ` at ${formatClock(timing.gameMs)}`}
+                      {timing.gameMs != null && ` at ${formatGameClock(timing.gameMs)}`}
                       {r.originX != null && ", on the map"}
-                      {r.atMs != null && `, ${formatClock(r.atMs)}`}
                     </div>
                   </div>
                   {/* Shown on hover with a mouse; always there on a touch
@@ -684,9 +730,7 @@ function useEndsSwapped(matchId: string): [boolean, () => void] {
   return [swapped, toggle];
 }
 
-/** When the entry being logged was seen: on the game clock once it is running, else the time of day. */
-function seenLabel(at: number, whistles: Markers, halfLengthMin: number): string {
-  const game = liveGameTime(at, whistles, halfLengthMin);
-  if (game?.half) return `Seen at ${formatClock(game.gameMs)}, ${game.half === 1 ? "1st" : "2nd"} half`;
-  return `Seen at ${new Date(at).toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit" })}`;
+/** When the entry being logged was seen, on the logger's game clock. */
+function seenLabel(seen: { half: 1 | 2; halfMs: number }, halfLengthMin: number): string {
+  return `Seen at ${formatGameClock(clockOf(seen.half, seen.halfMs, halfLengthMin))}, ${seen.half === 1 ? "1st" : "2nd"} half`;
 }

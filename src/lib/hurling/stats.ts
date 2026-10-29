@@ -848,16 +848,20 @@ export function normaliseEntry(draft: StatDraft, code: GameCode): NormalisedStat
  * worked out when the report is read, not stored, so marking the halves later
  * fixes every entry at once.
  *
- * An entry logged on the line with no footage carries the real-world moment
- * it was seen instead, and the match's whistles are real-world times too, so
- * the same conversion applies to them unchanged. The footage wins where both
- * exist: a file position was read off the play itself.
+ * An entry logged on the line carries its half and how far into it, read off
+ * its logger's own clock (see live-clock.ts), so its game clock is that plus
+ * the half length in the second half. The footage wins where both exist: a
+ * file position was read off the play itself.
+ *
+ * An entry logged on the line before each logger kept their own clock
+ * carries the real-world moment it was seen, read against the match's shared
+ * whistles, which are real-world times too.
  *
  * An entry typed up from the notebook has only the half the coach picked,
  * and no clock at all.
  */
 export function statTiming(
-  row: { half?: number | null; atMs?: number | null; seenAt?: number | null },
+  row: { half?: number | null; halfMs?: number | null; atMs?: number | null; seenAt?: number | null },
   markers: Markers | undefined,
   halfLengthMin = 30,
   whistles?: Markers,
@@ -866,6 +870,9 @@ export function statTiming(
   if (markers && row.atMs != null) {
     const t = toGameTime(row.atMs, markers, halfLengthMin);
     if (t.half) return { half: t.half, gameMs: t.gameMs };
+  }
+  if (stored && row.halfMs != null) {
+    return { half: stored, gameMs: (stored === 2 ? halfLengthMin * 60_000 : 0) + row.halfMs };
   }
   if (whistles?.throwIn != null && row.seenAt != null) {
     const t = liveGameTime(row.seenAt, whistles, halfLengthMin);
@@ -897,10 +904,10 @@ export function whistlesOf(match: {
 }
 
 /**
- * The game clock at a real-world moment, from the match's whistles. Null
- * before throw-in is tapped, and for a moment too long after the last
- * whistle to be in play (see above). The logging screens use this for the
- * running clock, the report for each entry.
+ * The game clock at a real-world moment, from the match's shared whistles.
+ * Null before throw-in is tapped, and for a moment too long after the last
+ * whistle to be in play (see above). Only entries logged before each logger
+ * kept their own clock are still read this way.
  */
 export function liveGameTime(at: number, whistles: Markers, halfLengthMin = 30) {
   if (whistles.throwIn == null) return null;
@@ -914,8 +921,8 @@ export function liveGameTime(at: number, whistles: Markers, halfLengthMin = 30) 
  * after throw-in: "it's 15:30 in the first half" rather than the time of day
  * the whistle went, which nobody joining late knows.
  *
- * Worked backwards from now (the server's clock, less any stream delay) to
- * the whistle that clock counts from. In the first half that is throw-in. In
+ * Worked backwards from now, on the logger's own clock, to the whistle that
+ * clock counts from. In the first half that is throw-in. In
  * the second it is the restart, since the second half counts on from the half
  * length (30:00, or 35:00) at the restart; and when throw-in was never tapped
  * it is put a half length before the restart, because the clock does not run
@@ -951,46 +958,32 @@ export function whistlesForClock(
 }
 
 /**
- * Logging off a live stream rather than from the line.
+ * Where in a video a stat seen on the line happened, from its half and how
+ * far into it.
  *
- * A stream runs behind the pitch, by twenty seconds to a minute depending on
- * who carries it, and every stat is stamped with when it was seen. So a
- * logger watching one keeps their phone that far behind: stamps, whistles
- * and the running clock all read the stream's moment, not the pitch's. The
- * delay belongs to one screen, not the match, since a coach on the line and
- * one at home on the stream want different answers.
- *
- * The easy way to measure it is the whistle someone on the line has already
- * tapped: when it shows on the stream, the gap since is the delay.
+ * The video's own throw-in and second-half markers turn that into a file
+ * position. Footage rarely starts on the whistle, and a camera stopped at
+ * half time leaves a gap no clock on the line knows about, so each half is
+ * measured from its own marker rather than from the start of the file. Null
+ * until the half's marker is set on the video, and past the end of the file.
  */
-export const MAX_STREAM_DELAY_MS = 10 * 60_000;
-
-const WHISTLE_ORDER = ["fullTime", "secondHalf", "halfTime", "throwIn"] as const;
-
-/** The last whistle blown so far, to measure a stream's delay against. */
-export function latestWhistle(whistles: Markers): { key: (typeof WHISTLE_ORDER)[number]; at: number } | null {
-  for (const key of WHISTLE_ORDER) {
-    const at = whistles[key];
-    if (at != null) return { key, at };
-  }
-  return null;
-}
-
-/** The delay that puts a whistle seen on the stream just now at the moment it was tapped on the line. */
-export function streamDelayFrom(whistleAt: number, seenAt: number): number {
-  return Math.min(MAX_STREAM_DELAY_MS, Math.max(0, Math.round(seenAt - whistleAt)));
+export function footageMomentAt(
+  half: Half,
+  halfMs: number,
+  videoMarkers: Markers,
+  durationMs = Infinity,
+): number | null {
+  const start = half === 1 ? videoMarkers.throwIn : videoMarkers.secondHalf;
+  if (start == null) return null;
+  const at = start + halfMs;
+  return at <= durationMs ? at : null;
 }
 
 /**
- * Where in a video a stat seen on the line happened.
- *
- * The match's whistles turn the moment it was seen into a half and a time
- * within it; the video's own throw-in and second-half markers turn that into
- * a file position. Footage rarely starts on the whistle, and a camera
- * stopped at half time leaves a gap no real-world clock knows about, so each
- * half is measured from its own marker rather than from the start of the
- * file. Null until the half's marker is set on the video, and for anything
- * seen during the interval or past the end of the file.
+ * The same for an entry logged against the match's shared whistles, before
+ * each logger kept their own clock: the whistles turn the moment it was seen
+ * into a half and a time within it. Null for anything seen during the
+ * interval, as well as for the reasons above.
  */
 export function footageMomentOf(
   seenAt: number,
@@ -1001,10 +994,22 @@ export function footageMomentOf(
 ): number | null {
   const t = liveGameTime(seenAt, whistles, halfLengthMin);
   if (!t?.half) return null;
-  const start = t.half === 1 ? videoMarkers.throwIn : videoMarkers.secondHalf;
-  if (start == null) return null;
-  const at = start + t.halfMs;
-  return at <= durationMs ? at : null;
+  return footageMomentAt(t.half, t.halfMs, videoMarkers, durationMs);
+}
+
+/** Where on a video a line entry lands, whichever way it was timed. */
+export function lineEntryMoment(
+  row: { half?: number | null; halfMs?: number | null; seenAt?: number | null },
+  whistles: Markers,
+  videoMarkers: Markers,
+  halfLengthMin = 30,
+  durationMs = Infinity,
+): number | null {
+  if ((row.half === 1 || row.half === 2) && row.halfMs != null) {
+    return footageMomentAt(row.half, row.halfMs, videoMarkers, durationMs);
+  }
+  if (row.seenAt != null) return footageMomentOf(row.seenAt, whistles, videoMarkers, halfLengthMin, durationMs);
+  return null;
 }
 
 /** The game minute a coach would name: 26:30 on the clock is the 27th. */

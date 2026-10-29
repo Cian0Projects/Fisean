@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   formatClock,
+  formatGameClock,
   parseClock,
   formatScore,
   formatScoreWithTotal,
@@ -70,6 +71,12 @@ test("clock formatting pads seconds and grows an hour field", () => {
   assert.equal(formatClock(5_415_000), "1:30:15");
   // Negative positions can arrive from a nudge below zero.
   assert.equal(formatClock(-500), "0:00");
+});
+
+test("the game clock counts minutes past the hour, as a referee's watch does", () => {
+  assert.equal(formatGameClock(0), "0:00");
+  assert.equal(formatGameClock(3_600_000), "60:00");
+  assert.equal(formatGameClock(61.5 * 60_000), "61:30");
 });
 
 test("markers convert file position to game clock", () => {

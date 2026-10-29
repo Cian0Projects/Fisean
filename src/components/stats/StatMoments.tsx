@@ -33,7 +33,7 @@ import {
   type StatType,
 } from "@/lib/hurling/stats";
 import { ALL_MOMENTS, inFilter, reelOf, statMoments, type Footage, type MomentFilter } from "@/lib/hurling/moments";
-import { formatClock, type Markers } from "@/lib/hurling/notation";
+import { formatClock, formatGameClock, type Markers } from "@/lib/hurling/notation";
 import type { GameCode } from "@/lib/hurling/codes";
 
 export type MomentFootage = Footage & { src: string };
@@ -367,7 +367,7 @@ export function StatMoments({
                       </span>
                     </span>
                     <span className="tabular shrink-0 text-right text-[12px]" style={{ color: "var(--color-ink-dim)" }}>
-                      {r.gameMs != null ? formatClock(r.gameMs) : formatClock(m.atMs)}
+                      {r.gameMs != null ? formatGameClock(r.gameMs) : formatClock(m.atMs)}
                       <span className="block" style={{ color: "var(--color-ink-faint)" }}>
                         {r.half === 1 ? "1st half" : r.half === 2 ? "2nd half" : ""}
                       </span>

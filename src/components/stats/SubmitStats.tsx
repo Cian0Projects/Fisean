@@ -21,8 +21,8 @@ export function SubmitStats({
   submittedAt: number | null;
   /** Who submitted it, when that person is still on the team. */
   submittedBy: string | null;
-  /** Everyone who logged on this sheet, most entries first. */
-  loggers: { name: string; n: number }[];
+  /** Everyone who logged on this sheet, most entries first, with how many they have not submitted yet. */
+  loggers: { name: string; n: number; drafts: number | null }[];
 }) {
   const [at, setAt] = useState(submittedAt);
   const [error, setError] = useState<string | null>(null);
@@ -38,9 +38,12 @@ export function SubmitStats({
       }
     });
 
-  const by = loggers.map((l) => `${l.name} (${l.n})`);
+  const by = loggers.map((l) => `${l.name} (${l.n}${l.drafts ? ", still logging" : ""})`);
   const loggedBy =
     by.length === 0 ? null : by.length === 1 ? by[0] : `${by.slice(0, -1).join(", ")} and ${by[by.length - 1]}`;
+  // Entries only reach this sheet when their logger submits them, so the
+  // panel would get a sheet missing whatever is still on someone's phone.
+  const waiting = loggers.filter((l) => l.drafts).map((l) => l.name);
 
   return (
     <section
@@ -65,6 +68,12 @@ export function SubmitStats({
               {loggedBy ? `Logged by ${loggedBy}. ` : ""}Submit it when everyone logging this game is finished, and
               every player can read it and watch their moments back.
             </p>
+            {waiting.length > 0 && (
+              <p className="caption mt-0.5">
+                {waiting.join(" and ")} {waiting.length === 1 ? "has" : "have"} not submitted yet, so{" "}
+                {waiting.length === 1 ? "their" : "those"} stats are not on this sheet.
+              </p>
+            )}
           </>
         )}
         {error && (

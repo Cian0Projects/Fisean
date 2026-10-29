@@ -47,8 +47,12 @@ export type StatRow = {
   clipId: string | null;
   videoId: string | null;
   atMs: number | null;
-  /** Real-world time it was seen, set by the logging form. See the schema. */
+  /** Real-world time it was seen, on entries logged against the old shared clock. See the schema. */
   seenAt: number | null;
+  /** How far into its half, by its logger's own clock. See the schema. */
+  halfMs: number | null;
+  /** Logged on the line and not yet submitted: only its logger sees it. */
+  draft: boolean;
   createdAt: number;
   /** Game clock, filled in by the report page from the markers or the whistles. */
   gameMs?: number | null;

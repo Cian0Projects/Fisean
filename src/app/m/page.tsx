@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { visibleStat } from "@/lib/queries/stats";
 import { db } from "@/lib/db/client";
 import {
   clipPlayers,
@@ -114,7 +115,7 @@ export default async function PhoneHome() {
               side: matchStats.side,
             })
             .from(matchStats)
-            .where(eq(matchStats.matchId, latest.id))) as StatEntry[],
+            .where(and(eq(matchStats.matchId, latest.id), visibleStat(user.id)))) as StatEntry[],
         )
       : null;
 

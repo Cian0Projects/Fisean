@@ -6,9 +6,9 @@
  * to the sheet has to reach all of them. One column list means it does.
  */
 import "server-only";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, or } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { matchLineups, matchStats, users, videoMarkers, videos } from "@/lib/db/schema";
+import { matchLineups, matchStats, statClocks, users, videoMarkers, videos } from "@/lib/db/schema";
 import { markersFromRows, type Markers } from "@/lib/hurling/notation";
 import type { SheetEntry, StatRow } from "@/components/stats/types";
 
@@ -40,16 +40,61 @@ export const statColumns = {
   videoId: matchStats.videoId,
   atMs: matchStats.atMs,
   seenAt: matchStats.seenAt,
+  halfMs: matchStats.halfMs,
+  draft: matchStats.draft,
   createdAt: matchStats.createdAt,
 };
 
+/**
+ * The entries one person may see: everything submitted, and their own drafts.
+ * Every query of the sheet carries this, so an entry logged on the line stays
+ * with whoever logged it until they submit, on every screen that counts it.
+ */
+export function visibleStat(viewerId: string) {
+  return or(eq(matchStats.draft, false), eq(matchStats.createdBy, viewerId))!;
+}
+
 /** Scoped by team as well as match: a match id is a URL, and a URL travels. */
-export async function loadStatRows(matchId: string, teamId: string): Promise<StatRow[]> {
+export async function loadStatRows(matchId: string, teamId: string, viewerId: string): Promise<StatRow[]> {
   return db
     .select(statColumns)
     .from(matchStats)
-    .where(and(eq(matchStats.matchId, matchId), eq(matchStats.teamId, teamId)))
+    .where(and(eq(matchStats.matchId, matchId), eq(matchStats.teamId, teamId), visibleStat(viewerId)))
     .orderBy(asc(matchStats.createdAt));
+}
+
+/** Only this logger's own entries, for the logging screen on the line. */
+export async function loadOwnStatRows(matchId: string, teamId: string, userId: string): Promise<StatRow[]> {
+  return db
+    .select(statColumns)
+    .from(matchStats)
+    .where(and(eq(matchStats.matchId, matchId), eq(matchStats.teamId, teamId), eq(matchStats.createdBy, userId)))
+    .orderBy(asc(matchStats.createdAt));
+}
+
+/** This logger's own clock for the match, or an unstarted one. */
+export async function loadStatClock(
+  matchId: string,
+  userId: string,
+): Promise<{ whistles: Markers; submittedAt: number | null }> {
+  const [row] = await db
+    .select()
+    .from(statClocks)
+    .where(and(eq(statClocks.matchId, matchId), eq(statClocks.userId, userId)))
+    .limit(1);
+  return row ? clockOf(row) : { whistles: {}, submittedAt: null };
+}
+
+export function clockOf(row: typeof statClocks.$inferSelect): { whistles: Markers; submittedAt: number | null } {
+  return {
+    whistles: {
+      throwIn: row.throwInAt,
+      halfTime: row.halfTimeAt,
+      secondHalf: row.secondHalfAt,
+      fullTime: row.fullTimeAt,
+    },
+    submittedAt: row.submittedAt,
+  };
 }
 
 /**

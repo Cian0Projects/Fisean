@@ -228,11 +228,10 @@ export const matches = sqliteTable(
     halfLengthMin: integer("half_length_min").notNull().default(30),
     notes: text("notes"),
     /**
-     * The match's own whistles, as real-world times (ms since the epoch, by
-     * the server's clock). Tapped by whoever keeps time on the line, so stats
-     * logged on several phones with no footage can all be put on one game
-     * clock. Footage keeps its own markers in `video_markers`, because a file
-     * position and a time of day are different clocks.
+     * The match's shared whistles, as real-world times (ms since the epoch, by
+     * the server's clock), from when every logger shared one clock. No longer
+     * set: each logger now keeps their own (`stat_clocks`). Kept because
+     * entries logged on the line back then are still read against them.
      */
     throwInAt: integer("throw_in_at"),
     halfTimeAt: integer("half_time_at"),
@@ -779,6 +778,23 @@ export const matchStats = sqliteTable(
      */
     seenAt: integer("seen_at"),
     /**
+     * How far into its half it happened, by the clock of whoever logged it on
+     * the line (`stat_clocks`). Read with `half` it is the game clock: 14:20
+     * in the 1st, or the half length plus this in the 2nd. Stored rather than
+     * worked out, because each logger keeps their own clock and nobody else's
+     * whistles should move their entries. Null for anything logged off
+     * footage, or on the line before each logger kept their own clock (those
+     * are read from `seenAt` and the match's whistles).
+     */
+    halfMs: integer("half_ms"),
+    /**
+     * Logged on the line and not yet submitted by whoever logged it. Only they
+     * see it until they do: several coaches log one game, and nobody's half
+     * finished entries should land on anyone else's sheet. Submitting clears
+     * it on every one of theirs (see `stat_clocks.submitted_at`).
+     */
+    draft: integer("draft", { mode: "boolean" }).notNull().default(false),
+    /**
      * The words the speech engine wrote, when the entry was said rather than
      * tapped. Text only, never audio. Kept beside what was finally logged so
      * the engine's mishearings ("bookhouse" for puck out) can be read off
@@ -793,6 +809,43 @@ export const matchStats = sqliteTable(
     index("match_stats_team").on(t.teamId),
     index("match_stats_video").on(t.videoId, t.atMs),
   ],
+);
+
+/**
+ * One logger's own match clock, for logging on the line or off a stream.
+ *
+ * Each coach logging a game keeps their own: tapping throw-in starts their
+ * clock and nobody else's. Two phones a few seconds apart give a few seconds'
+ * difference, which a stat sheet never notices, and in return nothing is
+ * shared that one person could get wrong for everyone. A logger watching a
+ * stream taps the whistles as the stream shows them, so its delay needs no
+ * setting. Times are the logger's own device clock, ms since the epoch; only
+ * the gaps between them and the moment an entry was seen matter.
+ *
+ * `submittedAt` is when they put their entries on the match's sheet. Until
+ * then those entries are drafts (`match_stats.draft`), seen by them alone.
+ */
+export const statClocks = sqliteTable(
+  "stat_clocks",
+  {
+    matchId: text("match_id")
+      .notNull()
+      .references(() => matches.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    throwInAt: integer("throw_in_at"),
+    halfTimeAt: integer("half_time_at"),
+    secondHalfAt: integer("second_half_at"),
+    fullTimeAt: integer("full_time_at"),
+    submittedAt: integer("submitted_at"),
+    createdAt: integer("created_at").notNull().default(now),
+    updatedAt: integer("updated_at").notNull().default(now),
+  },
+  (t) => [primaryKey({ columns: [t.matchId, t.userId] })],
 );
 
 /**

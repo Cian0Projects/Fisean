@@ -8,14 +8,12 @@
  */
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { clips, matches } from "@/lib/db/schema";
+import { clips } from "@/lib/db/schema";
 import { assertSameTeam, requireUserOrThrow } from "@/lib/auth/guard";
 import { canSeeClipRow } from "@/lib/queries/clips";
 import { loadComments } from "@/lib/queries/comments";
 import { visiblePlaylists } from "@/lib/queries/playlists";
 import type { CommentRow } from "@/components/review/types";
-import { whistlesOf } from "@/lib/hurling/stats";
-import type { Markers } from "@/lib/hurling/notation";
 
 export async function listComments(clipId: string): Promise<CommentRow[]> {
   const user = await requireUserOrThrow();
@@ -49,17 +47,3 @@ export async function listEditablePlaylists(): Promise<
     .map(({ id, title, isOfficial }) => ({ id, title, isOfficial }));
 }
 
-/**
- * The match's whistles and the server's clock, for the running game clock on
- * every logging phone. Asked for every few seconds, so it is one row and two
- * numbers; `serverNow` lets each phone correct for its own clock being off.
- */
-export async function readMatchClock(
-  matchId: string,
-): Promise<{ whistles: Markers; serverNow: number } | null> {
-  const user = await requireUserOrThrow();
-  const [match] = await db.select().from(matches).where(eq(matches.id, matchId)).limit(1);
-  if (!match) return null;
-  assertSameTeam(user, match);
-  return { whistles: whistlesOf(match), serverNow: Date.now() };
-}
