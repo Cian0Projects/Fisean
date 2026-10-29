@@ -315,6 +315,15 @@ export const videos = sqliteTable(
     /** Geometry of the timeline filmstrip sprite sheet. */
     spriteMeta: text("sprite_meta", { mode: "json" }).$type<SpriteMeta | null>(),
     sizeBytes: integer("size_bytes").notNull().default(0),
+    /**
+     * Which side of the picture our end was on in the first half, so the stat
+     * pad's map can be drawn the way the camera sees the game and turned
+     * round for the second (src/lib/hurling/pitch.ts, `ourEndIn`). Kept on the
+     * video rather than the logger's browser, unlike the line logger's "Swap
+     * ends": a camera has one point of view, and every coach logging off it
+     * shares it. Null is unset, drawn as the left.
+     */
+    ourEndFirstHalf: text("our_end_first_half", { enum: ["left", "right"] }),
     uploadedBy: text("uploaded_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: integer("created_at").notNull().default(now),
   },

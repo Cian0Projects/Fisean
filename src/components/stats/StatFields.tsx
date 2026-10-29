@@ -209,6 +209,7 @@ export function StatFields({
   sheet,
   idPrefix,
   halfNote,
+  halfFixed = false,
   resultNote,
 }: {
   /** The club's words for this sheet. */
@@ -222,6 +223,11 @@ export function StatFields({
   idPrefix: string;
   /** Said under the half picker, e.g. that the video's markers set it. */
   halfNote?: string;
+  /**
+   * The half is settled elsewhere, so there is nothing to pick: the stat
+   * pad reads it off the video once its halves are marked.
+   */
+  halfFixed?: boolean;
   /** Said under a shot's result, e.g. that the mark made a point worth two. */
   resultNote?: string;
 }) {
@@ -233,16 +239,18 @@ export function StatFields({
 
   return (
     <>
-      <Choice
-        label="Half"
-        options={[
-          { value: "1", label: "1st half" },
-          { value: "2", label: "2nd half" },
-        ]}
-        value={d.half ? String(d.half) : null}
-        onChange={(v) => onChange({ half: Number(v) as Half })}
-        note={halfNote}
-      />
+      {!halfFixed && (
+        <Choice
+          label="Half"
+          options={[
+            { value: "1", label: "1st half" },
+            { value: "2", label: "2nd half" },
+          ]}
+          value={d.half ? String(d.half) : null}
+          onChange={(v) => onChange({ half: Number(v) as Half })}
+          note={halfNote}
+        />
+      )}
 
       {statType === "shot" && (
         <>

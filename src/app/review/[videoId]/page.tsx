@@ -97,6 +97,7 @@ export default async function ReviewPage({
         height: video.height,
         originalFilename: video.originalFilename,
         codecWarning: codecWarning(video.codec),
+        ourEndFirstHalf: video.ourEndFirstHalf,
       }}
       match={{
         id: match?.id ?? null,

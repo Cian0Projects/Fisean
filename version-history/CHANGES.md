@@ -6,6 +6,11 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## Halves set once when logging off footage, and a map that follows them
+*2026-10-29*
+
+Logging stats against a match video used to mean picking the half on every entry, with nowhere in the workspace to mark the halves themselves. The stat pad now opens with a halves strip: play to the throw-in and press "Set here", do the same at the restart, and say which end of the picture is ours in the first half. These are the video's own markers, so every coach logging off the footage shares them and the whole workspace runs on the game clock. Every entry then takes its half from where it sits in the file, and the per-entry half picker disappears. The pitch map follows the playhead: it shows one half at a time with every kind of stat on it (entries logged live on the line included, once found on the footage), drawn the way round the camera sees it, and turns round by itself for the second half. Stored positions never depend on the drawing, so first-half entries stay exactly as they were. Clicking a mark opens it to watch, edit or delete, and a delete asks first. Schema: `videos.our_end_first_half`.
+
 ## Stat sheets are submitted to the panel, and watched back moment by moment
 *2026-10-29*
 

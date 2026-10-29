@@ -51,6 +51,11 @@ export type PitchMark = {
   selected?: boolean;
   /** Already-logged marks, shown faintly for context while logging. */
   muted?: boolean;
+  /**
+   * Taps go through it to the pitch beneath instead of selecting it: the
+   * entry being placed, which a tap should move rather than open.
+   */
+  passive?: boolean;
 };
 
 const DOT_R = 14;
@@ -165,7 +170,19 @@ export function PitchMap({
       {/* Deliveries: struck from, landed. A lost one is dashed, so the map
           reads the same in black and white. */}
       {arrows.map((m) => (
-        <g key={m.id} opacity={m.muted ? 0.35 : 1}>
+        <g
+          key={m.id}
+          opacity={m.muted ? 0.35 : 1}
+          onPointerDown={
+            onSelect && !m.passive
+              ? (e) => {
+                  e.stopPropagation();
+                  onSelect(m.id);
+                }
+              : undefined
+          }
+          style={{ cursor: onSelect && !m.passive ? "pointer" : undefined }}
+        >
           {m.title && <title>{m.title}</title>}
           <line
             x1={m.x * VIEW_W}
@@ -187,14 +204,14 @@ export function PitchMap({
           key={m.id}
           opacity={m.muted ? 0.35 : 1}
           onPointerDown={
-            onSelect
+            onSelect && !m.passive
               ? (e) => {
                   e.stopPropagation();
                   onSelect(m.id);
                 }
               : undefined
           }
-          style={{ cursor: onSelect ? "pointer" : undefined }}
+          style={{ cursor: onSelect && !m.passive ? "pointer" : undefined }}
         >
           {m.title && <title>{m.title}</title>}
           <Dot mark={m} r={DOT_R} h={H} />

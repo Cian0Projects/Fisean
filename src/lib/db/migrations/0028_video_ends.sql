@@ -1,0 +1,1 @@
+ALTER TABLE `videos` ADD `our_end_first_half` text;

@@ -15,6 +15,12 @@
  * Deliberately narrower than StatLogger: no clip picker (the video itself is
  * the record now), no page chrome, one column instead of two. The pitch map
  * still needs both hands' width, so it comes first and the log stacks below.
+ *
+ * The halves are set once, at the top (HalvesBar), rather than picked per
+ * entry. The map then follows the playhead: it shows one half at a time,
+ * every kind of stat at once, the way round the camera sees that half, and
+ * entries logged live on the line appear on it beside the ones logged here.
+ * A mark on it opens to be watched, edited or deleted.
  */
 import {
   useEffect,
@@ -28,7 +34,8 @@ import type { PlayerEngine } from "@/components/player/engine";
 import { PitchMap, type PitchMark } from "@/components/pitch/PitchMap";
 import { ChevronIcon } from "@/components/ui/Icon";
 import { deleteMatchStat, logMatchStat, updateMatchStat } from "@/lib/actions/stats";
-import { formatClock, toGameTime, type Markers } from "@/lib/hurling/notation";
+import { formatClock, toGameTime, type GamePhase, type Markers } from "@/lib/hurling/notation";
+import { ourEndIn, type End } from "@/lib/hurling/pitch";
 import type { GameCode } from "@/lib/hurling/codes";
 import {
   STAT_TYPE_SHAPE,
@@ -56,6 +63,7 @@ import {
 } from "./StatFields";
 import { playerLabel, statMarks, type NumberSheet, type StatRow } from "./types";
 import { VoiceBar, useVoiceEntry } from "./VoiceEntry";
+import { HalvesBar, type HalfKind } from "./HalvesBar";
 
 export function StatPad({
   engine,
@@ -70,6 +78,9 @@ export function StatPad({
   onJump,
   markers,
   halfLengthMin,
+  onSetHalf,
+  firstHalfEnd,
+  onFirstHalfEnd,
 }: {
   engine: PlayerEngine;
   matchId: string;
@@ -88,6 +99,11 @@ export function StatPad({
   /** The video's throw-in and half-time, when marked: they settle the half. */
   markers: Markers;
   halfLengthMin: number;
+  /** Mark where a half starts in the file, or clear it. */
+  onSetHalf: (kind: HalfKind, atMs: number | null) => void;
+  /** Our end in the first half, as the camera sees it. */
+  firstHalfEnd: End;
+  onFirstHalfEnd: (end: End) => void;
 }) {
   const [detail, setDetail] = useState<StatDetail>(EMPTY_DETAIL);
   const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
@@ -102,6 +118,18 @@ export function StatPad({
   const [stampMs, setStampMs] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // A mark clicked on the map, and whether its delete is waiting on a yes.
+  const [pickedId, setPickedId] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  // Where the playhead is on the game clock. Only the phase is kept, so the
+  // pad re-renders when the half changes, not on every frame.
+  const [phase, setPhase] = useState<GamePhase>(
+    () => toGameTime(engine.snapshot.positionMs, markers, halfLengthMin).phase,
+  );
+  useEffect(
+    () => engine.subscribe((t) => setPhase(toGameTime(t.positionMs, markers, halfLengthMin).phase)),
+    [engine, markers, halfLengthMin],
+  );
 
   const vocabulary = statVocabulary(code);
   const meta = vocabulary.meta[statType];
@@ -127,6 +155,23 @@ export function StatPad({
    * from the markers anyway — so marking them later still sorts every entry.
    */
   const halfAt = (ms: number) => toGameTime(ms, markers, halfLengthMin).half;
+
+  /**
+   * The half an entry belongs to: from the markers where it has a place in
+   * this file (logged here, or logged live and found on the footage), else
+   * the half it was saved with.
+   */
+  const rowHalf = (r: StatRow) => (r.atMs != null ? halfAt(r.atMs) : null) ?? r.half;
+
+  const playHalf = phase === "first_half" && halvesMarked ? 1 : phase === "second_half" ? 2 : null;
+  // The entry in hand decides the half while there is one: an entry started
+  // just before the restart stays a first-half entry while it is finished.
+  const entryHalf = stampMs != null ? halfAt(stampMs) : null;
+  const mapHalf: 1 | 2 | null =
+    entryHalf ?? (stampMs == null && !editingId ? playHalf : null) ?? detail.half ?? null;
+  const ourEnd = ourEndIn(mapHalf, firstHalfEnd);
+  // With halves marked and the entry inside one, its half is not a question.
+  const halfFixed = halvesMarked && (stampMs != null ? entryHalf : playHalf) != null;
 
   /** The instant an entry starts, captured once and then left alone. */
   const stamp = (ms: number) => {
@@ -223,12 +268,21 @@ export function StatPad({
     }
   };
 
-  const marks: PitchMark[] = useMemo(() => {
-    const existing = statMarks(
-      rows.filter((r) => r.statType === statType && r.id !== editingId),
-      sheet,
-      code,
-      { muted: true },
+  // This half's entries, every kind: the second half starts on a clear map.
+  // One with no half to go on is shown on both, faintly, rather than lost.
+  const onMap = rows.filter((r) => {
+    if (r.id === editingId) return false;
+    const h = rowHalf(r);
+    return mapHalf == null || h == null || h === mapHalf;
+  });
+  const picked = onMap.find((r) => r.id === pickedId) ?? null;
+
+  const marks: PitchMark[] = (() => {
+    const existing = onMap.flatMap((r) =>
+      statMarks([r], sheet, code, {
+        muted: mapHalf != null && rowHalf(r) == null,
+        selectedId: pickedId,
+      }),
     );
     if (!origin) return existing;
 
@@ -247,9 +301,10 @@ export function StatPad({
         label: named ? (typedNumber(detail.playerNumber)?.toString() ?? null) : null,
         title: "This entry",
         selected: true,
+        passive: true,
       },
     ];
-  }, [rows, statType, editingId, sheet, code, origin, dest, detail, shown, named]);
+  })();
 
   const submit = () => {
     if (!ready || pending) return;
@@ -289,6 +344,7 @@ export function StatPad({
   };
 
   const edit = (row: StatRow) => {
+    setPickedId(null);
     setEditingId(row.id);
     setStatType(row.statType);
     setDetail(detailFromRow(row));
@@ -301,6 +357,8 @@ export function StatPad({
   };
 
   const remove = (id: string) => {
+    if (pickedId === id) setPickedId(null);
+    setConfirming(false);
     setRows((prev) => prev.filter((r) => r.id !== id));
     if (editingId === id) resetEntry();
     startTransition(async () => {
@@ -370,6 +428,15 @@ export function StatPad({
       </div>
 
       <div className="mt-4 space-y-4">
+        <HalvesBar
+          engine={engine}
+          markers={markers}
+          phase={phase}
+          onSetHalf={onSetHalf}
+          firstHalfEnd={firstHalfEnd}
+          onFirstHalfEnd={onFirstHalfEnd}
+        />
+
         <VoiceBar voice={voice} onDiscard={resetEntry} />
 
         <StatFields
@@ -379,16 +446,20 @@ export function StatPad({
           onChange={patch}
           sheet={sheet}
           idPrefix="pad"
-          halfNote={halvesMarked ? "Set from the video's half-time markers." : undefined}
+          halfNote={halvesMarked ? "Set from the halves above, once the playhead is in one." : undefined}
+          halfFixed={halfFixed}
           resultNote={shown !== detail ? ARC_NOTE : undefined}
         />
 
-        {meta.points > 0 && (
-          <div>
-            <div className="mb-1.5 flex items-baseline justify-between gap-2">
-              <span className="label">Where on the pitch</span>
-              <span className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
-                {meta.points === 2
+        <div>
+          <div className="mb-1.5 flex items-baseline justify-between gap-2">
+            <span className="label">
+              {mapHalf ? `${mapHalf === 1 ? "1st" : "2nd"} half, our end on the ${ourEnd}` : "Where on the pitch"}
+            </span>
+            <span className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
+              {meta.points === 0
+                ? "Click a mark to open it"
+                : meta.points === 2
                   ? !origin
                     ? "Struck from…"
                     : !dest
@@ -397,11 +468,77 @@ export function StatPad({
                   : origin
                     ? "Click to move it"
                     : "Click to place"}
-              </span>
-            </div>
-            <PitchMap marks={marks} onPlace={placePoint} code={code} />
+            </span>
           </div>
-        )}
+          <PitchMap
+            marks={marks}
+            onPlace={meta.points > 0 ? placePoint : undefined}
+            onSelect={(id) => {
+              setPickedId(id === pickedId ? null : id);
+              setConfirming(false);
+            }}
+            turned={ourEnd === "right"}
+            code={code}
+          />
+
+          {picked && (
+            <div
+              className="mt-2 rounded border px-3 py-2"
+              style={{ borderColor: "var(--color-line-strong)", background: "var(--color-surface-2)" }}
+            >
+              <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px]">{describeStat(picked, code)}</div>
+                  <div className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
+                    {playerLabel(picked.playerNumber, sheet)}
+                    {picked.atMs != null && `, ${toGameTime(picked.atMs, markers, halfLengthMin).label}`}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setPickedId(null)}
+                  aria-label="Close"
+                  className="px-1 text-[13px]"
+                  style={{ color: "var(--color-ink-faint)" }}
+                >
+                  ×
+                </button>
+              </div>
+              {confirming ? (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="text-[12px]">Delete this entry?</span>
+                  <button
+                    onClick={() => remove(picked.id)}
+                    className="rounded px-2 py-1 text-[12px] font-semibold"
+                    style={{ background: "var(--color-danger)", color: "#fff" }}
+                  >
+                    Yes, delete it
+                  </button>
+                  <button onClick={() => setConfirming(false)} className="btn-ghost px-2 py-1 text-[12px]">
+                    Keep it
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {picked.atMs != null && (
+                    <button onClick={() => onJump(picked)} className="btn-outline px-2 py-1 text-[12px]">
+                      Watch
+                    </button>
+                  )}
+                  <button onClick={() => edit(picked)} className="btn-outline px-2 py-1 text-[12px]">
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => setConfirming(true)}
+                    className="btn-ghost px-2 py-1 text-[12px]"
+                    style={{ color: "var(--color-danger-ink)" }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="flex items-center justify-between gap-2 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
           <span>{stampMs != null ? `Timed at ${formatClock(stampMs)}` : "Timed when you start"}</span>
@@ -482,7 +619,7 @@ export function StatPad({
                     <div className="text-[13px]">{describeStat(r, code)}</div>
                     <div className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
                       {playerLabel(r.playerNumber, sheet)}
-                      {r.atMs != null && `, ${formatClock(r.atMs)}`}
+                      {r.atMs != null && `, ${toGameTime(r.atMs, markers, halfLengthMin).label}`}
                     </div>
                   </button>
                   <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">

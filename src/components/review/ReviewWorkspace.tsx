@@ -44,6 +44,8 @@ import { useHotkeys } from "@/lib/keyboard/useHotkeys";
 import type { Command, Mode } from "@/lib/keyboard/keymap";
 import { formatClock, markersFromRows } from "@/lib/hurling/notation";
 import { createClip, deleteClip, updateClip } from "@/lib/actions/clips";
+import { setFirstHalfEnd, setVideoMarker } from "@/lib/actions/admin";
+import type { End } from "@/lib/hurling/pitch";
 import { listComments } from "@/lib/actions/reads";
 import { StopCard } from "@/components/player/StopCard";
 import { shapesOf, useCommentStops } from "@/components/player/useCommentStops";
@@ -116,7 +118,12 @@ export function ReviewWorkspace({
   initialStatRows,
 }: Props) {
   const engine = useMemo(() => new PlayerEngine(), []);
-  const markers = useMemo(() => markersFromRows(markerRows), [markerRows]);
+  // Held here rather than read once from the page: the stat pad sets the
+  // halves while the footage plays, and the timecode, the lanes and every
+  // entry's half follow at once.
+  const [markerList, setMarkerList] = useState(markerRows);
+  const markers = useMemo(() => markersFromRows(markerList), [markerList]);
+  const [firstHalfEnd, setFirstHalfEndState] = useState<End>(video.ourEndFirstHalf ?? "left");
 
   const [clips, setClips] = useState<ClipRow[]>(initialClips);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -838,6 +845,18 @@ export function ReviewWorkspace({
               onJump={jumpToStat}
               markers={markers}
               halfLengthMin={match.halfLengthMin}
+              onSetHalf={(kind, atMs) => {
+                setMarkerList((prev) => [
+                  ...prev.filter((m) => m.kind !== kind),
+                  ...(atMs == null ? [] : [{ kind, atMs: Math.round(atMs) }]),
+                ]);
+                setVideoMarker(video.id, kind, atMs).catch((err) => flash((err as Error).message));
+              }}
+              firstHalfEnd={firstHalfEnd}
+              onFirstHalfEnd={(end) => {
+                setFirstHalfEndState(end);
+                setFirstHalfEnd(video.id, end).catch((err) => flash((err as Error).message));
+              }}
             />
           ) : (
             <>

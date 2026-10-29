@@ -17,6 +17,7 @@ import {
 import { ClubSetupError, createTeam, freshJoinCode } from "@/lib/db/clubs";
 import { badgeProblem } from "@/lib/media/badge";
 import { isGameCode, type GameCode } from "@/lib/hurling/codes";
+import type { End } from "@/lib/hurling/pitch";
 import { looksLikeEmail, normaliseEmail } from "@/lib/auth/email-code";
 import {
   assertSameTeam,
@@ -107,6 +108,21 @@ export async function setVideoMarker(
   if (atMs !== null) {
     await db.insert(videoMarkers).values({ videoId, kind, atMs: Math.max(0, Math.round(atMs)) });
   }
+  revalidatePath(`/review/${videoId}`);
+}
+
+/**
+ * Which side of the picture our end is on in the first half. The stat pad's
+ * map turns itself round for the second; see `ourEndIn` in pitch.ts.
+ */
+export async function setFirstHalfEnd(videoId: string, end: End): Promise<void> {
+  const user = await requireCoach();
+  if (end !== "left" && end !== "right") throw new Error("That is not an end of the pitch.");
+  const [video] = await db.select().from(videos).where(eq(videos.id, videoId)).limit(1);
+  if (!video) throw new Error("That video no longer exists.");
+  assertSameTeam(user, video);
+
+  await db.update(videos).set({ ourEndFirstHalf: end }).where(eq(videos.id, videoId));
   revalidatePath(`/review/${videoId}`);
 }
 

@@ -153,6 +153,20 @@ export function normaliseDirection(
   return attacking === "lr" ? { x, y } : { x: 1 - x, y: 1 - y };
 }
 
+/** Which side of a drawn pitch, as the camera or the logger sees it. */
+export type End = "left" | "right";
+
+/**
+ * Our end in a half, from where it was in the first: teams change ends at
+ * half time, so the second half is always the other side. Before throw-in,
+ * at the interval or with no halves marked, a map shows the first half's way
+ * round. Only the drawing depends on this; stored positions never do.
+ */
+export function ourEndIn(half: 1 | 2 | null, firstHalf: End): End {
+  if (half !== 2) return firstHalf;
+  return firstHalf === "left" ? "right" : "left";
+}
+
 export function toMetres(x: number, y: number, size: PitchSize = DEFAULT_PITCH) {
   return { xM: x * size.lengthM, yM: y * size.widthM };
 }

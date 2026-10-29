@@ -63,6 +63,8 @@ export type VideoInfo = {
   height: number | null;
   codecWarning: string | null;
   originalFilename: string;
+  /** Our end in the first half, as the camera sees it. See the videos schema. */
+  ourEndFirstHalf: "left" | "right" | null;
 };
 
 export type MatchInfo = {

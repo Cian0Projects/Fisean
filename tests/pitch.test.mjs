@@ -6,6 +6,7 @@ import {
   distanceToGoalM,
   lineFractions,
   normaliseDirection,
+  ourEndIn,
   outsideTwoPointArc,
   shotAngleDeg,
   zoneForX,
@@ -79,4 +80,12 @@ test("the two-point arc is 40 m from the centre of the nearer goal", () => {
 test("clicks outside the pitch are pulled back onto it", () => {
   assert.deepEqual(clampToPitch(1.4, -0.2), { x: 1, y: 0 });
   assert.deepEqual(clampToPitch(0.5, 0.5), { x: 0.5, y: 0.5 });
+});
+
+test("our end swaps sides for the second half", () => {
+  assert.equal(ourEndIn(1, "left"), "left");
+  assert.equal(ourEndIn(2, "left"), "right");
+  assert.equal(ourEndIn(2, "right"), "left");
+  // Before throw-in or at the interval, the first half's way round.
+  assert.equal(ourEndIn(null, "right"), "right");
 });

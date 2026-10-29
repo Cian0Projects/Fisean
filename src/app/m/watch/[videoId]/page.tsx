@@ -69,6 +69,7 @@ export default async function PhoneWatchPage({
         height: video.height,
         originalFilename: video.originalFilename,
         codecWarning: codecWarning(video.codec),
+        ourEndFirstHalf: video.ourEndFirstHalf,
       }}
       match={{
         id: match?.id ?? null,
