@@ -44,7 +44,7 @@ import { useHotkeys } from "@/lib/keyboard/useHotkeys";
 import type { Command, Mode } from "@/lib/keyboard/keymap";
 import { formatClock, markersFromRows } from "@/lib/hurling/notation";
 import { createClip, deleteClip, updateClip } from "@/lib/actions/clips";
-import { setFirstHalfEnd, setVideoMarker } from "@/lib/actions/admin";
+import { setFirstHalfEnd, setHalfLength, setVideoMarker } from "@/lib/actions/admin";
 import type { End } from "@/lib/hurling/pitch";
 import { listComments } from "@/lib/actions/reads";
 import { StopCard } from "@/components/player/StopCard";
@@ -124,6 +124,9 @@ export function ReviewWorkspace({
   const [markerList, setMarkerList] = useState(markerRows);
   const markers = useMemo(() => markersFromRows(markerList), [markerList]);
   const [firstHalfEnd, setFirstHalfEndState] = useState<End>(video.ourEndFirstHalf ?? "left");
+  // The match's, but changeable from the halves box: everything on the game
+  // clock reads it, so it is held here rather than read off the match.
+  const [halfLengthMin, setHalfLengthMinState] = useState(match.halfLengthMin);
 
   const [clips, setClips] = useState<ClipRow[]>(initialClips);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -149,10 +152,10 @@ export function ReviewWorkspace({
     () =>
       statRows.map((r) => {
         if (r.atMs != null || r.seenAt == null) return r;
-        const atMs = footageMomentOf(r.seenAt, match.whistles ?? {}, markers, match.halfLengthMin, video.durationMs);
+        const atMs = footageMomentOf(r.seenAt, match.whistles ?? {}, markers, halfLengthMin, video.durationMs);
         return atMs == null ? r : { ...r, atMs };
       }),
-    [statRows, match.whistles, markers, match.halfLengthMin, video.durationMs],
+    [statRows, match.whistles, markers, halfLengthMin, video.durationMs],
   );
   const statsOpen = viewMode === "stats" && canLogStats;
   const [helpOpen, setHelpOpen] = useState(false);
@@ -734,7 +737,7 @@ export function ReviewWorkspace({
             style={{ borderColor: "var(--color-line)", background: "var(--color-surface)" }}
           >
             <PlayToggle engine={engine} />
-            <Timecode engine={engine} markers={markers} halfLengthMin={match.halfLengthMin} precise />
+            <Timecode engine={engine} markers={markers} halfLengthMin={halfLengthMin} precise />
             <RateBadge engine={engine} />
           </div>
 
@@ -745,7 +748,7 @@ export function ReviewWorkspace({
             // below carry the marks and the bar stays a plain scrubber.
             clips={statsOpen ? [] : timelineClips}
             markers={markers}
-            halfLengthMin={match.halfLengthMin}
+            halfLengthMin={halfLengthMin}
             selectedClipId={selectedId}
             inMs={inMs}
             outMs={outMs}
@@ -844,7 +847,7 @@ export function ReviewWorkspace({
               setStatType={setStatType}
               onJump={jumpToStat}
               markers={markers}
-              halfLengthMin={match.halfLengthMin}
+              halfLengthMin={halfLengthMin}
               onSetHalf={(kind, atMs) => {
                 setMarkerList((prev) => [
                   ...prev.filter((m) => m.kind !== kind),
@@ -857,6 +860,15 @@ export function ReviewWorkspace({
                 setFirstHalfEndState(end);
                 setFirstHalfEnd(video.id, end).catch((err) => flash((err as Error).message));
               }}
+              onHalfLength={(minutes) => {
+                if (!match.id) return;
+                const before = halfLengthMin;
+                setHalfLengthMinState(minutes);
+                setHalfLength(match.id, minutes).catch((err) => {
+                  setHalfLengthMinState(before);
+                  flash((err as Error).message);
+                });
+              }}
             />
           ) : (
             <>
@@ -864,7 +876,7 @@ export function ReviewWorkspace({
                 clips={clips}
                 selectedId={selectedId}
                 markers={markers}
-                halfLengthMin={match.halfLengthMin}
+                halfLengthMin={halfLengthMin}
                 onSelect={focusClip}
                 onDelete={async (id) => {
                   setClips((prev) => prev.filter((c) => c.id !== id));

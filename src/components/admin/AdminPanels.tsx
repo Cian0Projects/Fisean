@@ -19,6 +19,7 @@ import { codecWarning } from "@/lib/media/probe";
 import { matchDate, fileSize } from "@/lib/format";
 import { ClubBadge } from "@/components/ui/ClubBadge";
 import { BadgeEditor } from "./BadgeEditor";
+import { AddPlayer } from "./AddPlayer";
 import { UploadArea, UploadProvider, useUploads } from "./FootageUpload";
 import { FootageImport } from "./FootageImport";
 import type { Role } from "@/lib/db/schema";
@@ -486,12 +487,17 @@ function Panel({
     <section>
       <SectionHead
         title="The panel"
-        note={`Everyone who has joined with the team code. You decide who is a player and who is a coach. ${
+        note={`Everyone who has joined with the team code, and players you have added by name. You decide who is a player and who is a coach. ${
           otherTeams.length > 0
             ? "Use Move to team beside a name to put them on another of the club's teams."
             : "To move someone to another of the club's teams, add that team under Teams in the club first."
         } Removing someone signs them out straight away.`}
       />
+      {/* A player with no email is a name only: stats can be logged against
+          them now, and adding their email later hands them the lot. */}
+      <div className="mb-6">
+        <AddPlayer />
+      </div>
       {sorted.length === 0 ? (
         <Empty>Nobody yet. Send the panel the team code; they sign up at /join.</Empty>
       ) : (
@@ -653,7 +659,8 @@ function AddEmail({ member }: { member: Member }) {
         No email yet, so they cannot sign in.{" "}
         <button onClick={() => setOpen(true)} className="underline underline-offset-2">
           Add one
-        </button>
+        </button>{" "}
+        when they join and their stats are theirs.
       </div>
     );
   }

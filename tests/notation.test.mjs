@@ -5,6 +5,7 @@ import {
   parseClock,
   formatScore,
   formatScoreWithTotal,
+  halfLengthProblem,
   markersFromRows,
   parseScore,
   scoreMargin,
@@ -96,6 +97,24 @@ test("markers convert file position to game clock", () => {
   assert.equal(secondHalf.half, 2);
   assert.equal(secondHalf.label, "2nd 35:00");
   assert.equal(secondHalf.gameMs, 35 * 60_000);
+});
+
+test("a short challenge game's second half runs on from its own half length", () => {
+  const markers = { throwIn: 0, secondHalf: 20 * 60_000 };
+  // Three minutes into the second half of a game of twelve-minute halves.
+  const t = toGameTime(23 * 60_000, markers, 12);
+  assert.equal(t.half, 2);
+  assert.equal(t.label, "2nd 15:00");
+});
+
+test("a half is a whole number of minutes, five to forty-five", () => {
+  assert.equal(halfLengthProblem(12), null);
+  assert.equal(halfLengthProblem(35), null);
+  assert.ok(halfLengthProblem(0));
+  assert.ok(halfLengthProblem(4));
+  assert.ok(halfLengthProblem(46));
+  assert.ok(halfLengthProblem(12.5));
+  assert.ok(halfLengthProblem(Number.NaN));
 });
 
 test("without a throw-in marker the clock falls back to file position", () => {

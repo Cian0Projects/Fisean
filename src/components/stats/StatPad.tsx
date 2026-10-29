@@ -82,6 +82,7 @@ export function StatPad({
   onSetHalf,
   firstHalfEnd,
   onFirstHalfEnd,
+  onHalfLength,
 }: {
   engine: PlayerEngine;
   matchId: string;
@@ -105,6 +106,8 @@ export function StatPad({
   /** Our end in the first half, as the camera sees it. */
   firstHalfEnd: End;
   onFirstHalfEnd: (end: End) => void;
+  /** Change how long a half is, for the whole match. */
+  onHalfLength: (minutes: number) => void;
 }) {
   const [detail, setDetail] = useState<StatDetail>(EMPTY_DETAIL);
   const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
@@ -445,6 +448,8 @@ export function StatPad({
           onSetHalf={onSetHalf}
           firstHalfEnd={firstHalfEnd}
           onFirstHalfEnd={onFirstHalfEnd}
+          halfLengthMin={halfLengthMin}
+          onHalfLength={onHalfLength}
         />
 
         <VoiceBar voice={voice} onDiscard={resetEntry} />

@@ -6,6 +6,16 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## Players added by name, before they have an account
+*2026-10-29*
+
+A coach can now put a player on the panel with just a name, from the panel on the Squad page or from the number sheet while putting names to a match's jerseys, so stats can be logged against someone who has not signed up. There is no new table: the player is an ordinary member with no email (`users.email` was already nullable), so they can be given a number, appear in the report and have their line counted like anyone else. When they join Ardawn, an admin adds their email to the same row with the existing "Add one" link and they sign in to a record that already holds their stats, which is why this is not a separate kind of record that would need merging later. Joining with the team code still makes a fresh account, so a player who does that before the admin adds their email would end up twice; the admin should add the email instead. A second player with exactly the same name is refused (add an initial), since that is nearly always a double click.
+
+## Any length of half, changeable after the match is made
+*2026-10-29*
+
+A match's halves were 30 or 35 minutes, picked when it was made (or the club's default, for a match made by uploading footage), with no way to change it after. A challenge game of twelve-minute halves therefore read its second half from 30:00. Now any whole number of minutes from 5 to 45 can be typed beside 30 and 35, both when making a match and afterwards: in the halves box at the top of the review stat pad, and under the match clock in the line logger. No stat stores its minute (each one's game time is worked out from the whistles or markers as the sheet is read), so changing the length relabels everything already logged for that match.
+
 ## Opposition numbers on stats, one stat's map at a time, and room either side when watching back
 *2026-10-29*
 

@@ -9,7 +9,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createMatch } from "@/lib/actions/admin";
-import { Choice } from "./StatFields";
+import { HalfLength } from "./HalfLength";
 
 /** Today in the browser's own time zone, as the date input wants it. */
 function today(): string {
@@ -93,15 +93,10 @@ export function NewMatchForm() {
             className="field"
           />
         </div>
-        <Choice
-          label="Halves"
-          options={[
-            { value: "30", label: "30 min" },
-            { value: "35", label: "35 min" },
-          ]}
-          value={String(halfLengthMin)}
-          onChange={(v) => setHalfLengthMin(Number(v))}
-        />
+        <div>
+          <span className="label mb-1.5 block">Halves</span>
+          <HalfLength value={halfLengthMin} onChange={setHalfLengthMin} />
+        </div>
       </div>
 
       {error && (

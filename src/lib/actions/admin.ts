@@ -18,6 +18,8 @@ import { ClubSetupError, createTeam, freshJoinCode } from "@/lib/db/clubs";
 import { badgeProblem } from "@/lib/media/badge";
 import { isGameCode, type GameCode } from "@/lib/hurling/codes";
 import type { End } from "@/lib/hurling/pitch";
+import { halfLengthProblem } from "@/lib/hurling/notation";
+import { playerNameProblem, sameName, tidyName } from "@/lib/hurling/squad";
 import { looksLikeEmail, normaliseEmail } from "@/lib/auth/email-code";
 import {
   assertSameTeam,
@@ -39,6 +41,8 @@ export async function createMatch(input: {
   const user = await requireCoach();
   const opponent = input.opponent.trim();
   if (!opponent) throw new Error("Who were you playing?");
+  const halves = input.halfLengthMin != null ? halfLengthProblem(input.halfLengthMin) : null;
+  if (halves) throw new Error(halves);
 
   const [match] = await db
     .insert(matches)
@@ -49,7 +53,8 @@ export async function createMatch(input: {
       competition: input.competition?.trim() || null,
       venue: input.venue?.trim() || null,
       homeAway: input.homeAway ?? "home",
-      // 35-minute halves at senior inter-county, 30 at most club grades.
+      // 35-minute halves at senior inter-county, 30 at most club grades,
+      // anything from ten up for a challenge game.
       halfLengthMin: input.halfLengthMin ?? 30,
       createdBy: user.id,
     })
@@ -126,6 +131,27 @@ export async function setFirstHalfEnd(videoId: string, end: End): Promise<void> 
   revalidatePath(`/review/${videoId}`);
 }
 
+/**
+ * How long a half is, changed after the match was made: a challenge game of
+ * twelve-minute halves read its second half from 30:00 until this was right.
+ * Nothing stored depends on it (every minute on the sheet is worked out from
+ * the whistles or markers as it is read), so changing it relabels the lot.
+ */
+export async function setHalfLength(matchId: string, minutes: number): Promise<{ halfLengthMin: number }> {
+  const user = await requireCoach();
+  const problem = halfLengthProblem(minutes);
+  if (problem) throw new Error(problem);
+  const [match] = await db.select().from(matches).where(eq(matches.id, matchId)).limit(1);
+  if (!match) throw new Error("That match no longer exists.");
+  assertSameTeam(user, match);
+
+  await db.update(matches).set({ halfLengthMin: minutes }).where(eq(matches.id, matchId));
+  revalidatePath(`/matches/${matchId}/stats`, "layout");
+  revalidatePath("/review/[videoId]", "page");
+  revalidatePath("/m/watch/[videoId]", "page");
+  return { halfLengthMin: minutes };
+}
+
 /* ----------------------------------------------------------------- videos */
 
 export async function deleteVideo(videoId: string): Promise<void> {
@@ -188,6 +214,39 @@ export async function setMemberRole(
   await db.update(users).set({ role }).where(eq(users.id, userId));
   revalidatePath("/admin");
   return { role };
+}
+
+/**
+ * Put a player on the panel by name, with no account, so stats can be logged
+ * against them now. A coach can do this, not only an admin, because it is the
+ * coach logging the match who finds a name missing from the sheet. The row has
+ * no email, so it cannot sign in until an admin adds one (setMemberEmail), at
+ * which point everything logged against it is theirs.
+ */
+export async function addPlayer(
+  rawName: string,
+): Promise<{ player: { id: string; displayName: string } } | { error: string }> {
+  const user = await requireCoach();
+  const problem = playerNameProblem(rawName);
+  if (problem) return { error: problem };
+  const displayName = tidyName(rawName);
+
+  const panel = await db
+    .select({ displayName: users.displayName })
+    .from(users)
+    .where(eq(users.teamId, user.teamId));
+  if (panel.some((p) => sameName(p.displayName, displayName))) {
+    return { error: `${displayName} is already on the panel. If it is a different person, add an initial.` };
+  }
+
+  const [created] = await db
+    .insert(users)
+    .values({ teamId: user.teamId, displayName, role: "player" })
+    .returning({ id: users.id, displayName: users.displayName });
+
+  revalidatePath("/admin");
+  revalidatePath("/matches/[matchId]/numbers", "page");
+  return { player: created };
 }
 
 export async function updateMember(

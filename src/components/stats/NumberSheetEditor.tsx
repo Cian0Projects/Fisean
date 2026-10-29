@@ -17,6 +17,7 @@ import { setMatchNumber } from "@/lib/actions/numbers";
 import { positionByNumber } from "@/lib/hurling/positions";
 import { MAX_JERSEY } from "@/lib/hurling/stats";
 import { matchDateLong } from "@/lib/format";
+import { AddPlayer } from "@/components/admin/AddPlayer";
 import { typedNumber } from "./StatFields";
 import { numberSheet, type SheetEntry, type StatMatchInfo } from "./types";
 
@@ -27,7 +28,7 @@ const STARTING_FIFTEEN = Array.from({ length: 15 }, (_, i) => i + 1);
 export function NumberSheetEditor({
   match,
   initialNumbers,
-  players,
+  players: initialPlayers,
   logged,
 }: {
   match: StatMatchInfo;
@@ -37,6 +38,8 @@ export function NumberSheetEditor({
   logged: Record<number, number>;
 }) {
   const [numbers, setNumbers] = useState(initialNumbers);
+  // Held here so a player added by name is pickable at once, without a reload.
+  const [players, setPlayers] = useState(initialPlayers);
   const [added, setAdded] = useState<number[]>([]);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -195,6 +198,17 @@ export function NumberSheetEditor({
           Add
         </button>
       </form>
+
+      <section className="mt-8">
+        <AddPlayer
+          id="add-player-sheet"
+          onAdded={(p) =>
+            setPlayers((prev) =>
+              [...prev, p].sort((a, b) => a.displayName.localeCompare(b.displayName)),
+            )
+          }
+        />
+      </section>
 
       {withoutNumber.length > 0 && (
         <section className="mt-10">

@@ -14,11 +14,16 @@
  * whole workspace on the game clock as well. Marking them late, or moving
  * one, re-sorts every entry already logged: the half is read from the
  * markers when the sheet is read, never trusted from the moment it was saved.
+ *
+ * How long a half is sits here too. The second half's clock starts from it,
+ * so a challenge game of twelve-minute halves made on the usual 30 shows its
+ * restart as 30:00, and this is where that gets noticed.
  */
 import { useState } from "react";
 import type { PlayerEngine } from "@/components/player/engine";
 import { formatClock, type GamePhase, type Markers } from "@/lib/hurling/notation";
 import type { End } from "@/lib/hurling/pitch";
+import { HalfLength } from "./HalfLength";
 
 export type HalfKind = "throw_in" | "second_half";
 
@@ -37,6 +42,8 @@ export function HalvesBar({
   onSetHalf,
   firstHalfEnd,
   onFirstHalfEnd,
+  halfLengthMin,
+  onHalfLength,
 }: {
   engine: PlayerEngine;
   markers: Markers;
@@ -45,6 +52,8 @@ export function HalvesBar({
   onSetHalf: (kind: HalfKind, atMs: number | null) => void;
   firstHalfEnd: End;
   onFirstHalfEnd: (end: End) => void;
+  halfLengthMin: number;
+  onHalfLength: (minutes: number) => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const marked = markers.throwIn != null;
@@ -90,6 +99,13 @@ export function HalvesBar({
       </div>
 
       <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+        <span className="w-[6.5rem] shrink-0 text-[12px]" style={{ color: "var(--color-ink-dim)" }}>
+          Minutes a half
+        </span>
+        <HalfLength compact value={halfLengthMin} onChange={onHalfLength} />
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
         <span className="text-[12px]" style={{ color: "var(--color-ink-dim)" }}>
           Our end in the 1st half
         </span>

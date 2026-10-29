@@ -26,6 +26,7 @@ import Link from "next/link";
 import { PitchMap, type PitchMark } from "@/components/pitch/PitchMap";
 import { VIEW_W, pitchViewHeight } from "@/components/pitch/PitchMarkings";
 import { deleteMatchStat, logMatchStat, updateMatchStat } from "@/lib/actions/stats";
+import { setHalfLength } from "@/lib/actions/admin";
 import {
   STAT_TYPE_SHAPE,
   statVocabulary,
@@ -63,6 +64,7 @@ import { matchDateLong } from "@/lib/format";
 import { formatClock, type Markers } from "@/lib/hurling/notation";
 import type { GameCode } from "@/lib/hurling/codes";
 import { MatchClock, useMatchClock } from "./MatchClock";
+import { HalfLength } from "./HalfLength";
 import { VoiceBar, useVoiceEntry } from "./VoiceEntry";
 
 type ClipOption = { id: string; label: string };
@@ -74,7 +76,7 @@ export function StatLogger({
   initialRows,
   clips,
   whistles,
-  halfLengthMin,
+  halfLengthMin: initialHalfLengthMin,
 }: {
   match: StatMatchInfo;
   /** The club's code: it words the sheet, and decides whether a two-pointer can be logged. */
@@ -88,6 +90,8 @@ export function StatLogger({
   clips: ClipOption[];
 }) {
   const [rows, setRows] = useState<StatRow[]>(initialRows);
+  // Changeable here, for the challenge game made on 30 that plays fifteens.
+  const [halfLengthMin, setHalfLengthMinState] = useState(initialHalfLengthMin);
   const [statType, setStatType] = useState<StatType>("tackle");
   const [detail, setDetail] = useState<StatDetail>(EMPTY_DETAIL);
   const [clipId, setClipId] = useState("");
@@ -344,6 +348,23 @@ export function StatLogger({
 
       <div className="mt-3">
         <MatchClock matchId={match.id} clock={clock} />
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="text-[12px]" style={{ color: "var(--color-ink-dim)" }}>
+            Halves of
+          </span>
+          <HalfLength
+            compact
+            value={halfLengthMin}
+            onChange={(minutes) => {
+              const before = halfLengthMin;
+              setHalfLengthMinState(minutes);
+              setHalfLength(match.id, minutes).catch((err) => {
+                setHalfLengthMinState(before);
+                setError((err as Error).message);
+              });
+            }}
+          />
+        </div>
       </div>
 
       {/* The pitch is as wide as the screen's height allows, so its bottom

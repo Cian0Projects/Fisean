@@ -125,6 +125,25 @@ export function formatClockPrecise(ms: number): string {
 }
 
 /**
+ * How long a half may be, in whole minutes. 30 and 35 are the league and
+ * championship lengths, but challenge games, underage blitzes and seven-a-side
+ * play anything from ten minutes up, and the second half's clock starts from
+ * whatever the first ran to. The bounds only catch a slip of the finger.
+ */
+export const HALF_LENGTHS = [30, 35] as const;
+export const SHORTEST_HALF_MIN = 5;
+export const LONGEST_HALF_MIN = 45;
+
+/** Why a half length will not do, or null when it will. */
+export function halfLengthProblem(minutes: number): string | null {
+  if (!Number.isInteger(minutes)) return "A half is a whole number of minutes.";
+  if (minutes < SHORTEST_HALF_MIN || minutes > LONGEST_HALF_MIN) {
+    return `A half is ${SHORTEST_HALF_MIN} to ${LONGEST_HALF_MIN} minutes long.`;
+  }
+  return null;
+}
+
+/**
  * Convert a position in the video file to hurling game time.
  *
  * With no markers set we cannot know where throw-in is, so this degrades to
