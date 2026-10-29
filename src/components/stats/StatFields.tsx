@@ -35,6 +35,7 @@ import {
   SHOT_KINDS,
   STAT_TYPE_SHAPE,
   effectiveOutcome,
+  oppositionNumberAllowed,
   outcomeLabel,
   puckoutOutcome,
   puckoutWinner,
@@ -59,6 +60,8 @@ export type StatDetail = {
   /** Jersey numbers as typed, so a half-typed one survives a re-render. */
   playerNumber: string;
   targetNumber: string;
+  /** Their player's number, typed like ours. */
+  theirNumber: string;
   side: Side;
   shotResult: ShotResult | null;
   shotKind: ShotKind;
@@ -78,6 +81,7 @@ export const EMPTY_DETAIL: StatDetail = {
   outcome: null,
   playerNumber: "",
   targetNumber: "",
+  theirNumber: "",
   side: "us",
   shotResult: null,
   shotKind: "play",
@@ -117,6 +121,7 @@ export function detailFromRow(row: StatRow): StatDetail {
     outcome: row.outcome,
     playerNumber: row.playerNumber != null ? String(row.playerNumber) : "",
     targetNumber: row.targetNumber != null ? String(row.targetNumber) : "",
+    theirNumber: row.oppositionNumber != null ? String(row.oppositionNumber) : "",
     side: row.side ?? "us",
     shotResult: row.shotResult,
     shotKind: row.shotKind ?? "play",
@@ -143,6 +148,11 @@ export function playerAllowed(type: StatType, d: StatDetail): boolean {
   return true;
 }
 
+/** Whether their player can be named: the rule is `oppositionNumberAllowed`, read off the form. */
+export function theirsAllowed(type: StatType, d: StatDetail): boolean {
+  return oppositionNumberAllowed({ statType: type, side: d.side, outcome: d.outcome });
+}
+
 /** A typed jersey number, or null for an empty box or one nobody could wear. */
 export function typedNumber(value: string): number | null {
   const n = Number(value.trim());
@@ -157,6 +167,7 @@ export function detailReady(type: StatType, d: StatDetail): boolean {
   if (type === "shot" && d.shotResult === null) return false;
   if (playerAllowed(type, d) && !numberOk(d.playerNumber)) return false;
   if (type === "delivery" && !numberOk(d.targetNumber)) return false;
+  if (theirsAllowed(type, d) && !numberOk(d.theirNumber)) return false;
   return true;
 }
 
@@ -168,6 +179,7 @@ export function detailToDraft(type: StatType, d: StatDetail): StatDraft {
     outcome: d.outcome,
     playerNumber: playerAllowed(type, d) ? typedNumber(d.playerNumber) : null,
     targetNumber: type === "delivery" ? typedNumber(d.targetNumber) : null,
+    oppositionNumber: theirsAllowed(type, d) ? typedNumber(d.theirNumber) : null,
     side: d.side,
     shotResult: d.shotResult,
     shotKind: d.shotKind,
@@ -191,6 +203,20 @@ const PUCKOUT_WINNERS: { value: PuckoutWinner; label: string }[] = [
   { value: "opposition", label: "They won it" },
   { value: "unclear", label: "Broke unclear" },
 ];
+
+/** Their player, said for what they did in it. Anything else is "Their player". */
+const THEIR_LABELS: Partial<Record<StatType, string>> = {
+  shot: "Their shooter",
+  mark: "Their catcher",
+  delivery: "Their player who won it",
+  puckout: "Their player who won it",
+  tackle: "Their player tackled",
+  free_won: "Their player who fouled",
+  free_conceded: "Their player fouled",
+};
+
+/** Their numbers have no sheet to be named from. */
+const NO_SHEET: NumberSheet = new Map();
 
 const PLAYER_LABELS: Partial<Record<StatType, string>> = {
   delivery: "Struck by",
@@ -430,6 +456,24 @@ export function StatFields({
           )}
         </div>
       )}
+      {theirsAllowed(statType, d) && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <NumberField
+            id={`${idPrefix}-theirs`}
+            label={
+              statType === "turnover"
+                ? d.outcome === "positive"
+                  ? "Their player who lost it"
+                  : "Their player who won it"
+                : (THEIR_LABELS[statType] ?? "Their player")
+            }
+            value={d.theirNumber}
+            onChange={(v) => onChange({ theirNumber: v })}
+            sheet={NO_SHEET}
+            theirs
+          />
+        </div>
+      )}
       {!named && statType === "puckout" && (
         <p className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
           A {restart} names the receiver, so only one we won takes a player.
@@ -451,22 +495,29 @@ function NumberField({
   value,
   onChange,
   sheet,
+  theirs = false,
 }: {
   id: string;
   label: string;
   value: string;
   onChange: (value: string) => void;
   sheet: NumberSheet;
+  /** One of theirs: there is no sheet to name them from, and that is fine. */
+  theirs?: boolean;
 }) {
   const n = typedNumber(value);
   const who = n != null ? sheet.get(n) : undefined;
   const note = !value.trim()
-    ? "Nobody named"
+    ? theirs
+      ? "Optional"
+      : "Nobody named"
     : n == null
       ? `Jersey numbers run from 1 to ${MAX_JERSEY}`
-      : who
-        ? who.displayName
-        : "No name on this number yet";
+      : theirs
+        ? `Their ${n}`
+        : who
+          ? who.displayName
+          : "No name on this number yet";
 
   return (
     <div>

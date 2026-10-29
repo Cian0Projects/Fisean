@@ -53,7 +53,7 @@ import {
 } from "./StatFields";
 import {
   numberSheet,
-  playerLabel,
+  whoLabel,
   statMarks,
   type SheetEntry,
   type StatMatchInfo,
@@ -582,7 +582,7 @@ export function StatLogger({
                   <div className="min-w-0 flex-1">
                     <div className="text-[14px]">{describeStat(r, code)}</div>
                     <div className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-                      {playerLabel(r.playerNumber, sheet)}
+                      {whoLabel(r, sheet)}
                       {half && `, ${half === 1 ? "1st" : "2nd"} half`}
                       {timing.gameMs != null && ` at ${formatClock(timing.gameMs)}`}
                       {r.originX != null && ", on the map"}

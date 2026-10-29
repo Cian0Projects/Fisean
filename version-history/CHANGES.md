@@ -6,6 +6,11 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## Opposition numbers on stats, one stat's map at a time, and room either side when watching back
+*2026-10-29*
+
+A stat can now name one of their players by number, wherever one of theirs is in it: their shooter, their catcher, who won a ball or a restart off us, who lost or won a turnover, who was tackled or fouled. It is an optional box beside ours in both the stat pad and the line logger, kept in a column of its own (`match_stats.opposition_number`) so a number of theirs is never counted in one of our players' lines; their scorers appear under ours in the report once any has a number. The stat pad's map is back to showing only the kind of stat being logged, in the current half, since every kind on one map was too crowded to place a dot in, and a small note by the log button says each entry saves the moment it is logged, then confirms it. In "Watch it back", "5 s back" and "5 s on" reach past either end of a moment for when the logging was early or late.
+
 ## Halves set once when logging off footage, and a map that follows them
 *2026-10-29*
 

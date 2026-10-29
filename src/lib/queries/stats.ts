@@ -18,6 +18,7 @@ export const statColumns = {
   outcome: matchStats.outcome,
   playerNumber: matchStats.playerNumber,
   targetNumber: matchStats.targetNumber,
+  oppositionNumber: matchStats.oppositionNumber,
   originX: matchStats.originX,
   originY: matchStats.originY,
   destX: matchStats.destX,

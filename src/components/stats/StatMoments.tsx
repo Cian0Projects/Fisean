@@ -13,12 +13,16 @@
  * Nothing plays until it is asked to: the section sits at the end of a long
  * report, and a video starting on its own as the page loads would be the
  * first thing anyone turned off.
+ *
+ * A passage is a guess at where the moment is, from when it was logged. When
+ * the guess is short (logged late, or the build-up started earlier), "5 s
+ * back" and "5 s on" widen it past either end instead of stopping there.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PlayerEngine } from "@/components/player/engine";
 import { VideoStage } from "@/components/player/VideoStage";
 import { ChevronIcon, PauseIcon, PlayIcon } from "@/components/ui/Icon";
-import { numberSheet, playerLabel, type SheetEntry, type StatRow } from "./types";
+import { numberSheet, playerLabel, whoLabel, type SheetEntry, type StatRow } from "./types";
 import {
   OUTCOME_COLOURS,
   describeStat,
@@ -41,6 +45,9 @@ const OUTCOMES: { value: StatOutcome; label: string }[] = [
 ];
 
 type Cue = { passage: number; startMs: number };
+
+/** How far each press of "5 s back" or "5 s on" reaches past the passage. */
+const NUDGE_MS = 5_000;
 
 export function StatMoments({
   code,
@@ -110,6 +117,9 @@ export function StatMoments({
 
   // Read when a passage ends, not when it starts, so ticking the box while
   // one plays does not restart it.
+  // The stretch the player is held to now: the passage, widened by any
+  // presses of "5 s back" or "5 s on".
+  const boundsRef = useRef<{ startMs: number; endMs: number } | null>(null);
   const playOnRef = useRef(playOn);
   useEffect(() => {
     playOnRef.current = playOn;
@@ -119,6 +129,7 @@ export function StatMoments({
     if (!cue) return;
     const passage = reel[cue.passage];
     if (!passage) return;
+    boundsRef.current = { startMs: cue.startMs, endMs: passage.endMs };
     engine.playRange(cue.startMs, passage.endMs, () => {
       const next = reel[cue.passage + 1];
       if (playOnRef.current && next) setCue({ passage: cue.passage + 1, startMs: next.startMs });
@@ -148,6 +159,26 @@ export function StatMoments({
   const src = (footage.find((f) => f.id === (current?.videoId ?? reel[0]?.videoId)) ?? footage[0]).src;
   const upcoming = cue ? reel[cue.passage + 1] : reel[0];
   const preloadMs = upcoming && upcoming.videoId === (current?.videoId ?? upcoming.videoId) ? upcoming.startMs : null;
+
+  /**
+   * Step back or on past the passage's own ends. The player is held to the
+   * passage, so the hold is widened first, then the step taken: back moves
+   * the start to wherever the step lands, on lets it run a few seconds past
+   * there. Within the file, always.
+   */
+  const widen = (ms: number) => {
+    const b = boundsRef.current;
+    if (!b || !current) return;
+    const duration = footage.find((f) => f.id === current.videoId)?.durationMs || Infinity;
+    const at = Math.min(duration, Math.max(0, engine.snapshot.positionMs + ms));
+    const next =
+      ms < 0
+        ? { startMs: Math.min(b.startMs, at), endMs: b.endMs }
+        : { startMs: b.startMs, endMs: Math.min(duration, Math.max(b.endMs, at + NUDGE_MS)) };
+    boundsRef.current = next;
+    engine.setBounds(next.startMs, next.endMs);
+    engine.seek(at, { exact: true });
+  };
 
   const go = (passage: number) => {
     const p = reel[passage];
@@ -275,6 +306,24 @@ export function StatMoments({
               Next
               <ChevronIcon direction="right" className="h-3.5 w-3.5" />
             </button>
+            <span className="flex gap-1" role="group" aria-label="See more either side">
+              <button
+                onClick={() => widen(-NUDGE_MS)}
+                disabled={!cue}
+                title="Go back further than the moment's start"
+                className="btn-ghost text-xs"
+              >
+                5 s back
+              </button>
+              <button
+                onClick={() => widen(NUDGE_MS)}
+                disabled={!cue}
+                title="Keep watching past the moment's end"
+                className="btn-ghost text-xs"
+              >
+                5 s on
+              </button>
+            </span>
             <div className="flex-1" />
             <label className="flex items-center gap-1.5 text-[12px]" style={{ color: "var(--color-ink-dim)" }}>
               <input
@@ -334,12 +383,15 @@ export function StatMoments({
   );
 }
 
-/** "6. Áine Ryan to 14. Clodagh Moore" for a delivery, the one name otherwise. */
+/**
+ * "6. Áine Ryan to 14. Clodagh Moore" for a delivery, with whoever of theirs
+ * won it; otherwise ours and theirs as every list says them (`whoLabel`).
+ */
 function whoOf(r: StatRow, sheet: ReturnType<typeof numberSheet>): string {
-  const from = r.playerNumber != null ? playerLabel(r.playerNumber, sheet) : null;
-  const to = r.targetNumber != null ? playerLabel(r.targetNumber, sheet) : null;
-  if (from && to) return `${from} to ${to}`;
-  return from ?? (to ? `To ${to}` : "Nobody named");
+  if (r.targetNumber == null) return whoLabel(r, sheet);
+  const to = playerLabel(r.targetNumber, sheet);
+  const pass = r.playerNumber != null ? `${playerLabel(r.playerNumber, sheet)} to ${to}` : `To ${to}`;
+  return r.oppositionNumber != null ? `${pass}, won by their ${r.oppositionNumber}` : pass;
 }
 
 /** The pitch map's mark for the entry, in colour and in shape. */

@@ -17,10 +17,11 @@
  * still needs both hands' width, so it comes first and the log stacks below.
  *
  * The halves are set once, at the top (HalvesBar), rather than picked per
- * entry. The map then follows the playhead: it shows one half at a time,
- * every kind of stat at once, the way round the camera sees that half, and
- * entries logged live on the line appear on it beside the ones logged here.
- * A mark on it opens to be watched, edited or deleted.
+ * entry. The map then follows the playhead: it shows one half at a time, the
+ * way round the camera sees that half, and only the kind of stat being
+ * logged, since every kind on one map is a mess nobody can place a dot in.
+ * Entries logged live on the line appear on it beside the ones logged here,
+ * and a mark on it opens to be watched, edited or deleted.
  */
 import {
   useEffect,
@@ -61,7 +62,7 @@ import {
   typedNumber,
   type StatDetail,
 } from "./StatFields";
-import { playerLabel, statMarks, type NumberSheet, type StatRow } from "./types";
+import { statMarks, whoLabel, type NumberSheet, type StatRow } from "./types";
 import { VoiceBar, useVoiceEntry } from "./VoiceEntry";
 import { HalvesBar, type HalfKind } from "./HalvesBar";
 
@@ -121,6 +122,13 @@ export function StatPad({
   // A mark clicked on the map, and whether its delete is waiting on a yes.
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  // When the last entry was saved, to say so for a moment.
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  useEffect(() => {
+    if (savedAt == null) return;
+    const t = window.setTimeout(() => setSavedAt(null), 2500);
+    return () => window.clearTimeout(t);
+  }, [savedAt]);
   // Where the playhead is on the game clock. Only the phase is kept, so the
   // pad re-renders when the half changes, not on every frame.
   const [phase, setPhase] = useState<GamePhase>(
@@ -268,10 +276,11 @@ export function StatPad({
     }
   };
 
-  // This half's entries, every kind: the second half starts on a clear map.
-  // One with no half to go on is shown on both, faintly, rather than lost.
+  // This half's entries of the kind being logged: the second half starts on
+  // a clear map. One with no half to go on is shown on both, faintly, rather
+  // than lost.
   const onMap = rows.filter((r) => {
-    if (r.id === editingId) return false;
+    if (r.id === editingId || r.statType !== statType) return false;
     const h = rowHalf(r);
     return mapHalf == null || h == null || h === mapHalf;
   });
@@ -337,6 +346,7 @@ export function StatPad({
         }
         resetEntry();
         voice.reset();
+        setSavedAt(Date.now());
       } catch (err) {
         setError((err as Error).message || "That entry could not be saved.");
       }
@@ -451,94 +461,94 @@ export function StatPad({
           resultNote={shown !== detail ? ARC_NOTE : undefined}
         />
 
-        <div>
-          <div className="mb-1.5 flex items-baseline justify-between gap-2">
-            <span className="label">
-              {mapHalf ? `${mapHalf === 1 ? "1st" : "2nd"} half, our end on the ${ourEnd}` : "Where on the pitch"}
-            </span>
-            <span className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
-              {meta.points === 0
-                ? "Click a mark to open it"
-                : meta.points === 2
-                  ? !origin
-                    ? "Struck from…"
-                    : !dest
-                      ? "…landed"
-                      : "Click to start over"
-                  : origin
-                    ? "Click to move it"
-                    : "Click to place"}
-            </span>
-          </div>
-          <PitchMap
-            marks={marks}
-            onPlace={meta.points > 0 ? placePoint : undefined}
-            onSelect={(id) => {
-              setPickedId(id === pickedId ? null : id);
-              setConfirming(false);
-            }}
-            turned={ourEnd === "right"}
-            code={code}
-          />
-
-          {picked && (
-            <div
-              className="mt-2 rounded border px-3 py-2"
-              style={{ borderColor: "var(--color-line-strong)", background: "var(--color-surface-2)" }}
-            >
-              <div className="flex items-start gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="text-[13px]">{describeStat(picked, code)}</div>
-                  <div className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
-                    {playerLabel(picked.playerNumber, sheet)}
-                    {picked.atMs != null && `, ${toGameTime(picked.atMs, markers, halfLengthMin).label}`}
-                  </div>
-                </div>
-                <button
-                  onClick={() => setPickedId(null)}
-                  aria-label="Close"
-                  className="px-1 text-[13px]"
-                  style={{ color: "var(--color-ink-faint)" }}
-                >
-                  ×
-                </button>
-              </div>
-              {confirming ? (
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span className="text-[12px]">Delete this entry?</span>
-                  <button
-                    onClick={() => remove(picked.id)}
-                    className="rounded px-2 py-1 text-[12px] font-semibold"
-                    style={{ background: "var(--color-danger)", color: "#fff" }}
-                  >
-                    Yes, delete it
-                  </button>
-                  <button onClick={() => setConfirming(false)} className="btn-ghost px-2 py-1 text-[12px]">
-                    Keep it
-                  </button>
-                </div>
-              ) : (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {picked.atMs != null && (
-                    <button onClick={() => onJump(picked)} className="btn-outline px-2 py-1 text-[12px]">
-                      Watch
-                    </button>
-                  )}
-                  <button onClick={() => edit(picked)} className="btn-outline px-2 py-1 text-[12px]">
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => setConfirming(true)}
-                    className="btn-ghost px-2 py-1 text-[12px]"
-                    style={{ color: "var(--color-danger-ink)" }}
-                  >
-                    Delete
-                  </button>
-                </div>
-              )}
+        {meta.points > 0 && (
+          <div>
+            <div className="mb-1.5 flex items-baseline justify-between gap-2">
+              <span className="label">
+                {mapHalf ? `${mapHalf === 1 ? "1st" : "2nd"} half, our end on the ${ourEnd}` : "Where on the pitch"}
+              </span>
+              <span className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
+                {meta.points === 2
+                    ? !origin
+                      ? "Struck from…"
+                      : !dest
+                        ? "…landed"
+                        : "Click to start over"
+                    : origin
+                      ? "Click to move it"
+                      : "Click to place"}
+              </span>
             </div>
-          )}
-        </div>
+            <PitchMap
+              marks={marks}
+              onPlace={placePoint}
+              onSelect={(id) => {
+                setPickedId(id === pickedId ? null : id);
+                setConfirming(false);
+              }}
+              turned={ourEnd === "right"}
+              code={code}
+            />
+  
+            {picked && (
+              <div
+                className="mt-2 rounded border px-3 py-2"
+                style={{ borderColor: "var(--color-line-strong)", background: "var(--color-surface-2)" }}
+              >
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13px]">{describeStat(picked, code)}</div>
+                    <div className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
+                      {whoLabel(picked, sheet)}
+                      {picked.atMs != null && `, ${toGameTime(picked.atMs, markers, halfLengthMin).label}`}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setPickedId(null)}
+                    aria-label="Close"
+                    className="px-1 text-[13px]"
+                    style={{ color: "var(--color-ink-faint)" }}
+                  >
+                    ×
+                  </button>
+                </div>
+                {confirming ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="text-[12px]">Delete this entry?</span>
+                    <button
+                      onClick={() => remove(picked.id)}
+                      className="rounded px-2 py-1 text-[12px] font-semibold"
+                      style={{ background: "var(--color-danger)", color: "#fff" }}
+                    >
+                      Yes, delete it
+                    </button>
+                    <button onClick={() => setConfirming(false)} className="btn-ghost px-2 py-1 text-[12px]">
+                      Keep it
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {picked.atMs != null && (
+                      <button onClick={() => onJump(picked)} className="btn-outline px-2 py-1 text-[12px]">
+                        Watch
+                      </button>
+                    )}
+                    <button onClick={() => edit(picked)} className="btn-outline px-2 py-1 text-[12px]">
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => setConfirming(true)}
+                      className="btn-ghost px-2 py-1 text-[12px]"
+                      style={{ color: "var(--color-danger-ink)" }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex items-center justify-between gap-2 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
           <span>{stampMs != null ? `Timed at ${formatClock(stampMs)}` : "Timed when you start"}</span>
@@ -575,6 +585,9 @@ export function StatPad({
               <span className="kbd">Esc</span>
             </button>
           )}
+          <span className="ml-auto text-right text-[11px]" style={{ color: "var(--color-ink-faint)" }} aria-live="polite">
+            {pending ? "Saving…" : savedAt ? "Saved." : "Each entry saves as soon as it is logged."}
+          </span>
         </div>
       </div>
 
@@ -618,7 +631,7 @@ export function StatPad({
                   >
                     <div className="text-[13px]">{describeStat(r, code)}</div>
                     <div className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
-                      {playerLabel(r.playerNumber, sheet)}
+                      {whoLabel(r, sheet)}
                       {r.atMs != null && `, ${toGameTime(r.atMs, markers, halfLengthMin).label}`}
                     </div>
                   </button>

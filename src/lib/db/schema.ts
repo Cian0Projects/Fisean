@@ -708,6 +708,14 @@ export const matchStats = sqliteTable(
     playerNumber: integer("player_number"),
     /** Deliveries only: the number it was aimed at, whether they won it or lost it. */
     targetNumber: integer("target_number"),
+    /**
+     * The opposition player's number, when the logger caught it: their
+     * shooter, who won a ball off us, who was fouled. A column of its own,
+     * never `playerNumber`, because that one is put to our panel's names by
+     * `match_lineups` and counted in our players' lines. Optional, and only
+     * kept where a stat can name one of theirs (`oppositionNumberAllowed`).
+     */
+    oppositionNumber: integer("opposition_number"),
     /** Where it happened, normalised 0–1 as everywhere else. */
     originX: real("origin_x"),
     originY: real("origin_y"),

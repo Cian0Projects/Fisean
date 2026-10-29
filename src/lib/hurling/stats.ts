@@ -134,6 +134,8 @@ export type StatEntry = {
   playerNumber?: number | null;
   /** Deliveries only: the number it was aimed at — who won it or lost it. */
   targetNumber?: number | null;
+  /** Their player's number, where the logger caught it. See the schema. */
+  oppositionNumber?: number | null;
   originX?: number | null;
   originY?: number | null;
   destX?: number | null;
@@ -678,6 +680,29 @@ export function jerseyNumber(value: unknown): number | null {
  * is what keeps a two-pointer off a sheet whose game has no arc, and a mark
  * off one whose game has no mark.
  */
+/**
+ * Whether a stat can name one of their players.
+ *
+ * Wherever one of theirs did the thing or had it done to them: their shot or
+ * mark, a ball of ours they won, a turnover either way, the player tackled or
+ * fouled. Not our own shot or mark, or a restart or delivery we kept, where
+ * nobody of theirs is the point of the entry.
+ */
+export function oppositionNumberAllowed(entry: Pick<StatEntry, "statType" | "side" | "outcome">): boolean {
+  switch (entry.statType) {
+    case "shot":
+    case "mark":
+      return entry.side === "opposition";
+    case "delivery":
+    case "puckout":
+      return entry.outcome === "negative";
+    case "turnover":
+      return entry.outcome === "positive" || entry.outcome === "negative";
+    default:
+      return true;
+  }
+}
+
 export function normaliseEntry(draft: StatDraft, code: GameCode): NormalisedStat {
   const statType = draft.statType;
   if (!STAT_TYPES.includes(statType)) throw new Error("That is not a stat we log.");
@@ -783,12 +808,16 @@ export function normaliseEntry(draft: StatDraft, code: GameCode): NormalisedStat
   }
 
   const half = draft.half === 1 || draft.half === 2 ? draft.half : null;
+  const oppositionNumber = oppositionNumberAllowed({ statType, side, outcome })
+    ? jerseyNumber(draft.oppositionNumber)
+    : null;
 
   return {
     statType,
     outcome,
     playerNumber,
     targetNumber,
+    oppositionNumber,
     originX: origin?.x ?? null,
     originY: origin?.y ?? null,
     destX: dest?.x ?? null,
@@ -1190,7 +1219,8 @@ export function matchResult(rows: readonly StatEntry[]): MatchResult | null {
  * a 65 is the free-taker's, and is shown in brackets with an "f" because that
  * is the notation a programme uses — it is how a selector tells a good day
  * from play apart from a good day over the dead ball. A score logged without
- * a number still counts, under `playerNumber: null`.
+ * a number still counts, under `playerNumber: null`. Their scorers are keyed
+ * by their own number (`oppositionNumber`), never by one of ours.
  */
 export type ScorerLine = { playerNumber: number | null; score: Score; fromFrees: Score };
 
@@ -1199,7 +1229,7 @@ export function scorers(rows: readonly StatEntry[], side: Side = "us"): ScorerLi
   for (const r of rows) {
     if (r.statType !== "shot" || shotSide(r) !== side) continue;
     if (!isScore(r.shotResult)) continue;
-    const key = r.playerNumber ?? null;
+    const key = (side === "opposition" ? r.oppositionNumber : r.playerNumber) ?? null;
     const line = byNumber.get(key) ?? {
       playerNumber: key,
       score: { cul: 0, cuilin: 0 },

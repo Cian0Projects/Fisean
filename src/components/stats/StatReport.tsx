@@ -172,7 +172,13 @@ export function StatReport({
                 No shots logged yet, so there is no score to give.
               </p>
             )}
-            <ScorersLine rows={rows} players={players} teamName={teamName} vocabulary={vocabulary} />
+            <ScorersLine
+              rows={rows}
+              players={players}
+              teamName={teamName}
+              opponent={match.opponent}
+              vocabulary={vocabulary}
+            />
           </section>
 
           {/* ---------------------------------------------- score opportunities */}
@@ -315,7 +321,7 @@ export function StatReport({
               <Section
                 id="moments"
                 title="Watch it back"
-                note="Every entry on the sheet, played from ten seconds before it happened. Pick a player, a half or a kind of moment, then play them all or one at a time."
+                note="Every entry on the sheet, played from ten seconds before it happened. Pick a player, a half or a kind of moment, then play them all or one at a time. If a moment starts too late or ends too soon, 5 s back and 5 s on reach past it."
               >
                 {moments}
               </Section>
@@ -337,15 +343,20 @@ function ScorersLine({
   rows,
   players,
   teamName,
+  opponent,
   vocabulary,
 }: {
   rows: StatRow[];
   players: NumberSheet;
   teamName: string;
+  opponent: string;
   vocabulary: StatVocabulary;
 }) {
   const lines = scorers(rows);
-  if (lines.length === 0) return null;
+  // Theirs only once someone has caught a number: a line of "not named" says nothing.
+  const theirLines = scorers(rows, "opposition");
+  const theirsNamed = theirLines.some((l) => l.playerNumber !== null);
+  if (lines.length === 0 && !theirsNamed) return null;
   const named = lines.map((l) => {
     const who =
       l.playerNumber === null
@@ -354,10 +365,23 @@ function ScorersLine({
     // Non-breaking inside an entry, so a name never splits from its score.
     return `${who} ${formatScorerTally(l)}`.replace(/ /g, " ");
   });
+  const theirs = theirLines.map((l) =>
+    `${l.playerNumber === null ? "not named" : `No. ${l.playerNumber}`} ${formatScorerTally(l)}`.replace(/ /g, " "),
+  );
   return (
     <div>
-      <h2 className="section-head title text-[16px]">Scorers for {teamName}</h2>
-      <p className="measure mt-2 text-[17px] leading-relaxed">{named.join(", ")}.</p>
+      {named.length > 0 && (
+        <>
+          <h2 className="section-head title text-[16px]">Scorers for {teamName}</h2>
+          <p className="measure mt-2 text-[17px] leading-relaxed">{named.join(", ")}.</p>
+        </>
+      )}
+      {theirsNamed && (
+        <>
+          <h2 className="section-head title mt-5 text-[16px]">Scorers for {opponent}</h2>
+          <p className="measure mt-2 text-[17px] leading-relaxed">{theirs.join(", ")}.</p>
+        </>
+      )}
       <p className="caption mt-2">
         Counted from the shots on this sheet. An f marks scores from frees and {vocabulary.terms.endLineFree}s.
       </p>

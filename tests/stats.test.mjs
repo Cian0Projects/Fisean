@@ -15,6 +15,7 @@ import {
   matchResult,
   jerseyNumber,
   normaliseEntry as normaliseFor,
+  oppositionNumberAllowed,
   oppositionRuns,
   percentOf,
   playerStatLines,
@@ -933,4 +934,31 @@ test("the clock set by its minute is worked back to the whistle it counts from",
   assert.match(whistlesForClock(20 * 60_000, 2, now, none, 30).error, /starts at 30:00/);
   assert.match(whistlesForClock(80 * 60_000, 1, now, none, 30).error, /second half/);
   assert.match(whistlesForClock(-1, 1, now, none, 30).error, /15:30/);
+});
+
+test("their number is kept only where one of theirs is in the entry", () => {
+  // Their shot names their shooter; ours does not take one of theirs.
+  const theirShot = normaliseEntry({ statType: "shot", shotResult: "point", side: "opposition", oppositionNumber: 14 });
+  assert.equal(theirShot.oppositionNumber, 14);
+  assert.equal(theirShot.playerNumber, null);
+  assert.equal(normaliseEntry({ statType: "shot", shotResult: "point", side: "us", oppositionNumber: 14 }).oppositionNumber, null);
+  // A delivery we lost names who won it; one we kept names nobody of theirs.
+  assert.equal(normaliseEntry({ statType: "delivery", outcome: "negative", oppositionNumber: 5 }).oppositionNumber, 5);
+  assert.equal(normaliseEntry({ statType: "delivery", outcome: "positive", oppositionNumber: 5 }).oppositionNumber, null);
+  // A tackle can name both: ours who made it, theirs who was tackled.
+  const tackle = normaliseEntry({ statType: "tackle", playerNumber: 7, oppositionNumber: 11 });
+  assert.deepEqual([tackle.playerNumber, tackle.oppositionNumber], [7, 11]);
+  assert.equal(oppositionNumberAllowed({ statType: "turnover", outcome: "unclear" }), false);
+});
+
+test("their scorers are listed by their own number, never ours", () => {
+  const rows = [
+    { statType: "shot", outcome: null, shotResult: "goal", side: "opposition", oppositionNumber: 14, playerNumber: null },
+    { statType: "shot", outcome: null, shotResult: "point", side: "opposition", oppositionNumber: 14, playerNumber: null },
+    { statType: "shot", outcome: null, shotResult: "point", side: "us", playerNumber: 14, oppositionNumber: null },
+  ];
+  const theirs = scorers(rows, "opposition");
+  assert.equal(theirs.length, 1);
+  assert.deepEqual([theirs[0].playerNumber, theirs[0].score], [14, { cul: 1, cuilin: 1 }]);
+  assert.deepEqual(scorers(rows, "us")[0].score, { cul: 0, cuilin: 1 });
 });

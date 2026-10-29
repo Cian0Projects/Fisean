@@ -25,6 +25,8 @@ export type StatRow = {
   outcome: StatOutcome | null;
   playerNumber: number | null;
   targetNumber: number | null;
+  /** Their player's number, when it was caught. Never named: we have no sheet for them. */
+  oppositionNumber: number | null;
   originX: number | null;
   originY: number | null;
   destX: number | null;
@@ -85,6 +87,21 @@ export function playerLabel(number: number | null | undefined, sheet: NumberShee
 }
 
 /**
+ * Who an entry is about, as a list reads it: our player by name where the
+ * sheet has one, theirs by number ("their 14"), or both where it names both.
+ */
+export function whoLabel(
+  row: Pick<StatRow, "playerNumber" | "oppositionNumber">,
+  sheet: NumberSheet,
+): string {
+  const ours = row.playerNumber != null ? playerLabel(row.playerNumber, sheet) : null;
+  const theirs = row.oppositionNumber != null ? `their ${row.oppositionNumber}` : null;
+  if (ours && theirs) return `${ours}, against ${theirs}`;
+  if (theirs) return theirs.charAt(0).toUpperCase() + theirs.slice(1);
+  return ours ?? "Nobody named";
+}
+
+/**
  * Turn a stat row into a mark for the pitch map.
  *
  * One place applies the colour rule and the label rule, so every map in the
@@ -98,7 +115,7 @@ export function statMark(
   options: { muted?: boolean; selected?: boolean } = {},
 ): PitchMark | null {
   if (row.originX == null || row.originY == null) return null;
-  const who = row.playerNumber != null ? playerLabel(row.playerNumber, sheet) : null;
+  const who = row.playerNumber != null || row.oppositionNumber != null ? whoLabel(row, sheet) : null;
 
   return {
     id: row.id,

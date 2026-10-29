@@ -29,7 +29,7 @@ import {
   statColour,
   type StatType,
 } from "@/lib/hurling/stats";
-import { playerLabel, type NumberSheet, type StatRow } from "./types";
+import { whoLabel, type NumberSheet, type StatRow } from "./types";
 
 /**
  * Tall enough to hit a mark on, short enough that two fit above the pad.
@@ -135,7 +135,7 @@ export function StatLanes({
                       title={[
                         formatClock(r.atMs!),
                         describeStat(r, code),
-                        r.playerNumber != null ? playerLabel(r.playerNumber, sheet) : null,
+                        r.playerNumber != null || r.oppositionNumber != null ? whoLabel(r, sheet) : null,
                       ]
                         .filter(Boolean)
                         .join(", ")}

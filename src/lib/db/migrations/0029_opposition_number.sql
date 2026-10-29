@@ -1,0 +1,1 @@
+ALTER TABLE `match_stats` ADD `opposition_number` integer;
