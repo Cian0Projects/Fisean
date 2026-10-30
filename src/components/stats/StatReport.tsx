@@ -1068,6 +1068,7 @@ function PivotTable({
 /**
  * The number as worn, the name if the match's sheet has one, and the position
  * that number means on a team sheet — 1 to 15 are positions, the rest subs.
+ * The name opens that player's season.
  */
 function PlayerCell({ number, players }: { number: number; players: NumberSheet }) {
   const who = players.get(number);
@@ -1075,9 +1076,15 @@ function PlayerCell({ number, players }: { number: number; players: NumberSheet 
     <div className="flex items-center gap-2.5">
       <span className="jersey">{number}</span>
       <div className="min-w-0">
-        <div className="truncate" style={who ? undefined : { color: "var(--color-ink-faint)" }}>
-          {who ? who.displayName : "No name yet"}
-        </div>
+        {who ? (
+          <Link href={`/stats/players/${who.userId}`} className="block truncate hover:underline">
+            {who.displayName}
+          </Link>
+        ) : (
+          <div className="truncate" style={{ color: "var(--color-ink-faint)" }}>
+            No name yet
+          </div>
+        )}
         <div className="truncate text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
           {positionByNumber(number)?.name ?? "Sub"}
         </div>

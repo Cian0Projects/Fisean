@@ -911,6 +911,37 @@ export const matchGps = sqliteTable(
   (t) => [index("match_gps_match").on(t.matchId)],
 );
 
+/**
+ * Which player a GPS name is, once a coach has said so.
+ *
+ * `match_gps` keeps the name as the provider spelled it, and is replaced
+ * whole on every upload, so the link cannot live on its rows. It lives here
+ * instead, once per club team and name: a pod's athlete is typed the same way
+ * week after week, so saying "C. O Cathasaigh is Cian Ó Cathasaigh" once
+ * links every match uploaded before or after. Matched by `name_key`
+ * (`gpsNameKey`: case, fadas, punctuation and spacing ignored), so an export
+ * re-saved from Excel with its accents mangled still finds its player.
+ *
+ * Never filled in by guessing. The page offers a likely match, and a coach
+ * saves it: one player's load put on another is worse than none.
+ */
+export const gpsNames = sqliteTable(
+  "gps_names",
+  {
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    nameKey: text("name_key").notNull(),
+    /** The name as last seen in an export, for showing; the key is what matches. */
+    name: text("name").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    updatedAt: integer("updated_at").notNull().default(now),
+  },
+  (t) => [primaryKey({ columns: [t.teamId, t.nameKey] })],
+);
+
 /* ----------------------------------------------------------------- drills */
 
 /**

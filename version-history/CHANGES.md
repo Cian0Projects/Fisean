@@ -6,6 +6,16 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## A player's whole season on video, and their GPS beside their stats
+*2026-10-30*
+
+A player's season page now has "Watch the season": every moment of theirs in scope, one match after another, each from ten seconds before it happened, narrowed by kind (every shot this year is one chip), match, half or outcome. Each match's moments are placed on that match's own footage by its own clock (`seasonMoments` in `moments.ts`), and the player and list are a shared `MomentReel` that one match's "Watch it back" now uses too. GPS is linked to players by a new `gps_names` table: a coach says once which club member each GPS name is, and every match uploaded with that spelling follows, before or after. Names are matched ignoring case, fadas and punctuation, and the GPS page suggests a likely player where exactly one fits, but nothing is linked until a coach saves it, since one player's load on another's season is worse than a gap. Coaches see a player's distance, high speed running and top speed match by match on their season page; players do not, since GPS stays coaches' only.
+
+## Season stats for the team and every player
+*2026-10-30*
+
+The stat sheets now add up across a season. `/stats/team` shows the form (won, drawn, lost, and a margin bar per match), then the match sheet's own headings as season figures with a line across the matches: shooting both ways and split by half, restarts, turnovers, discipline, the season's scorers and a map of every shot. `/stats/players` is the panel in one sortable table, and `/stats/players/[id]` is one player's season, with their shooting, maps and a row per match that opens that match's footage on their moments. Everyone can see all of it, coaches and players alike, the same as each match's sheet. Seasons are calendar years and can be narrowed to a competition. Nothing is stored: every figure is worked out from the submitted sheets when the page is read (`src/lib/hurling/trends.ts`, tested), so correcting a sheet or a number corrects the season. Only submitted sheets and entries count. A figure per match divides by the matches that actually logged that kind of stat, so a sheet that only logged shots does not count as a match with no turnovers. A player is found through each match's own number sheet, and entries on numbers with no name are counted for the team and flagged so someone can fill the names in. No schema change.
+
 ## Each stat logger keeps their own clock, and submits their own stats
 *2026-10-29*
 

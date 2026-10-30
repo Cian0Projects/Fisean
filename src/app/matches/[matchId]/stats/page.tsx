@@ -25,11 +25,14 @@ import { matchDateLong } from "@/lib/format";
  */
 export default async function MatchStatsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ matchId: string }>;
+  /** `number`: open "Watch it back" on that number's moments, as a player's season links here. */
+  searchParams: Promise<{ number?: string }>;
 }) {
   const user = await requireUser();
-  const { matchId } = await params;
+  const [{ matchId }, asked] = await Promise.all([params, searchParams]);
 
   const [match] = await db.select().from(matches).where(eq(matches.id, matchId)).limit(1);
   if (!match || match.teamId !== user.teamId) notFound();
@@ -141,7 +144,9 @@ export default async function MatchStatsPage({
             }))}
             whistles={whistles}
             halfLengthMin={match.halfLengthMin}
-            viewerNumber={numbers.find((n) => n.userId === user.id)?.number ?? null}
+            viewerNumber={asked.number && Number.isInteger(+asked.number)
+              ? +asked.number
+              : (numbers.find((n) => n.userId === user.id)?.number ?? null)}
           />
         }
       />

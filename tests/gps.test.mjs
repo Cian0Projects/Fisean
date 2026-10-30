@@ -1,8 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  averageOf,
   barShare,
   decodeCsvBytes,
+  gpsNameKey,
+  suggestPlayer,
   formatSpeed,
   groupThousands,
   hsrShare,
@@ -127,4 +130,39 @@ test("fadas survive whichever way Excel saved the file", () => {
   // Excel's "Unicode text" is UTF-16 with a byte-order mark.
   const utf16 = new Uint8Array([0xff, 0xfe, ...[...csv].flatMap((c) => [c.charCodeAt(0) & 0xff, c.charCodeAt(0) >> 8])]);
   assert.equal(decodeCsvBytes(utf16).replace(/^\uFEFF/, ""), csv);
+});
+
+/* ---------------------------------------------------- names to players */
+
+test("a GPS name matches whatever its case, fadas, apostrophes and spacing", () => {
+  const key = gpsNameKey("Cian Ó Cathasaigh");
+  assert.equal(key, "cian o cathasaigh");
+  assert.equal(gpsNameKey("CIAN O CATHASAIGH"), key);
+  assert.equal(gpsNameKey("  Cian  O'Cathasaigh "), "cian ocathasaigh");
+  assert.equal(gpsNameKey("Cian Ó Cathasaigh".normalize("NFD")), key);
+});
+
+const panel = [
+  { id: "cian", displayName: "Cian Ó Cathasaigh" },
+  { id: "sean", displayName: "Seán Ó Cathasaigh" },
+  { id: "jr1", displayName: "John Ryan" },
+  { id: "jr2", displayName: "James Ryan" },
+];
+
+test("a likely player is suggested by full name, or by initial and surname", () => {
+  assert.equal(suggestPlayer("CIAN O CATHASAIGH", panel)?.id, "cian");
+  assert.equal(suggestPlayer("C. O Cathasaigh", panel)?.id, "cian");
+  assert.equal(suggestPlayer("S Cathasaigh", panel)?.id, "sean");
+});
+
+test("no suggestion where two people fit, or nobody does", () => {
+  assert.equal(suggestPlayer("J Ryan", panel), null);
+  assert.equal(suggestPlayer("Pod 14", panel), null);
+  assert.equal(suggestPlayer("", panel), null);
+  assert.equal(suggestPlayer("Cian", panel), null);
+});
+
+test("an average leaves out the matches without the figure", () => {
+  assert.equal(averageOf([6000, null, 8000]), 7000);
+  assert.equal(averageOf([null, null]), null);
 });

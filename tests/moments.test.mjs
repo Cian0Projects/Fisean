@@ -9,6 +9,7 @@ import {
   momentWindow,
   placeStat,
   reelOf,
+  seasonMoments,
   statMoments,
 } from "../src/lib/hurling/moments.ts";
 
@@ -101,4 +102,43 @@ test("overlapping passages in one file are played as one", () => {
   assert.equal(reel[0].endMs, 66_000 + MOMENT_TAIL_MS);
   // The same stretch of time in another file is a cut, not a join.
   assert.equal(reel[2].videoId, "v2");
+});
+
+test("a season's moments are placed match by match, each on its own footage and clock", () => {
+  // Two matches on the same afternoon's clock, with 35-minute halves in the second.
+  const first = { id: "a", durationMs: 80 * 60_000, markers: { throwIn: 0, secondHalf: 40 * 60_000 } };
+  const second = { id: "b", durationMs: 80 * 60_000, markers: { throwIn: 10_000, secondHalf: 45 * 60_000 } };
+  const { placed, unplaced } = seasonMoments([
+    {
+      rows: [{ id: "a1", half: 2, halfMs: 60_000 }],
+      footage: [first],
+      whistles: {},
+      halfLengthMin: 30,
+    },
+    {
+      rows: [
+        { id: "b1", half: 1, halfMs: 5_000 },
+        { id: "b2", half: 2, halfMs: 0 },
+      ],
+      footage: [second],
+      whistles: {},
+      halfLengthMin: 35,
+    },
+    // A match nobody filmed: its moments cannot be played.
+    { rows: [{ id: "c1", half: 1, halfMs: 0 }], footage: [], whistles: {}, halfLengthMin: 30 },
+  ]);
+  assert.deepEqual(
+    placed.map((m) => [m.row.id, m.videoId, m.atMs]),
+    [
+      ["a1", "a", 41 * 60_000],
+      ["b1", "b", 15_000],
+      ["b2", "b", 45 * 60_000],
+    ],
+  );
+  assert.deepEqual(
+    unplaced.map((r) => r.id),
+    ["c1"],
+  );
+  // Never run together across two matches, even back to back.
+  assert.equal(reelOf(placed).length, 3);
 });

@@ -302,3 +302,52 @@ export function groupThousands(n: number): string {
 export function formatSpeed(ms: number): { ms: string; kmh: string } {
   return { ms: (Math.round(ms * 100) / 100).toString(), kmh: (Math.round(ms * 3.6 * 10) / 10).toString() };
 }
+
+/* ---------------------------------------------------- names to players */
+
+/**
+ * The key a GPS name is matched on: lower case, fadas and apostrophes gone,
+ * anything else that is not a letter or digit turned into one space. So
+ * "Cian Ó Cathasaigh", "CIAN O CATHASAIGH" and "Cian O'Cathasaigh" are the
+ * same name, and an export Excel re-saved with "Ã“" in it still finds them
+ * once its bytes are read right (`decodeCsvBytes`).
+ */
+export function gpsNameKey(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/['’`]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/**
+ * The club member a GPS name most likely is, for the coach to confirm: the
+ * same name, or else the same surname with the same first initial ("C
+ * Cathasaigh", "C. O Cathasaigh"). Only when exactly one person fits. Two
+ * Ryans with a J is a question for the coach, not a guess.
+ */
+export function suggestPlayer<P extends { id: string; displayName: string }>(name: string, people: readonly P[]): P | null {
+  const key = gpsNameKey(name);
+  if (!key) return null;
+  const exact = people.filter((p) => gpsNameKey(p.displayName) === key);
+  if (exact.length === 1) return exact[0];
+  if (exact.length > 1) return null;
+
+  const words = key.split(" ");
+  const initial = words[0][0];
+  const surname = words.slice(1).filter((w) => w.length > 1).join(" ");
+  if (!surname) return null;
+  const close = people.filter((p) => {
+    const theirs = gpsNameKey(p.displayName).split(" ");
+    return theirs[0]?.[0] === initial && theirs.slice(1).join(" ").endsWith(surname);
+  });
+  return close.length === 1 ? close[0] : null;
+}
+
+/** The average of the figures a column has, or null when it has none. */
+export function averageOf(values: readonly (number | null)[]): number | null {
+  const present = values.filter((v): v is number => v != null);
+  return present.length ? present.reduce((a, b) => a + b, 0) / present.length : null;
+}

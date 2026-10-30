@@ -1,13 +1,15 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { matches, teams } from "@/lib/db/schema";
+import { matches, teams, users } from "@/lib/db/schema";
 import { isCoach, requireUser } from "@/lib/auth/guard";
 import { Nav } from "@/components/ui/Nav";
 import { GpsReport } from "@/components/stats/GpsReport";
 import { GpsUpload } from "@/components/stats/GpsUpload";
-import { loadMatchGps } from "@/lib/queries/gps";
+import { GpsNames } from "@/components/stats/GpsNames";
+import { loadGpsLinks, loadMatchGps } from "@/lib/queries/gps";
+import { gpsNameKey, suggestPlayer } from "@/lib/hurling/gps";
 import { matchDateLong } from "@/lib/format";
 
 /**
@@ -16,6 +18,8 @@ import { matchDateLong } from "@/lib/format";
  * Coaches and admins only. A player's running load is health data, so it is
  * not shown to the whole panel the way the stat sheet is; opening it up to
  * players, or to each player's own line, is a rule to add here when asked.
+ * Here too a coach links each GPS name to a player, which puts their running
+ * on their season page (`GpsNames`).
  */
 export default async function MatchGpsPage({ params }: { params: Promise<{ matchId: string }> }) {
   const user = await requireUser();
@@ -42,7 +46,15 @@ export default async function MatchGpsPage({ params }: { params: Promise<{ match
   }
 
   const [team] = await db.select({ name: teams.name }).from(teams).where(eq(teams.id, user.teamId)).limit(1);
-  const { players } = await loadMatchGps(matchId, user.teamId);
+  const [{ players }, links, people] = await Promise.all([
+    loadMatchGps(matchId, user.teamId),
+    loadGpsLinks(user.teamId),
+    db
+      .select({ id: users.id, displayName: users.displayName })
+      .from(users)
+      .where(eq(users.teamId, user.teamId))
+      .orderBy(asc(users.displayName)),
+  ]);
 
   return (
     <>
@@ -53,6 +65,17 @@ export default async function MatchGpsPage({ params }: { params: Promise<{ match
           hasData={players.length > 0}
           matchLabel={`Against ${match.opponent}, ${matchDateLong(match.playedOn)}`}
         />
+        {players.length > 0 && (
+          <GpsNames
+            matchId={match.id}
+            people={people}
+            rows={players.map((p) => ({
+              name: p.name,
+              linked: links.get(gpsNameKey(p.name)) ?? null,
+              suggested: suggestPlayer(p.name, people)?.id ?? null,
+            }))}
+          />
+        )}
         {players.length > 0 && (
           <GpsReport
             teamName={team?.name ?? "Us"}

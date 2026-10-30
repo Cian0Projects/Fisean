@@ -169,3 +169,34 @@ export function reelOf<T>(moments: readonly Moment<T>[]): Passage<T>[] {
   }
   return reel;
 }
+
+/* ----------------------------------------------------------------- season */
+
+/** One match's share of a season reel: its rows, its footage and its clock. */
+export type MatchMoments<T> = {
+  rows: readonly T[];
+  footage: readonly Footage[];
+  whistles: Markers;
+  halfLengthMin: number;
+};
+
+/**
+ * Moments across a season: each match placed against its own footage and
+ * its own clock, since a half is 30 minutes one week and 35 the next, then
+ * the matches run one after another in the order given (oldest first, as a
+ * season is read). Each match's footage is its own, so a passage never joins
+ * across two matches.
+ */
+export function seasonMoments<T extends Timed>(matches: readonly MatchMoments<T>[]): {
+  placed: Moment<T>[];
+  unplaced: T[];
+} {
+  const placed: Moment<T>[] = [];
+  const unplaced: T[] = [];
+  for (const m of matches) {
+    const one = statMoments(m.rows, m.footage, m.whistles, m.halfLengthMin);
+    placed.push(...one.placed);
+    unplaced.push(...one.unplaced);
+  }
+  return { placed, unplaced };
+}

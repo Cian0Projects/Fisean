@@ -22,6 +22,7 @@ import { matchDate } from "@/lib/format";
  *
  * A player gets the other half: every sheet a coach has submitted, with how
  * many of its moments are theirs to watch back. Logging stays with coaches.
+ * Both get the season views, added up from the submitted sheets.
  */
 export default async function StatsPage() {
   const user = await requireUser();
@@ -67,6 +68,7 @@ export default async function StatsPage() {
           Start a match to log it live, or open one another coach has started. Everyone logging the same
           game works on the same sheet, and footage can be added to it later.
         </p>
+        <SeasonLinks />
 
         <NewMatchForm />
 
@@ -170,6 +172,7 @@ async function PlayerStats({ user }: { user: SessionUser }) {
           The stat sheet for every match the coaches have finished. Open one to read it, and watch any moment on it
           back from ten seconds before it happened: yours, or anyone else&rsquo;s.
         </p>
+        <SeasonLinks />
 
         <section className="mt-10">
           <h2 className="title border-b pb-2 text-base" style={{ borderColor: "var(--color-line-strong)" }}>
@@ -213,5 +216,22 @@ async function PlayerStats({ user }: { user: SessionUser }) {
         </section>
       </main>
     </>
+  );
+}
+
+/**
+ * The season across every submitted sheet, for the team and for each player.
+ * Everyone gets both: the panel reads everyone's numbers, match or season.
+ */
+function SeasonLinks() {
+  return (
+    <div className="mt-5 flex flex-wrap gap-2">
+      <Link href="/stats/team" className="btn-outline text-xs">
+        Team season
+      </Link>
+      <Link href="/stats/players" className="btn-outline text-xs">
+        Player seasons
+      </Link>
+    </div>
   );
 }
