@@ -13,7 +13,7 @@
 import { PITCH_FILL, PitchMarkings, VIEW_W, pitchViewHeight } from "@/components/pitch/PitchMarkings";
 import type { GameCode } from "@/lib/hurling/codes";
 import { DEFAULT_PITCH } from "@/lib/hurling/pitch";
-import { GOAL_WIDTHS_M, type BallKind, type DrillData, type DrillKit, type DrillPiece, type DrillSide, type Point } from "@/lib/hurling/drill";
+import { GOAL_WIDTHS_M, NOTE_CARD, type NoteCardLayout, type BallKind, type DrillData, type DrillKit, type DrillPiece, type DrillSide, type Point } from "@/lib/hurling/drill";
 
 export const H = pitchViewHeight();
 /**
@@ -241,6 +241,57 @@ export function PitchBadge({ version }: { version: number | null }) {
       preserveAspectRatio="xMinYMin meet"
       pointerEvents="none"
     />
+  );
+}
+
+/**
+ * The step's note on the pitch: a card with the step's number in a disc
+ * beside it. Ash for the number, as on the step buttons, so it reads as a
+ * figure and not as a side. `faded` lets a coach see the pieces under it
+ * while they drag. The exported video draws the same layout on a canvas.
+ */
+export function NoteCard({ card, faded = false }: { card: NoteCardLayout; faded?: boolean }) {
+  return (
+    <g pointerEvents="none" opacity={faded ? 0.25 : 1} style={{ transition: "opacity 120ms" }}>
+      <rect
+        x={card.x}
+        y={card.y}
+        width={card.w}
+        height={card.h}
+        rx={10}
+        fill="var(--color-stage)"
+        fillOpacity={0.94}
+        stroke="var(--color-line-strong)"
+        strokeWidth={1.5}
+      />
+      <circle cx={card.badge.cx} cy={card.badge.cy} r={card.badge.r} fill="var(--color-ash)" />
+      <text
+        x={card.badge.cx}
+        y={card.badge.cy}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={card.step >= 99 ? 12 : card.step >= 9 ? 15 : 18}
+        fontWeight="800"
+        fontFamily="var(--font-sans)"
+        fill="var(--color-on-spot)"
+      >
+        {card.step + 1}
+      </text>
+      {card.lines.map((line, i) => (
+        <text
+          key={i}
+          x={card.textX}
+          y={card.lineY[i]}
+          dominantBaseline="central"
+          fontSize={NOTE_CARD.fontSize}
+          fontWeight="600"
+          fontFamily="var(--font-sans)"
+          fill="var(--color-ink)"
+        >
+          {line}
+        </text>
+      ))}
+    </g>
   );
 }
 

@@ -523,6 +523,135 @@ export function captionStep(d: DrillData, t: number): number {
   return Math.max(0, Math.min(d.steps.length - 1, Math.ceil(t - 1e-6)));
 }
 
+/**
+ * The step's note, set on the pitch as a card with the step's number beside
+ * it. The board draws it as SVG and the video draws it on a canvas, so the
+ * wrapping and placement are worked out here, once, in the board's own
+ * drawing units (VIEW_W wide), and both renderers only paint the result.
+ * Wrapping is by an estimated character width rather than a measured one,
+ * for the same reason: the two renderers could otherwise break a line in
+ * different places.
+ */
+export const NOTE_CARD = {
+  fontSize: 20,
+  lineHeight: 27,
+  padX: 18,
+  padY: 13,
+  badge: 34,
+  gap: 14,
+  maxWidth: 660,
+  maxLines: 4,
+  /** Clear space between the card and the edge of the pitch. */
+  edge: 16,
+  /** Average glyph width as a share of the font size; a little generous. */
+  charWidth: 0.55,
+} as const;
+
+/** Greedy word wrap to `maxChars` a line; a cut-off ends in an ellipsis. */
+export function wrapNote(note: string, maxChars: number, maxLines: number): string[] {
+  const lines: string[] = [];
+  let line = "";
+  for (let word of note.split(/\s+/).filter(Boolean)) {
+    // A word longer than a whole line is broken, not left to spill out.
+    while (word.length > maxChars) {
+      if (line) {
+        lines.push(line);
+        line = "";
+      }
+      lines.push(word.slice(0, maxChars));
+      word = word.slice(maxChars);
+    }
+    const next = line ? `${line} ${word}` : word;
+    if (next.length > maxChars && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = next;
+    }
+  }
+  if (line) lines.push(line);
+  if (lines.length <= maxLines) return lines;
+  const kept = lines.slice(0, maxLines);
+  const last = kept[maxLines - 1];
+  kept[maxLines - 1] = `${(last.length >= maxChars ? last.slice(0, maxChars - 1) : last).trimEnd()}…`;
+  return kept;
+}
+
+export type NoteCardLayout = {
+  /** Zero-based, as in `DrillData.steps`; the card shows it plus one. */
+  step: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  lines: string[];
+  badge: { cx: number; cy: number; r: number };
+  /** Left edge of the text, and the vertical middle of each line. */
+  textX: number;
+  lineY: number[];
+};
+
+function noteCardSize(note: string): { lines: string[]; w: number; h: number } | null {
+  const c = NOTE_CARD;
+  const text = c.maxWidth - 2 * c.padX - c.badge - c.gap;
+  const glyph = c.fontSize * c.charWidth;
+  const lines = wrapNote(note, Math.floor(text / glyph), c.maxLines);
+  if (lines.length === 0) return null;
+  const widest = Math.max(...lines.map((l) => l.length));
+  return {
+    lines,
+    w: Math.min(c.maxWidth, 2 * c.padX + c.badge + c.gap + widest * glyph),
+    h: 2 * c.padY + Math.max(c.badge, lines.length * c.lineHeight),
+  };
+}
+
+/**
+ * One card per step, or null for a step with no note. All the cards sit at
+ * the same end of the pitch, so the card does not hop from top to bottom as
+ * the drill plays: the end is chosen once, as the one with fewer pieces and
+ * kit under it anywhere in the drill. `width` and `height` are the board's
+ * drawing size.
+ */
+export function noteCardLayouts(d: DrillData, width: number, height: number): (NoteCardLayout | null)[] {
+  const c = NOTE_CARD;
+  const sizes = d.steps.map((s) => noteCardSize(s.note));
+  const tallest = Math.max(0, ...sizes.map((s) => s?.h ?? 0));
+  if (tallest === 0) return sizes.map(() => null);
+
+  const reach = (tallest + c.edge + 16) / height;
+  const left = (width - c.maxWidth) / 2 / width;
+  const under = (x: number) => x > left && x < 1 - left;
+  let top = 0;
+  let bottom = 0;
+  const tally = (p: Point) => {
+    if (!under(p.x)) return;
+    if (p.y < reach) top++;
+    if (p.y > 1 - reach) bottom++;
+  };
+  for (const s of d.steps) for (const p of d.pieces) if (s.at[p.id]) tally(s.at[p.id]);
+  for (const k of d.kit) tally(k);
+  const atTop = top < bottom;
+
+  return sizes.map((size, step) => {
+    if (!size) return null;
+    const x = (width - size.w) / 2;
+    const y = atTop ? c.edge : height - c.edge - size.h;
+    const block = Math.max(c.badge, size.lines.length * c.lineHeight);
+    const textTop = y + c.padY + (block - size.lines.length * c.lineHeight) / 2;
+    return {
+      step,
+      x,
+      y,
+      w: size.w,
+      h: size.h,
+      lines: size.lines,
+      badge: { cx: x + c.padX + c.badge / 2, cy: y + c.padY + c.badge / 2, r: c.badge / 2 },
+      textX: x + c.padX + c.badge + c.gap,
+      lineY: size.lines.map((_, i) => textTop + (i + 0.5) * c.lineHeight),
+    };
+  });
+}
+
 /** "5 v 4, 1 sliotar, 3 steps" — for the list page. */
 export function drillSummary(d: DrillData): string {
   const a = playersOf(d, "a").length;

@@ -14,6 +14,10 @@ import {
   turnGoal,
   addStep,
   captionStep,
+  setStepNote,
+  NOTE_CARD,
+  noteCardLayouts,
+  wrapNote,
   VIDEO_TIMING,
   videoLengthMs,
   videoTimeAt,
@@ -305,4 +309,50 @@ test("the caption is the step being moved into", () => {
   assert.equal(captionStep(d, 1), 1);
   assert.equal(captionStep(d, 1.5), 2);
   assert.equal(captionStep(d, 9), 2);
+});
+
+test("a note wraps to the card, breaks a long word, and ends in an ellipsis when cut", () => {
+  assert.deepEqual(wrapNote("one two three", 7, 4), ["one two", "three"]);
+  assert.deepEqual(wrapNote("abcdefghij", 4, 4), ["abcd", "efgh", "ij"]);
+  const cut = wrapNote("aaa bbb ccc ddd eee", 3, 2);
+  assert.equal(cut.length, 2);
+  assert.ok(cut[1].endsWith("…"));
+  assert.deepEqual(wrapNote("   ", 10, 4), []);
+});
+
+test("a step with a note gets a card inside the pitch, a step without gets none", () => {
+  let d = addStep(starterDrill(), 0);
+  d = setStepNote(d, 1, "5 overlaps on the wing, 11 lays it off");
+  const cards = noteCardLayouts(d, 1000, 600);
+  assert.equal(cards[0], null);
+  const c = cards[1];
+  assert.equal(c.step, 1);
+  assert.ok(c.x >= 0 && c.x + c.w <= 1000);
+  assert.ok(c.y >= 0 && c.y + c.h <= 600);
+  assert.equal(c.lines.length, c.lineY.length);
+  assert.ok(c.lines.length <= NOTE_CARD.maxLines);
+});
+
+test("the cards sit at the end of the pitch with fewer pieces under it, the same for every step", () => {
+  let d = addStep(starterDrill(), 0);
+  d = setStepNote(setStepNote(d, 0, "Set up"), 1, "Go");
+  // Everyone in the top half, centred: the cards go to the bottom.
+  const crowdTop = {
+    ...d,
+    steps: d.steps.map((s) => ({
+      ...s,
+      at: Object.fromEntries(Object.keys(s.at).map((id) => [id, { x: 0.5, y: 0.1 }])),
+    })),
+  };
+  const bottom = noteCardLayouts(crowdTop, 1000, 600);
+  assert.ok(bottom[0].y > 300 && bottom[1].y > 300);
+  const crowdBottom = {
+    ...d,
+    steps: d.steps.map((s) => ({
+      ...s,
+      at: Object.fromEntries(Object.keys(s.at).map((id) => [id, { x: 0.5, y: 0.9 }])),
+    })),
+  };
+  const top = noteCardLayouts(crowdBottom, 1000, 600);
+  assert.ok(top[0].y < 100 && top[1].y < 100);
 });

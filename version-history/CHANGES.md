@@ -16,6 +16,11 @@ A player's season page now has "Watch the season": every moment of theirs in sco
 
 The stat sheets now add up across a season. `/stats/team` shows the form (won, drawn, lost, and a margin bar per match), then the match sheet's own headings as season figures with a line across the matches: shooting both ways and split by half, restarts, turnovers, discipline, the season's scorers and a map of every shot. `/stats/players` is the panel in one sortable table, and `/stats/players/[id]` is one player's season, with their shooting, maps and a row per match that opens that match's footage on their moments. Everyone can see all of it, coaches and players alike, the same as each match's sheet. Seasons are calendar years and can be narrowed to a competition. Nothing is stored: every figure is worked out from the submitted sheets when the page is read (`src/lib/hurling/trends.ts`, tested), so correcting a sheet or a number corrects the season. Only submitted sheets and entries count. A figure per match divides by the matches that actually logged that kind of stat, so a sheet that only logged shots does not count as a match with no turnovers. A player is found through each match's own number sheet, and entries on numbers with no name are counted for the team and flagged so someone can fill the names in. No schema change.
 
+## A drill's step notes appear on the pitch, in playback and in the exported video
+*2026-10-29*
+
+The note a coach writes for each drill step used to show only in a line under the board, and in a caption strip under the pitch in the exported video. Now it is a card on the pitch itself, with the step's number in a disc beside it, in the editor while the drill plays or a step is open, and in the exported video. The wrapping and placement are one pure function (`noteCardLayouts` in `drill.ts`) that the board paints as SVG and the video paints on its canvas, so the two cannot disagree. The card sits at whichever end of the pitch has fewer players and kit under it anywhere in the drill, and stays there for every step so it does not hop about. It fades while a piece is being dragged. The video's caption band under the pitch is gone, since the card replaces it, which gives the pitch more room.
+
 ## Each stat logger keeps their own clock, and submits their own stats
 *2026-10-29*
 

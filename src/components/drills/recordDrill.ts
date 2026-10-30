@@ -11,8 +11,8 @@
  * board is cloned, stripped to its static layer, its colour tokens resolved
  * to real colours (an SVG drawn as an image cannot see the page's CSS), and
  * rasterised. Only the players and balls are drawn per frame, with the
- * canvas API, mirroring DrillArt's discs — if a piece changes shape there,
- * change it here too.
+ * canvas API, mirroring DrillArt's discs and note card — if either changes
+ * shape there, change it here too.
  *
  * Recording runs in real time, so a ten-second drill takes ten seconds, and
  * the tab has to stay in front: browsers stop animation frames in a
@@ -20,12 +20,15 @@
  */
 import { VIEW_W } from "@/components/pitch/PitchMarkings";
 import {
+  NOTE_CARD,
   captionStep,
+  noteCardLayouts,
   positionsAt,
   videoLengthMs,
   videoTimeAt,
   type DrillData,
   type DrillPiece,
+  type NoteCardLayout,
   type Point,
 } from "@/lib/hurling/drill";
 import { BADGE_MARK, pieceRadius } from "./DrillArt";
@@ -34,7 +37,7 @@ const W = 1920;
 const HEIGHT = 1080;
 const FPS = 30;
 const TITLE_BAND = 116;
-const CAPTION_BAND = 132;
+const CAPTION_BAND = 72;
 
 /** MP4 first, for phones and WhatsApp; WebM where that is all there is. */
 const TYPES = [
@@ -90,6 +93,9 @@ export async function recordDrill({
     faint: token("--color-ink-faint"),
     line: token("--color-line"),
     pitch: token("--color-pitch"),
+    ash: token("--color-ash"),
+    onSpot: token("--color-on-spot"),
+    lineStrong: token("--color-line-strong"),
     ball: token("--color-ball"),
     a: token("--color-side-a"),
     b: token("--color-side-b"),
@@ -117,6 +123,9 @@ export async function recordDrill({
       h: badgeImage.naturalHeight * s,
     };
   })();
+
+  // Laid out on the board's own grid, in drawing units, and scaled by `k`.
+  const cards = noteCardLayouts(data, VIEW_W, board.viewBox.baseVal.height || 621);
 
   const canvas = document.createElement("canvas");
   canvas.width = W;
@@ -167,16 +176,13 @@ export async function recordDrill({
       if (spot) drawPiece(ctx, p, { x: px + spot.x * pitchW, y: py + spot.y * pitchH }, k, ink, font);
     }
 
-    // The step's note as a caption; the club in the corner.
-    ctx.textAlign = "left";
-    ctx.fillStyle = ink.ink;
-    ctx.font = `500 34px ${font}`;
-    const lines = wrap(ctx, data.steps[step].note, pitchW * 0.8).slice(0, 2);
-    lines.forEach((line, i) => ctx.fillText(line, px, py + pitchH + 56 + i * 44));
+    // The step's note, on the pitch; the club in the corner below it.
+    const card = cards[step];
+    if (card) drawNoteCard(ctx, card, px, py, k, ink, font);
     ctx.textAlign = "right";
     ctx.fillStyle = ink.faint;
     ctx.font = `600 24px ${font}`;
-    ctx.fillText(teamName, px + pitchW, py + pitchH + 56);
+    ctx.fillText(teamName, px + pitchW, py + pitchH + 46);
   };
 
   const length = videoLengthMs(data, speed);
@@ -278,7 +284,55 @@ async function loadBadge(url: string): Promise<HTMLImageElement | null> {
   }
 }
 
-type Ink = Record<"stage" | "ink" | "pitch" | "ball" | "a" | "b", string>;
+type Ink = Record<"stage" | "ink" | "pitch" | "ball" | "a" | "b" | "ash" | "onSpot" | "lineStrong", string>;
+
+/** A step's note, the canvas twin of DrillArt's `NoteCard`. */
+function drawNoteCard(
+  ctx: CanvasRenderingContext2D,
+  card: NoteCardLayout,
+  px: number,
+  py: number,
+  k: number,
+  ink: Ink,
+  font: string,
+) {
+  const x = px + card.x * k;
+  const y = py + card.y * k;
+  const w = card.w * k;
+  const h = card.h * k;
+  const r = 10 * k;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+  ctx.globalAlpha = 0.94;
+  ctx.fillStyle = ink.stage;
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = ink.lineStrong;
+  ctx.lineWidth = 1.5 * k;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(px + card.badge.cx * k, py + card.badge.cy * k, card.badge.r * k, 0, Math.PI * 2);
+  ctx.fillStyle = ink.ash;
+  ctx.fill();
+
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "center";
+  ctx.fillStyle = ink.onSpot;
+  ctx.font = `800 ${(card.step >= 99 ? 12 : card.step >= 9 ? 15 : 18) * k}px ${font}`;
+  ctx.fillText(String(card.step + 1), px + card.badge.cx * k, py + card.badge.cy * k + 0.5 * k);
+
+  ctx.textAlign = "left";
+  ctx.fillStyle = ink.ink;
+  ctx.font = `600 ${NOTE_CARD.fontSize * k}px ${font}`;
+  card.lines.forEach((line, i) => ctx.fillText(line, px + card.textX * k, py + card.lineY[i] * k + 0.5 * k));
+  ctx.textBaseline = "alphabetic";
+}
 
 /** One piece, the canvas twin of DrillArt's `Piece`. */
 function drawPiece(ctx: CanvasRenderingContext2D, p: DrillPiece, c: Point, k: number, ink: Ink, font: string) {
@@ -349,21 +403,4 @@ function fit(ctx: CanvasRenderingContext2D, text: string, max: number): string {
   let s = text;
   while (s.length > 1 && ctx.measureText(`${s}…`).width > max) s = s.slice(0, -1);
   return `${s.trimEnd()}…`;
-}
-
-/** Break a note into lines no wider than `max`. */
-function wrap(ctx: CanvasRenderingContext2D, text: string, max: number): string[] {
-  const lines: string[] = [];
-  let line = "";
-  for (const word of text.split(/\s+/).filter(Boolean)) {
-    const next = line ? `${line} ${word}` : word;
-    if (ctx.measureText(next).width > max && line) {
-      lines.push(line);
-      line = word;
-    } else {
-      line = next;
-    }
-  }
-  if (line) lines.push(line);
-  return lines;
 }

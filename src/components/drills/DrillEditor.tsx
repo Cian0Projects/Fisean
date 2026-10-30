@@ -18,7 +18,7 @@
  * a session on a phone in the car park never loses a drill to a dropped tab.
  */
 import Link from "next/link";
-import { useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import { PITCH_FILL, PitchMarkings, VIEW_W } from "@/components/pitch/PitchMarkings";
 import type { GameCode } from "@/lib/hurling/codes";
 import { deleteDrill, duplicateDrill, saveDrill } from "@/lib/actions/drills";
@@ -45,6 +45,7 @@ import {
   addStep,
   ballsOf,
   movePiece,
+  noteCardLayouts,
   playersOf,
   positionsAt,
   removePiece,
@@ -59,7 +60,7 @@ import {
   type DrillSide,
   type Point,
 } from "@/lib/hurling/drill";
-import { DrillMarkers, H, KitHitArea, KitMark, Movement, Piece, PitchBadge, SIDE_COLOUR, badgeUrl } from "./DrillArt";
+import { DrillMarkers, H, KitHitArea, KitMark, Movement, NoteCard, Piece, PitchBadge, SIDE_COLOUR, badgeUrl } from "./DrillArt";
 import { recordDrill } from "./recordDrill";
 
 type Status = "saved" | "unsaved" | "saving" | "error";
@@ -203,6 +204,8 @@ export function DrillEditor({
 
   const shown = editing ? data.steps[current].at : positionsAt(data, t);
   const before = editing && current > 0 ? data.steps[current - 1].at : null;
+  // Each step's note as a card on the pitch; see `noteCardLayouts`.
+  const noteCards = useMemo(() => noteCardLayouts(data, VIEW_W, H), [data]);
 
   /* ------------------------------------------------------------ export */
 
@@ -472,6 +475,10 @@ export function DrillEditor({
                 <Piece piece={p} at={shown[p.id]} selected={selected === p.id} />
               </g>
             ))}
+
+            {/* The step's note, on the pitch where the video shows it too. It
+                fades while a piece is held, so nothing is hidden under it. */}
+            {noteCards[playingStep] && <NoteCard card={noteCards[playingStep]!} faded={dragId !== null} />}
           </svg>
 
           {/* Transport */}
