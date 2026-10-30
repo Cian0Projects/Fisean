@@ -54,6 +54,8 @@ export type DrillData = {
   steps: DrillStep[];
   /** Cones and goals: one spot for the whole drill. See "Kit" below. */
   kit: DrillKit[];
+  /** Where the step notes sit on the pitch; absent means "auto". */
+  notePlace?: NotePlace;
 };
 
 /**
@@ -325,6 +327,32 @@ export function movePiece(d: DrillData, step: number, id: string, to: Point): Dr
   };
 }
 
+/** Where on the pitch the step notes sit; "auto" picks the emptier end. */
+export const NOTE_PLACES = [
+  "auto",
+  "top-left",
+  "top",
+  "top-right",
+  "left",
+  "middle",
+  "right",
+  "bottom-left",
+  "bottom",
+  "bottom-right",
+] as const;
+export type NotePlace = (typeof NOTE_PLACES)[number];
+
+export function isNotePlace(v: unknown): v is NotePlace {
+  return NOTE_PLACES.includes(v as NotePlace);
+}
+
+/** "auto" is the default, so it is stored as nothing. */
+export function setNotePlace(d: DrillData, place: NotePlace): DrillData {
+  const next: DrillData = { ...d, notePlace: place };
+  if (place === "auto") delete next.notePlace;
+  return next;
+}
+
 export function setStepNote(d: DrillData, step: number, note: string): DrillData {
   return {
     ...d,
@@ -545,6 +573,12 @@ export const NOTE_CARD = {
   edge: 16,
   /** Average glyph width as a share of the font size; a little generous. */
   charWidth: 0.55,
+  /**
+   * Cards against a side of the pitch are narrow and tall, so a long note
+   * runs down the side rather than across the middle of the play.
+   */
+  sideWidth: 340,
+  sideMaxLines: 9,
 } as const;
 
 /** Greedy word wrap to `maxChars` a line; a cut-off ends in an ellipsis. */
@@ -591,30 +625,38 @@ export type NoteCardLayout = {
   lineY: number[];
 };
 
-function noteCardSize(note: string): { lines: string[]; w: number; h: number } | null {
+function noteCardSize(
+  note: string,
+  maxWidth: number,
+  maxLines: number,
+): { lines: string[]; w: number; h: number } | null {
   const c = NOTE_CARD;
-  const text = c.maxWidth - 2 * c.padX - c.badge - c.gap;
+  const text = maxWidth - 2 * c.padX - c.badge - c.gap;
   const glyph = c.fontSize * c.charWidth;
-  const lines = wrapNote(note, Math.floor(text / glyph), c.maxLines);
+  const lines = wrapNote(note, Math.floor(text / glyph), maxLines);
   if (lines.length === 0) return null;
   const widest = Math.max(...lines.map((l) => l.length));
   return {
     lines,
-    w: Math.min(c.maxWidth, 2 * c.padX + c.badge + c.gap + widest * glyph),
+    w: Math.min(maxWidth, 2 * c.padX + c.badge + c.gap + widest * glyph),
     h: 2 * c.padY + Math.max(c.badge, lines.length * c.lineHeight),
   };
 }
 
 /**
- * One card per step, or null for a step with no note. All the cards sit at
- * the same end of the pitch, so the card does not hop from top to bottom as
- * the drill plays: the end is chosen once, as the one with fewer pieces and
- * kit under it anywhere in the drill. `width` and `height` are the board's
- * drawing size.
+ * One card per step, or null for a step with no note. All the cards sit in
+ * the same place, so the card does not hop about as the drill plays. The
+ * coach picks the place (`notePlace`); on "auto" it is the top or bottom
+ * end, whichever has fewer pieces and kit under it anywhere in the drill.
+ * `width` and `height` are the board's drawing size.
  */
 export function noteCardLayouts(d: DrillData, width: number, height: number): (NoteCardLayout | null)[] {
   const c = NOTE_CARD;
-  const sizes = d.steps.map((s) => noteCardSize(s.note));
+  const place = d.notePlace ?? "auto";
+  const beside = place.includes("left") || place.includes("right");
+  const sizes = d.steps.map((s) =>
+    noteCardSize(s.note, beside ? c.sideWidth : c.maxWidth, beside ? c.sideMaxLines : c.maxLines),
+  );
   const tallest = Math.max(0, ...sizes.map((s) => s?.h ?? 0));
   if (tallest === 0) return sizes.map(() => null);
 
@@ -630,12 +672,13 @@ export function noteCardLayouts(d: DrillData, width: number, height: number): (N
   };
   for (const s of d.steps) for (const p of d.pieces) if (s.at[p.id]) tally(s.at[p.id]);
   for (const k of d.kit) tally(k);
-  const atTop = top < bottom;
+  const row = place === "auto" ? (top < bottom ? "top" : "bottom") : place.includes("top") ? "top" : place.includes("bottom") ? "bottom" : "middle";
+  const column = place.includes("left") ? "left" : place.includes("right") ? "right" : "centre";
 
   return sizes.map((size, step) => {
     if (!size) return null;
-    const x = (width - size.w) / 2;
-    const y = atTop ? c.edge : height - c.edge - size.h;
+    const x = column === "left" ? c.edge : column === "right" ? width - c.edge - size.w : (width - size.w) / 2;
+    const y = row === "top" ? c.edge : row === "bottom" ? height - c.edge - size.h : (height - size.h) / 2;
     const block = Math.max(c.badge, size.lines.length * c.lineHeight);
     const textTop = y + c.padY + (block - size.lines.length * c.lineHeight) / 2;
     return {
@@ -747,6 +790,7 @@ export function parseDrill(raw: unknown): DrillData {
     pieces,
     steps,
     kit: parseKit(raw.kit, new Set(pieces.map((p) => p.id))),
+    ...(isNotePlace(raw.notePlace) && raw.notePlace !== "auto" ? { notePlace: raw.notePlace } : {}),
   };
 }
 

@@ -3,14 +3,15 @@ import assert from "node:assert/strict";
 import {
   LAST_WHISTLE,
   NEXT_WHISTLE,
+  SKIP_MS,
   canLog,
   clockFromReading,
   clockOf,
-  clockShift,
   halfForReading,
   liveMoment,
   livePhase,
-  shiftedHalfMs,
+  resumeClock,
+  skipClock,
 } from "../src/lib/hurling/live-clock.ts";
 
 const t0 = 1_800_000_000_000;
@@ -78,13 +79,25 @@ test("setting the clock by hand gives whole whistles, in an order the game could
   assert.match(clockFromReading(20 * min, 2, now, {}, 30).error, /starts at 30:00/);
 });
 
-test("moving a half's start moves that half's entries, and only that half's", () => {
-  // Throw-in was tapped 20 seconds late: set back 20 seconds, every 1st half entry is 20 seconds further in.
-  const shift = clockShift({ throwIn: t0, secondHalf: t0 + 45 * min }, { throwIn: t0 - 20_000, secondHalf: t0 + 45 * min });
-  assert.deepEqual(shift, { 1: -20_000, 2: 0 });
-  assert.equal(shiftedHalfMs(60_000, shift[1]), 80_000);
-  // Started late in the second half, no first-half start before: nothing in the 1st half moves.
-  assert.deepEqual(clockShift({}, { throwIn: t0, secondHalf: t0 + 40 * min }), { 1: 0, 2: 0 });
-  // Never before the half started.
-  assert.equal(shiftedHalfMs(5_000, 20_000), 0);
+test("skipping moves the half that is on, and never back past its start", () => {
+  const at = t0 + 10 * min;
+  const reads = (w) => liveMoment(at, w).halfMs;
+  assert.equal(reads(skipClock({ throwIn: t0 }, SKIP_MS, at)), 10 * min + 15_000);
+  assert.equal(reads(skipClock({ throwIn: t0 }, -SKIP_MS, at)), 10 * min - 15_000);
+  // Back 15s at 0:08 stops at 0:00.
+  assert.equal(liveMoment(t0 + 8_000, skipClock({ throwIn: t0 }, -SKIP_MS, t0 + 8_000)).halfMs, 0);
+  // The second half moves its own start; the first half's is left alone.
+  const second = skipClock({ throwIn: t0, halfTime: t0 + 31 * min, secondHalf: t0 + 45 * min }, SKIP_MS, t0 + 50 * min);
+  assert.equal(second.throwIn, t0);
+  assert.equal(second.secondHalf, t0 + 45 * min - 15_000);
+  // Over half time nothing is running.
+  const interval = { throwIn: t0, halfTime: t0 + 31 * min };
+  assert.deepEqual(skipClock(interval, SKIP_MS, at), interval);
+});
+
+test("a paused clock carries on from where it stopped", () => {
+  // Paused at 12:00, resumed five minutes later: still 12:00.
+  const pausedAt = t0 + 12 * min;
+  const now = pausedAt + 5 * min;
+  assert.equal(liveMoment(now, resumeClock({ throwIn: t0 }, pausedAt, now)).halfMs, 12 * min);
 });

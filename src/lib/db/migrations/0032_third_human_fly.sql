@@ -1,0 +1,1 @@
+ALTER TABLE `stat_clocks` ADD `paused_at` integer;

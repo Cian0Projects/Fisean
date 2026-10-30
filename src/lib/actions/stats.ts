@@ -1,13 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { clips, matchStats, matches, statClocks, videos } from "@/lib/db/schema";
 import { assertSameTeam, requireCoach } from "@/lib/auth/guard";
 import { normaliseEntry, type StatDraft } from "@/lib/hurling/stats";
-import { LAST_WHISTLE, NEXT_WHISTLE, clockShift, livePhase, type Whistle } from "@/lib/hurling/live-clock";
-import { clockOf, loadStatClock } from "@/lib/queries/stats";
+import { LAST_WHISTLE, NEXT_WHISTLE, canLog, livePhase, resumeClock, type Whistle } from "@/lib/hurling/live-clock";
+import { clockOf, loadStatClock, type SavedClock } from "@/lib/queries/stats";
 import type { Markers } from "@/lib/hurling/notation";
 import type { GameCode } from "@/lib/hurling/codes";
 import type { StatRow } from "@/components/stats/types";
@@ -262,13 +262,6 @@ export async function setStatsSubmitted(
  * clock are in src/lib/hurling/live-clock.ts.
  */
 
-const WHISTLE_COLUMNS = {
-  throwIn: "throwInAt",
-  halfTime: "halfTimeAt",
-  secondHalf: "secondHalfAt",
-  fullTime: "fullTimeAt",
-} as const;
-
 async function ownClock(matchId: string) {
   const user = await requireCoach();
   const [match] = await db
@@ -278,8 +271,7 @@ async function ownClock(matchId: string) {
     .limit(1);
   if (!match) throw new Error("That match no longer exists.");
   assertSameTeam(user, match);
-  const { whistles, submittedAt } = await loadStatClock(match.id, user.id);
-  return { user, match, whistles, submittedAt };
+  return { user, match, ...(await loadStatClock(match.id, user.id)) };
 }
 
 /** Write this logger's clock, making the row the first time. */
@@ -310,64 +302,52 @@ const timeOrNull = (at: number | null | undefined): number | null => {
  * The time is the phone's own, sent with the tap: the clock only ever runs on
  * the one phone, so it is the only clock that has to agree with itself. Only
  * the whistle that comes next can be tapped, and only the last one taken
- * back, so the clock cannot get into an order the game never was in.
+ * back, so the clock cannot get into an order the game never was in. A
+ * paused clock carries on first, so the half it ends reads as it did.
  */
 export async function setMyWhistle(
   matchId: string,
   whistle: Whistle,
-  at: number | null,
-): Promise<{ whistles: Markers; submittedAt: number | null }> {
-  const { user, match, whistles } = await ownClock(matchId);
+  action: "tap" | "undo",
+  now: number,
+): Promise<SavedClock> {
+  const { user, match, whistles, pausedAt } = await ownClock(matchId);
+  const at = timeOrNull(now)!;
   const phase = livePhase(whistles);
-  if (at != null && NEXT_WHISTLE[phase] !== whistle) throw new Error("That whistle is not the next one.");
-  if (at == null && LAST_WHISTLE[phase] !== whistle) throw new Error("Only the last whistle can be taken back.");
-  const saved = saveClock(db, user, match.id, { [WHISTLE_COLUMNS[whistle]]: timeOrNull(at) });
+  if (action === "tap" && NEXT_WHISTLE[phase] !== whistle) throw new Error("That whistle is not the next one.");
+  if (action === "undo" && LAST_WHISTLE[phase] !== whistle) throw new Error("Only the last whistle can be taken back.");
+  const running = pausedAt != null ? resumeClock(whistles, pausedAt, at) : whistles;
+  const saved = saveClock(db, user, match.id, {
+    ...whistleColumns({ ...running, [whistle]: action === "tap" ? at : null }),
+    pausedAt: null,
+  });
   revalidateStats(match.id);
   return saved;
 }
 
+const whistleColumns = (w: Markers) => ({
+  throwInAt: timeOrNull(w.throwIn),
+  halfTimeAt: timeOrNull(w.halfTime),
+  secondHalfAt: timeOrNull(w.secondHalf),
+  fullTimeAt: timeOrNull(w.fullTime),
+});
+
 /**
- * Set this logger's clock outright: joining late, or a throw-in tapped late.
- *
- * Each half's entries were timed from that half's start, so when the start
- * moves they move with it, by the same amount (`clockShift`). Only this
- * logger's entries from the line, which are the only ones timed off this
- * clock.
+ * Set this logger's clock outright: joined late, a whistle tapped late, or
+ * watching it back and pausing, skipping or typing what the screen shows.
+ * Only the clock moves. What is already logged keeps its time; see
+ * live-clock.ts for why.
  */
 export async function setMyClock(
   matchId: string,
-  next: Markers,
-): Promise<{ whistles: Markers; submittedAt: number | null }> {
-  const { user, match, whistles } = await ownClock(matchId);
-  const shift = clockShift(whistles, next);
-
-  const set = {
-    throwInAt: timeOrNull(next.throwIn),
-    halfTimeAt: timeOrNull(next.halfTime),
-    secondHalfAt: timeOrNull(next.secondHalf),
-    fullTimeAt: timeOrNull(next.fullTime),
-  };
+  next: { whistles: Markers; pausedAt: number | null },
+): Promise<SavedClock> {
+  const { user, match } = await ownClock(matchId);
+  const set = whistleColumns(next.whistles);
   if (set.throwInAt == null && set.secondHalfAt == null) throw new Error("That clock has no start.");
-
-  const saved = db.transaction((tx) => {
-    for (const half of [1, 2] as const) {
-      if (shift[half] === 0) continue;
-      tx.update(matchStats)
-        .set({ halfMs: sql`max(0, ${matchStats.halfMs} - ${shift[half]})` })
-        .where(
-          and(
-            eq(matchStats.matchId, match.id),
-            eq(matchStats.createdBy, user.id),
-            eq(matchStats.half, half),
-            isNull(matchStats.videoId),
-            isNotNull(matchStats.halfMs),
-          ),
-        )
-        .run();
-    }
-    return saveClock(tx, user, match.id, set);
-  });
-
+  // Only a half that is on can be paused; there is no clock running otherwise.
+  const pausedAt = canLog(livePhase(next.whistles)) ? timeOrNull(next.pausedAt) : null;
+  const saved = saveClock(db, user, match.id, { ...set, pausedAt });
   revalidateStats(match.id);
   return saved;
 }
@@ -378,7 +358,7 @@ export async function setMyClock(
  * sheet only reaches the players when a coach submits it to the panel
  * (`setStatsSubmitted`), a separate step.
  */
-export async function submitMyStats(matchId: string): Promise<{ whistles: Markers; submittedAt: number | null }> {
+export async function submitMyStats(matchId: string): Promise<SavedClock> {
   const { user, match } = await ownClock(matchId);
   const saved = db.transaction((tx) => {
     tx.update(matchStats)

@@ -17,6 +17,7 @@ import {
   setStepNote,
   NOTE_CARD,
   noteCardLayouts,
+  setNotePlace,
   wrapNote,
   VIDEO_TIMING,
   videoLengthMs,
@@ -355,4 +356,30 @@ test("the cards sit at the end of the pitch with fewer pieces under it, the same
   };
   const top = noteCardLayouts(crowdBottom, 1000, 600);
   assert.ok(top[0].y < 100 && top[1].y < 100);
+});
+
+test("the coach can put the notes anywhere, and the choice survives a save", () => {
+  let d = setStepNote(starterDrill(), 0, "Set up in two lines");
+  const at = (place) => noteCardLayouts(setNotePlace(d, place), 1000, 600)[0];
+
+  const left = at("left");
+  assert.equal(left.x, NOTE_CARD.edge);
+  assert.ok(Math.abs(left.y + left.h / 2 - 300) < 1e-6);
+  const right = at("right");
+  assert.ok(Math.abs(right.x + right.w - (1000 - NOTE_CARD.edge)) < 1e-6);
+  const corner = at("top-right");
+  assert.equal(corner.y, NOTE_CARD.edge);
+  assert.ok(Math.abs(corner.x + corner.w - (1000 - NOTE_CARD.edge)) < 1e-6);
+  const middle = at("middle");
+  assert.ok(Math.abs(middle.x + middle.w / 2 - 500) < 1e-6);
+  assert.ok(Math.abs(middle.y + middle.h / 2 - 300) < 1e-6);
+  // Beside the play, a long note runs down the side rather than across.
+  const long = setStepNote(d, 0, "word ".repeat(40));
+  assert.ok(noteCardLayouts(setNotePlace(long, "left"), 1000, 600)[0].w <= NOTE_CARD.sideWidth);
+
+  const saved = parseDrill(JSON.parse(JSON.stringify(setNotePlace(d, "bottom-left"))));
+  assert.equal(saved.notePlace, "bottom-left");
+  // Auto is stored as nothing, and a rubbish value is ignored.
+  assert.equal("notePlace" in setNotePlace(setNotePlace(d, "left"), "auto"), false);
+  assert.equal(parseDrill({ ...JSON.parse(JSON.stringify(d)), notePlace: "sideways" }).notePlace, undefined);
 });

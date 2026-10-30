@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * The logger's own match clock, for logging on the line or off a stream.
+ * The logger's own match clock, for logging on the line, off a stream, or
+ * watching it back later on the television.
  *
  * One button at a time: Throw-in, then Half time, Second half and Full time,
  * each tapped as this logger sees it happen. The clock is theirs alone (see
@@ -9,19 +10,21 @@
  * other phone. Watching a stream, the logger taps each whistle when the
  * stream shows it, so the delay is already in the clock.
  *
- * Only the game clock is ever shown. A logger who joined late, or tapped
- * throw-in late, sets it by what the game clock reads ("15:30, 1st half"),
- * and their entries in that half move with it.
+ * Only the game clock is ever shown. While a half is on it can be paused and
+ * skipped 15 seconds either way, so it keeps with footage that is paused and
+ * rewound; and "Update time" sets it to whatever the game clock reads. None
+ * of these move what is already logged.
  *
  * Once full time is tapped the strip offers Submit, which puts this logger's
  * entries on the match's sheet for the other coaches.
  */
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { setMyClock, setMyWhistle, submitMyStats } from "@/lib/actions/stats";
 import { formatGameClock, parseClock, type Markers } from "@/lib/hurling/notation";
 import {
   LAST_WHISTLE,
   NEXT_WHISTLE,
+  SKIP_MS,
   WHISTLE_LABELS,
   canLog,
   clockFromReading,
@@ -29,10 +32,13 @@ import {
   halfForReading,
   liveMoment,
   livePhase,
+  resumeClock,
+  skipClock,
   type LivePhase,
+  type Whistle,
 } from "@/lib/hurling/live-clock";
 
-export type LoggerClock = { whistles: Markers; submittedAt: number | null };
+export type LoggerClock = { whistles: Markers; pausedAt: number | null; submittedAt: number | null };
 
 export type MatchClockState = ReturnType<typeof useMatchClock>;
 
@@ -46,16 +52,20 @@ export function useMatchClock(initial: LoggerClock, halfLengthMin: number) {
   }, []);
 
   const phase = livePhase(saved.whistles);
-  const moment = liveMoment(tick, saved.whistles);
+  // A paused clock reads the moment it was paused at, for showing and for
+  // timing an entry alike.
+  const reading = (now: number) => saved.pausedAt ?? now;
+  const moment = liveMoment(reading(tick), saved.whistles);
   return {
     ...saved,
     setSaved,
     phase,
     halfLengthMin,
-    /** Stats can be logged now: a half is on. */
+    paused: saved.pausedAt != null,
+    /** Stats can be logged now: a half is on, paused or not. */
     open: canLog(phase),
     /** Where an entry started now sits: its half and how far into it. */
-    momentNow: () => liveMoment(Date.now(), saved.whistles),
+    momentNow: () => liveMoment(reading(Date.now()), saved.whistles),
     /** What the clock reads this second. */
     clockMs:
       moment != null
@@ -79,26 +89,29 @@ const STATUS: Record<LivePhase, string> = {
 export function MatchClock({
   matchId,
   clock,
-  onClockSet,
   onSubmitted,
 }: {
   matchId: string;
   clock: MatchClockState;
-  /** The clock was set by hand: the entries timed off it move too. */
-  onClockSet: (before: Markers, after: Markers) => void;
   onSubmitted: () => void;
 }) {
-  const { phase, submittedAt } = clock;
+  const { phase, submittedAt, paused } = clock;
   const [adjusting, setAdjusting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const next = NEXT_WHISTLE[phase];
   const last = LAST_WHISTLE[phase];
 
+  // Pause and skip answer at once and save behind, so a run of taps on
+  // Forward 15s never waits on the network. Their saves queue up in order,
+  // and anything else that writes the clock waits for them to land first.
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+
   const run = (work: () => Promise<void>, failed: string) => {
     setError(null);
     startTransition(async () => {
       try {
+        await queue.current;
         await work();
       } catch (err) {
         setError((err as Error).message || failed);
@@ -106,8 +119,22 @@ export function MatchClock({
     });
   };
 
-  const tap = (whistle: NonNullable<typeof next>, at: number | null) =>
-    run(async () => clock.setSaved(await setMyWhistle(matchId, whistle, at)), "That did not save. Try again.");
+  const move = (whistles: Markers, pausedAt: number | null) => {
+    setError(null);
+    clock.setSaved({ whistles, pausedAt, submittedAt });
+    queue.current = queue.current
+      .then(() => setMyClock(matchId, { whistles, pausedAt }))
+      .catch(() => setError("The clock did not save. Check your connection and try again."));
+  };
+
+  const skip = (byMs: number) => move(skipClock(clock.whistles, byMs, clock.pausedAt ?? Date.now()), clock.pausedAt);
+  const pause = () => move(clock.whistles, Date.now());
+  const resume = () => move(resumeClock(clock.whistles, clock.pausedAt!, Date.now()), null);
+
+  const tap = (whistle: Whistle, action: "tap" | "undo") => {
+    const now = Date.now();
+    run(async () => clock.setSaved(await setMyWhistle(matchId, whistle, action, now)), "That did not save. Try again.");
+  };
 
   const submit = () =>
     run(async () => {
@@ -115,8 +142,9 @@ export function MatchClock({
       onSubmitted();
     }, "Your stats could not be submitted. Try again.");
 
-  // Joining late, or throw-in tapped late: the clock as it reads now. The
-  // half is worked out from where the game is and the time typed.
+  // Joining late, a whistle tapped late, or jumping about in a recording:
+  // the clock as it reads now. The half is worked out from where the game is
+  // and the time typed.
   const [clockText, setClockText] = useState("");
   const setClock = () => {
     const gameMs = parseClock(clockText);
@@ -125,30 +153,30 @@ export function MatchClock({
       return;
     }
     const half = halfForReading(gameMs, phase, clock.halfLengthMin);
-    const plan = clockFromReading(gameMs, half, Date.now(), clock.whistles, clock.halfLengthMin);
+    const plan = clockFromReading(gameMs, half, clock.pausedAt ?? Date.now(), clock.whistles, clock.halfLengthMin);
     if ("error" in plan) {
       setError(plan.error);
       return;
     }
-    const before = clock.whistles;
     run(async () => {
-      clock.setSaved(await setMyClock(matchId, plan.whistles));
-      onClockSet(before, plan.whistles);
+      clock.setSaved(await setMyClock(matchId, { whistles: plan.whistles, pausedAt: clock.pausedAt }));
       setClockText("");
       setAdjusting(false);
-    }, "The clock could not be set.");
+    }, "The time could not be set.");
   };
 
   // What to do now, said out loud. Throw-in is the one that matters most:
   // nothing can be logged until it is tapped.
   const prompt =
     phase === "not_started"
-      ? "Tap Throw-in at the first whistle. Watching a stream? Tap it when the stream shows it."
+      ? "Tap Throw-in at the first whistle. Watching a stream or a recording? Tap it when the screen shows it."
       : phase === "half_time"
         ? "Tap Second half when play restarts."
-        : phase === "full_time" && submittedAt == null
-          ? "Check your stats below, then submit them. The other coaches see them once you do."
-          : null;
+        : paused
+          ? "Paused. Tap Resume when the footage plays again."
+          : phase === "full_time" && submittedAt == null
+            ? "Check your stats below, then submit them. The other coaches see them once you do."
+            : null;
   const loud = prompt != null;
 
   return (
@@ -161,9 +189,15 @@ export function MatchClock({
     >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex items-baseline gap-2.5">
-          <span className="display tabular text-[1.75rem] leading-none">{formatGameClock(clock.clockMs)}</span>
+          <span
+            className="display tabular text-[1.75rem] leading-none"
+            style={{ color: paused ? "var(--color-ink-dim)" : undefined }}
+          >
+            {formatGameClock(clock.clockMs)}
+          </span>
           <span className="text-[14px]" style={{ color: "var(--color-ink-dim)" }}>
             {STATUS[phase]}
+            {paused && ", paused"}
           </span>
         </div>
         {prompt && (
@@ -178,7 +212,7 @@ export function MatchClock({
         )}
         <div className="flex-1" />
         {last && (
-          <button onClick={() => tap(last, null)} disabled={pending} className="btn-ghost text-xs">
+          <button onClick={() => tap(last, "undo")} disabled={pending} className="btn-ghost text-xs">
             Undo {WHISTLE_LABELS[last].toLowerCase()}
           </button>
         )}
@@ -187,11 +221,11 @@ export function MatchClock({
           aria-expanded={adjusting}
           className="btn-ghost text-xs"
         >
-          {adjusting ? "Done" : phase === "not_started" ? "Joined late?" : "Clock wrong?"}
+          {adjusting ? "Done" : phase === "not_started" ? "Joined late?" : "Update time"}
         </button>
         {next && (
           <button
-            onClick={() => tap(next, Date.now())}
+            onClick={() => tap(next, "tap")}
             disabled={pending}
             // The whistle that is due gets the weight. Half time and full
             // time sit quieter while a half is on, so a thumb going for a
@@ -208,6 +242,40 @@ export function MatchClock({
         )}
       </div>
 
+      {clock.open && (
+        // Keeping the clock with the footage, for anyone watching it back.
+        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => skip(-SKIP_MS)}
+            disabled={pending}
+            aria-label="Back 15 seconds"
+            className="btn-outline text-sm"
+          >
+            Back 15s
+          </button>
+          <button
+            onClick={paused ? resume : pause}
+            disabled={pending}
+            className={paused ? "btn-primary text-sm" : "btn-outline text-sm"}
+          >
+            {paused ? "Resume" : "Pause"}
+          </button>
+          <button
+            onClick={() => skip(SKIP_MS)}
+            disabled={pending}
+            aria-label="Forward 15 seconds"
+            className="btn-outline text-sm"
+          >
+            Forward 15s
+          </button>
+          {!paused && (
+            <span className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+              Watching it back? Pause and skip with the footage.
+            </span>
+          )}
+        </div>
+      )}
+
       {submittedAt != null && (
         <p className="mt-1.5 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
           Submitted. The other coaches can see your stats, and anything you fix shows up for them too.
@@ -217,10 +285,11 @@ export function MatchClock({
       {adjusting && (
         <div className="mt-3 space-y-2">
           <p className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-            Type what the game clock reads right now, and yours runs on from there.{" "}
+            Type what the game clock reads right now, at the ground or on the screen, and yours runs on from
+            there.{" "}
             {phase === "not_started" || phase === "half_time"
               ? `${clock.halfLengthMin}:00 or more starts you in the 2nd half. `
-              : "Anything you logged this half moves with it. "}
+              : "What you have logged keeps its time. "}
             Only your clock changes.
           </p>
           <form
@@ -244,7 +313,7 @@ export function MatchClock({
               />
             </label>
             <button type="submit" disabled={pending || !clockText.trim()} className="btn-primary text-sm">
-              Set clock
+              Set time
             </button>
           </form>
         </div>

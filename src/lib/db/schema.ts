@@ -824,6 +824,10 @@ export const matchStats = sqliteTable(
  *
  * `submittedAt` is when they put their entries on the match's sheet. Until
  * then those entries are drafts (`match_stats.draft`), seen by them alone.
+ *
+ * `pausedAt` is set while someone watching it back has the clock paused with
+ * the footage: it reads what it read then until they carry on, when the
+ * half's start moves on by the time it sat (see live-clock.ts).
  */
 export const statClocks = sqliteTable(
   "stat_clocks",
@@ -841,6 +845,7 @@ export const statClocks = sqliteTable(
     halfTimeAt: integer("half_time_at"),
     secondHalfAt: integer("second_half_at"),
     fullTimeAt: integer("full_time_at"),
+    pausedAt: integer("paused_at"),
     submittedAt: integer("submitted_at"),
     createdAt: integer("created_at").notNull().default(now),
     updatedAt: integer("updated_at").notNull().default(now),

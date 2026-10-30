@@ -51,6 +51,7 @@ import {
   removePiece,
   removeStep,
   setLabel,
+  setNotePlace,
   setSideCount,
   setSideName,
   setStepNote,
@@ -58,6 +59,7 @@ import {
   type DrillKit,
   type DrillPiece,
   type DrillSide,
+  type NotePlace,
   type Point,
 } from "@/lib/hurling/drill";
 import { DrillMarkers, H, KitHitArea, KitMark, Movement, NoteCard, Piece, PitchBadge, SIDE_COLOUR, badgeUrl } from "./DrillArt";
@@ -811,6 +813,53 @@ export function DrillEditor({
             </div>
           </section>
 
+          <section>
+            <h2 className="section-head title text-[17px]">Step notes on the pitch</h2>
+            <p className="caption mt-2">
+              Where each step&apos;s note sits on the board and in the video. Auto takes whichever end of the pitch is emptier.
+            </p>
+            <div className="mt-3 flex items-start gap-3">
+              <div
+                className="grid w-[8.5rem] grid-cols-3 gap-1 rounded-[3px] p-1"
+                style={{ background: PITCH_FILL, border: "1px solid var(--color-line)" }}
+                role="group"
+                aria-label="Where the step notes sit"
+              >
+                {NOTE_GRID.map(([place, label]) => {
+                  const on = (data.notePlace ?? "auto") === place;
+                  return (
+                    <button
+                      key={place}
+                      type="button"
+                      title={label}
+                      aria-label={label}
+                      aria-pressed={on}
+                      onClick={() => update((d) => setNotePlace(d, place))}
+                      className="h-9 rounded-[2px] border transition-colors"
+                      style={{
+                        borderColor: on ? "var(--color-ash)" : "var(--color-line-strong)",
+                        background: on ? "var(--color-ash)" : "transparent",
+                      }}
+                    />
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                aria-pressed={(data.notePlace ?? "auto") === "auto"}
+                onClick={() => update((d) => setNotePlace(d, "auto"))}
+                className="rounded-[2px] border px-2.5 py-1.5 text-[13px] font-semibold"
+                style={{
+                  borderColor: (data.notePlace ?? "auto") === "auto" ? "var(--color-ash)" : "var(--color-line)",
+                  background: (data.notePlace ?? "auto") === "auto" ? "var(--color-spot-tint)" : "transparent",
+                  color: (data.notePlace ?? "auto") === "auto" ? "var(--color-ash)" : "var(--color-ink-dim)",
+                }}
+              >
+                Auto
+              </button>
+            </div>
+          </section>
+
           {chosenKit && (
             <section>
               <h2 className="section-head title text-[17px]">{describeKit(chosenKit)}</h2>
@@ -894,6 +943,19 @@ export function DrillEditor({
     </main>
   );
 }
+
+/** The nine spots a step note can sit in, laid out as they appear on the pitch. */
+const NOTE_GRID: [NotePlace, string][] = [
+  ["top-left", "Top left"],
+  ["top", "Top"],
+  ["top-right", "Top right"],
+  ["left", "Left"],
+  ["middle", "Middle"],
+  ["right", "Right"],
+  ["bottom-left", "Bottom left"],
+  ["bottom", "Bottom"],
+  ["bottom-right", "Bottom right"],
+];
 
 /** A file name a phone and a laptop both accept, from the drill's title. */
 function fileName(title: string): string {

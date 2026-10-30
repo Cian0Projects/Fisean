@@ -73,19 +73,18 @@ export async function loadOwnStatRows(matchId: string, teamId: string, userId: s
 }
 
 /** This logger's own clock for the match, or an unstarted one. */
-export async function loadStatClock(
-  matchId: string,
-  userId: string,
-): Promise<{ whistles: Markers; submittedAt: number | null }> {
+export type SavedClock = { whistles: Markers; pausedAt: number | null; submittedAt: number | null };
+
+export async function loadStatClock(matchId: string, userId: string): Promise<SavedClock> {
   const [row] = await db
     .select()
     .from(statClocks)
     .where(and(eq(statClocks.matchId, matchId), eq(statClocks.userId, userId)))
     .limit(1);
-  return row ? clockOf(row) : { whistles: {}, submittedAt: null };
+  return row ? clockOf(row) : { whistles: {}, pausedAt: null, submittedAt: null };
 }
 
-export function clockOf(row: typeof statClocks.$inferSelect): { whistles: Markers; submittedAt: number | null } {
+export function clockOf(row: typeof statClocks.$inferSelect): SavedClock {
   return {
     whistles: {
       throwIn: row.throwInAt,
@@ -93,6 +92,7 @@ export function clockOf(row: typeof statClocks.$inferSelect): { whistles: Marker
       secondHalf: row.secondHalfAt,
       fullTime: row.fullTimeAt,
     },
+    pausedAt: row.pausedAt,
     submittedAt: row.submittedAt,
   };
 }

@@ -14,9 +14,13 @@
  * half is on, so every entry has a half and a time within it.
  *
  * Each entry stores its half and how far into it (`halfMs`), read off this
- * clock when the entry was started. A clock set right afterwards ("it is
- * really 15:30") moves the start of that half, and every entry in the half
- * moves with it (`clockShift`).
+ * clock when the entry was started.
+ *
+ * Someone watching it back on the television drives the clock like the
+ * footage: pause it, skip 15 seconds either way, or type what the screen's
+ * clock shows. All three move only the clock, by moving the start of the half
+ * that is on. Entries already logged keep their times, because the footage
+ * they were seen in has not changed; only where the viewer is in it has.
  */
 import { STOPPAGE_ALLOWANCE_MS, whistlesForClock, type Half } from "./stats";
 import type { Markers } from "./notation";
@@ -114,17 +118,24 @@ export function clockFromReading(
   return { whistles: { throwIn, halfTime, secondHalf, fullTime: null } };
 }
 
+/** How far a skip button moves the clock. */
+export const SKIP_MS = 15_000;
+
 /**
- * How far each half's start moved between two versions of a clock. An entry
- * in that half was that much less far into it: its `halfMs` drops by the
- * shift (see `shiftedHalfMs`). A half with no start before or after does not
- * move, because none of its entries were timed from one.
+ * The clock moved `byMs` on (back, when negative) as read at `at`, by moving
+ * the start of the half that is on. It never goes back past the start of the
+ * half. With no half on there is nothing running to move.
  */
-export function clockShift(before: Markers, after: Markers): Record<Half, number> {
-  const moved = (a?: number | null, b?: number | null) => (a != null && b != null ? b - a : 0);
-  return { 1: moved(before.throwIn, after.throwIn), 2: moved(before.secondHalf, after.secondHalf) };
+export function skipClock(w: Markers, byMs: number, at: number): Markers {
+  const start = livePhase(w) === "first_half" ? "throwIn" : livePhase(w) === "second_half" ? "secondHalf" : null;
+  if (!start) return w;
+  return { ...w, [start]: Math.min(at, w[start]! - byMs) };
 }
 
-export function shiftedHalfMs(halfMs: number, shift: number): number {
-  return Math.max(0, halfMs - shift);
+/**
+ * Carry on a clock paused at `pausedAt`: it reads now what it read then, so
+ * the half's start moves on by however long it sat paused.
+ */
+export function resumeClock(w: Markers, pausedAt: number, now: number): Markers {
+  return skipClock(w, pausedAt - now, now);
 }

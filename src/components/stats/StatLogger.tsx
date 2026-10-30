@@ -69,7 +69,7 @@ import {
 import { matchDateLong } from "@/lib/format";
 import { formatGameClock } from "@/lib/hurling/notation";
 import type { GameCode } from "@/lib/hurling/codes";
-import { clockOf, clockShift, shiftedHalfMs } from "@/lib/hurling/live-clock";
+import { clockOf } from "@/lib/hurling/live-clock";
 import { MatchClock, useMatchClock, type LoggerClock } from "./MatchClock";
 import { HalfLength } from "./HalfLength";
 import { VoiceBar, useVoiceEntry } from "./VoiceEntry";
@@ -376,17 +376,6 @@ export function StatLogger({
         <MatchClock
           matchId={match.id}
           clock={clock}
-          onClockSet={(before, after) => {
-            // The server moved the same entries by the same amount.
-            const shift = clockShift(before, after);
-            setRows((prev) =>
-              prev.map((r) =>
-                r.videoId == null && r.half && r.halfMs != null
-                  ? { ...r, halfMs: shiftedHalfMs(r.halfMs, shift[r.half]) }
-                  : r,
-              ),
-            );
-          }}
           onSubmitted={() => setRows((prev) => prev.map((r) => ({ ...r, draft: false })))}
         />
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">

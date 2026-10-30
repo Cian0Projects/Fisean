@@ -6,6 +6,11 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## The stats clock pauses and skips, for watching a match back
+*2026-10-30*
+
+A logger watching a match back on the television can now keep their clock with the footage. While a half is on, the clock strip has Back 15s, Pause and Forward 15s. "Clock wrong?" is now "Update time", which sets the clock to whatever the game clock shows. A pause is saved on the logger's clock (`stat_clocks.paused_at`), so it survives a reload. Entries logged while paused take the paused moment, and resuming moves the half's start on by the time it sat. Tapping a whistle while paused carries on first. One rule changed: setting the time no longer moves entries already logged that half. Skipping about in a recording says where the viewer now is, not that what they logged earlier was wrong, so every way of moving the clock now moves the clock alone (`skipClock` and `resumeClock` in `live-clock.ts`).
+
 ## A player's whole season on video, and their GPS beside their stats
 *2026-10-30*
 
@@ -15,6 +20,11 @@ A player's season page now has "Watch the season": every moment of theirs in sco
 *2026-10-30*
 
 The stat sheets now add up across a season. `/stats/team` shows the form (won, drawn, lost, and a margin bar per match), then the match sheet's own headings as season figures with a line across the matches: shooting both ways and split by half, restarts, turnovers, discipline, the season's scorers and a map of every shot. `/stats/players` is the panel in one sortable table, and `/stats/players/[id]` is one player's season, with their shooting, maps and a row per match that opens that match's footage on their moments. Everyone can see all of it, coaches and players alike, the same as each match's sheet. Seasons are calendar years and can be narrowed to a competition. Nothing is stored: every figure is worked out from the submitted sheets when the page is read (`src/lib/hurling/trends.ts`, tested), so correcting a sheet or a number corrects the season. Only submitted sheets and entries count. A figure per match divides by the matches that actually logged that kind of stat, so a sheet that only logged shots does not count as a match with no turnovers. A player is found through each match's own number sheet, and entries on numbers with no name are counted for the team and flagged so someone can fill the names in. No schema change.
+
+## Choose where a drill's step notes sit on the pitch
+*2026-10-30*
+
+The step note card used to pick the emptier end of the pitch on its own. A coach can now put it in any of nine spots (the corners, the four edges or the middle) from a small grid under "Step notes on the pitch" in the drill editor, or leave it on Auto. The choice is stored in the drill's JSON as `notePlace`, so there is no migration, and applies to the board, playback and the exported video alike. Against a side the card is narrow and tall, so a long note runs down the side of the pitch instead of across the middle of the play.
 
 ## A drill's step notes appear on the pitch, in playback and in the exported video
 *2026-10-29*
