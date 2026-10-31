@@ -11,7 +11,7 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { clips, playlistItems, playlistViewers, playlists, users, videos } from "@/lib/db/schema";
 import { visibleClipIds } from "@/lib/queries/clips";
-import { store } from "@/lib/storage";
+import { assertSafeKey } from "@/lib/storage";
 import { canSeePlaylist, type Shared } from "@/lib/auth/visibility";
 import type { SessionUser } from "@/lib/auth/session";
 
@@ -94,7 +94,6 @@ export async function playlistFootage(
     user,
     rows.map((r) => ({ ...r, id: r.clipId })),
   );
-  const media = await store();
   return {
     title: playlist.title,
     clips: rows
@@ -102,7 +101,12 @@ export async function playlistFootage(
       .map((r) => ({
         clipId: r.clipId,
         title: r.title,
-        src: media.readUrl(r.storageKey),
+        // Through our own media route, not the bucket's signed link. The
+        // export reads the picture back off the video onto a canvas, which a
+        // browser only allows for another origin if the bucket sends CORS
+        // headers. The route serves the same bytes, with ranges, to a
+        // signed-in coach of the club, so no bucket setting can break it.
+        src: `/api/media/${assertSafeKey(r.storageKey)}`,
         startMs: r.startMs,
         endMs: r.endMs,
       })),

@@ -18,9 +18,9 @@
  * plays in the pitch's frame under "What happened", then the video cuts to the
  * drill under "What should have happened". The clips are ordinary <video>
  * elements drawn onto the same canvas, so the recorder sees one picture. They
- * are muted and the recording has no sound track. Reading frames off a video
- * from another origin needs CORS, hence `crossOrigin` below; the storage
- * bucket's CORS rule (docs/DEPLOYMENT.md) is what allows it.
+ * are muted and the recording has no sound track. Their addresses are our own
+ * /api/media route, never the bucket: a canvas that has drawn a video from
+ * another origin cannot be recorded unless that origin sends CORS headers.
  *
  * Recording runs in real time, so a ten-second drill takes ten seconds, and
  * the tab has to stay in front: browsers stop animation frames in a
@@ -345,7 +345,16 @@ async function loadClip(clip: { src: string; startMs: number }): Promise<HTMLVid
   const once = (event: string) =>
     new Promise<void>((resolve, reject) => {
       video.addEventListener(event, () => resolve(), { once: true });
-      video.addEventListener("error", () => reject(failed), { once: true });
+      video.addEventListener(
+        "error",
+        () => {
+          // For whoever opens the console: a media error code of 4 is a file
+          // the browser cannot play, or a request that was refused.
+          console.error("Drill footage would not load", video.error?.code, video.error?.message, video.currentSrc);
+          reject(failed);
+        },
+        { once: true },
+      );
     });
   try {
     video.src = clip.src;
