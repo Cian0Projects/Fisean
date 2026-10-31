@@ -21,7 +21,14 @@ import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import { PITCH_FILL, PitchMarkings, VIEW_W } from "@/components/pitch/PitchMarkings";
 import type { GameCode } from "@/lib/hurling/codes";
-import { deleteDrill, duplicateDrill, saveDrill } from "@/lib/actions/drills";
+import {
+  deleteDrill,
+  duplicateDrill,
+  listFootagePlaylists,
+  loadDrillFootage,
+  saveDrill,
+  type FootagePlaylist,
+} from "@/lib/actions/drills";
 import {
   BALL_KINDS,
   BALL_LABELS,
@@ -50,6 +57,7 @@ import {
   positionsAt,
   removePiece,
   removeStep,
+  setFootage,
   setLabel,
   setNotePlace,
   setSideCount,
@@ -75,6 +83,7 @@ export function DrillEditor({
   teamName,
   code,
   badgeVersion,
+  footageTitle,
   initial,
 }: {
   id: string;
@@ -84,6 +93,8 @@ export function DrillEditor({
   code: GameCode;
   /** `badgeVersion` from the session; null draws no badge. */
   badgeVersion: number | null;
+  /** The name of the attached playlist, if the drill has one this coach can still open. */
+  footageTitle: string | null;
   initial: { title: string; notes: string; data: DrillData };
 }) {
   const uid = useId().replace(/:/g, "");
@@ -107,6 +118,13 @@ export function DrillEditor({
   const [recording, setRecording] = useState<number | null>(null);
   const [video, setVideo] = useState<{ url: string; file: File } | null>(null);
   const [videoError, setVideoError] = useState<string | null>(null);
+
+  /** Game footage played before the drill in an exported video. */
+  const [footageName, setFootageName] = useState(footageTitle);
+  const [choosing, setChoosing] = useState(false);
+  /** null until the list has been fetched, the first time the panel opens. */
+  const [playlists, setPlaylists] = useState<FootagePlaylist[] | null>(null);
+  const [footageError, setFootageError] = useState<string | null>(null);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const grab = useRef<Point>({ x: 0, y: 0 });
@@ -224,6 +242,9 @@ export function DrillEditor({
     setVideo(null);
     setRecording(0);
     try {
+      // Looked up now, not saved with the drill, so the clips are whatever
+      // this coach may see today.
+      const footage = data.footage ? await loadDrillFootage(data.footage.playlistId) : null;
       const { blob, ext } = await recordDrill({
         board: svgRef.current,
         data,
@@ -231,6 +252,7 @@ export function DrillEditor({
         teamName,
         badge: badgeVersion == null ? null : badgeUrl(badgeVersion),
         speed,
+        footage,
         onProgress: setRecording,
       });
       const file = new File([blob], `${fileName(title)}.${ext}`, { type: blob.type });
@@ -249,6 +271,19 @@ export function DrillEditor({
     } finally {
       setRecording(null);
     }
+  };
+
+  const openFootage = () => {
+    setChoosing((open) => !open);
+    if (playlists !== null) return;
+    setFootageError(null);
+    listFootagePlaylists().then(setPlaylists, () => setFootageError("The playlists could not be loaded."));
+  };
+
+  const chooseFootage = (picked: FootagePlaylist | null) => {
+    update((d) => setFootage(d, picked?.id ?? null));
+    setFootageName(picked?.title ?? null);
+    setChoosing(false);
   };
 
   const isKit = (id: string) => data.kit.some((k) => k.id === id);
@@ -535,7 +570,81 @@ export function DrillEditor({
             >
               {recording === null ? "Export video" : `Recording ${Math.round(recording * 100)}%`}
             </button>
+            <button
+              type="button"
+              className="btn-ghost"
+              aria-expanded={choosing}
+              disabled={recording !== null}
+              onClick={openFootage}
+              title="Play a playlist from a match first, as what happened, then cut to this drill as what should have happened"
+            >
+              {data.footage ? "Game footage" : "Add game footage"}
+            </button>
           </div>
+
+          {data.footage && !choosing && (
+            <p className="caption mt-2">
+              The exported video opens with {footageName ? `“${footageName}”` : "a playlist"} as what happened, then
+              cuts to this drill as what should have happened.
+            </p>
+          )}
+          {choosing && (
+            <div
+              className="mt-3 rounded-[3px] border p-3"
+              style={{ borderColor: "var(--color-line)" }}
+              role="group"
+              aria-label="Choose game footage"
+            >
+              <p className="text-[13px]" style={{ color: "var(--color-ink-dim)" }}>
+                Pick a playlist to play first in the exported video, as what happened. The drill follows as what
+                should have happened.
+              </p>
+              {footageError && (
+                <p className="mt-2 text-[13px]" style={{ color: "var(--color-danger-ink)" }} role="alert">
+                  {footageError}
+                </p>
+              )}
+              {playlists === null && !footageError && <p className="caption mt-2">Loading playlists</p>}
+              {playlists?.length === 0 && (
+                <p className="caption mt-2">No playlists yet. Make one from the clips of a match, then come back.</p>
+              )}
+              <ul className="mt-2 grid gap-1.5">
+                {playlists?.map((p) => {
+                  const on = data.footage?.playlistId === p.id;
+                  return (
+                    <li key={p.id}>
+                      <button
+                        type="button"
+                        disabled={p.clips === 0}
+                        aria-pressed={on}
+                        onClick={() => chooseFootage(p)}
+                        className="flex w-full items-baseline justify-between gap-3 rounded-[2px] border px-3 py-2 text-left text-[14px] disabled:opacity-50"
+                        style={{
+                          borderColor: on ? "var(--color-ash)" : "var(--color-line)",
+                          background: on ? "var(--color-spot-tint)" : "transparent",
+                        }}
+                      >
+                        <span className="font-semibold">{p.title}</span>
+                        <span className="tabular shrink-0 text-[12px]" style={{ color: "var(--color-ink-dim)" }}>
+                          {p.clips === 0 ? "No clips" : `${p.clips} clip${p.clips === 1 ? "" : "s"}`}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="mt-2 flex gap-2">
+                {data.footage && (
+                  <button type="button" className="btn-ghost -ml-3" onClick={() => chooseFootage(null)}>
+                    Take the footage off
+                  </button>
+                )}
+                <button type="button" className="btn-ghost" onClick={() => setChoosing(false)}>
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
 
           {recording !== null && (
             <p className="caption mt-2" aria-live="polite">

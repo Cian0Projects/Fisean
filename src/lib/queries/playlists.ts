@@ -7,9 +7,11 @@
  * src/lib/auth/visibility.ts is applied the same way wherever one is named.
  */
 import "server-only";
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { playlistViewers, playlists, users } from "@/lib/db/schema";
+import { clips, playlistItems, playlistViewers, playlists, users, videos } from "@/lib/db/schema";
+import { visibleClipIds } from "@/lib/queries/clips";
+import { store } from "@/lib/storage";
 import { canSeePlaylist, type Shared } from "@/lib/auth/visibility";
 import type { SessionUser } from "@/lib/auth/session";
 
@@ -53,4 +55,56 @@ export async function canOpenPlaylist(
     .where(and(eq(playlistViewers.playlistId, playlist.id), eq(playlistViewers.userId, user.id)))
     .limit(1);
   return canSeePlaylist(user, playlist, !!chosen);
+}
+
+export type FootageClip = { clipId: string; title: string; src: string; startMs: number; endMs: number };
+
+/**
+ * A playlist's clips in playing order, with a link to play each, for a
+ * drill's exported video. Null when the playlist is gone or `user` may not
+ * open it. As on the playlist page, a clip someone made private stays theirs:
+ * it is left out for anyone who could not open it on its own.
+ */
+export async function playlistFootage(
+  user: SessionUser,
+  playlistId: string,
+): Promise<{ title: string; clips: FootageClip[] } | null> {
+  const [playlist] = await db.select().from(playlists).where(eq(playlists.id, playlistId)).limit(1);
+  if (!playlist || !(await canOpenPlaylist(user, playlist))) return null;
+
+  const rows = await db
+    .select({
+      clipId: clips.id,
+      title: clips.title,
+      startMs: clips.startMs,
+      endMs: clips.endMs,
+      visibility: clips.visibility,
+      shareRoles: clips.shareRoles,
+      createdBy: clips.createdBy,
+      teamId: clips.teamId,
+      storageKey: videos.storageKey,
+    })
+    .from(playlistItems)
+    .innerJoin(clips, eq(clips.id, playlistItems.clipId))
+    .innerJoin(videos, eq(videos.id, clips.videoId))
+    .where(eq(playlistItems.playlistId, playlistId))
+    .orderBy(asc(playlistItems.sortOrder));
+
+  const seen = await visibleClipIds(
+    user,
+    rows.map((r) => ({ ...r, id: r.clipId })),
+  );
+  const media = await store();
+  return {
+    title: playlist.title,
+    clips: rows
+      .filter((r) => seen.has(r.clipId))
+      .map((r) => ({
+        clipId: r.clipId,
+        title: r.title,
+        src: media.readUrl(r.storageKey),
+        startMs: r.startMs,
+        endMs: r.endMs,
+      })),
+  };
 }

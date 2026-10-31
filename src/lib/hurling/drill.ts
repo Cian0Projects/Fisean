@@ -56,6 +56,13 @@ export type DrillData = {
   kit: DrillKit[];
   /** Where the step notes sit on the pitch; absent means "auto". */
   notePlace?: NotePlace;
+  /**
+   * A playlist of game footage to play before the drill in an exported video:
+   * what happened, then the drill as what should have happened. Only the id is
+   * kept. The clips are looked up when the video is made, by the rules for
+   * who may see them, so a clip made private since stays private.
+   */
+  footage?: { playlistId: string };
 };
 
 /**
@@ -350,6 +357,13 @@ export function isNotePlace(v: unknown): v is NotePlace {
 export function setNotePlace(d: DrillData, place: NotePlace): DrillData {
   const next: DrillData = { ...d, notePlace: place };
   if (place === "auto") delete next.notePlace;
+  return next;
+}
+
+/** Attach a playlist as the drill's "what happened", or null to take it off. */
+export function setFootage(d: DrillData, playlistId: string | null): DrillData {
+  const next: DrillData = { ...d, footage: playlistId ? { playlistId } : undefined };
+  if (!playlistId) delete next.footage;
   return next;
 }
 
@@ -791,6 +805,9 @@ export function parseDrill(raw: unknown): DrillData {
     steps,
     kit: parseKit(raw.kit, new Set(pieces.map((p) => p.id))),
     ...(isNotePlace(raw.notePlace) && raw.notePlace !== "auto" ? { notePlace: raw.notePlace } : {}),
+    ...(isObj(raw.footage) && typeof raw.footage.playlistId === "string" && raw.footage.playlistId.length > 0 && raw.footage.playlistId.length <= 64
+      ? { footage: { playlistId: raw.footage.playlistId } }
+      : {}),
   };
 }
 

@@ -13,12 +13,13 @@
  */
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { drills, teams } from "@/lib/db/schema";
+import { drills, playlistItems, teams } from "@/lib/db/schema";
 import { assertSameTeam, requireCoach } from "@/lib/auth/guard";
 import { DRILL_LIMITS, parseDrill, starterDrill, type DrillData } from "@/lib/hurling/drill";
 import { ballFor } from "@/lib/hurling/codes";
+import { playlistFootage, visiblePlaylists, type FootageClip } from "@/lib/queries/playlists";
 
 async function loadOwnDrill(id: string) {
   const user = await requireCoach();
@@ -98,4 +99,37 @@ export async function deleteDrill(id: string): Promise<void> {
   await db.delete(drills).where(eq(drills.id, drill.id));
   revalidatePath("/drills");
   redirect("/drills");
+}
+
+/* ------------------------------------------------------------ footage */
+
+export type FootagePlaylist = { id: string; title: string; clips: number; isOfficial: boolean };
+
+/** The playlists this coach may open, for choosing a drill's "what happened". */
+export async function listFootagePlaylists(): Promise<FootagePlaylist[]> {
+  const user = await requireCoach();
+  const rows = await visiblePlaylists(user);
+  if (rows.length === 0) return [];
+  const counts = await db
+    .select({ playlistId: playlistItems.playlistId, n: sql<number>`count(*)` })
+    .from(playlistItems)
+    .where(inArray(playlistItems.playlistId, rows.map((r) => r.id)))
+    .groupBy(playlistItems.playlistId);
+  const byId = new Map(counts.map((c) => [c.playlistId, Number(c.n)]));
+  return rows.map((r) => ({ id: r.id, title: r.title, clips: byId.get(r.id) ?? 0, isOfficial: r.isOfficial }));
+}
+
+export type DrillFootage = { title: string; clips: FootageClip[] };
+
+/**
+ * The clips to play before a drill in its exported video. Looked up when the
+ * video is made rather than saved with the drill, so what a coach may see
+ * today decides what goes in, and a deleted clip simply is not there.
+ */
+export async function loadDrillFootage(playlistId: string): Promise<DrillFootage> {
+  const user = await requireCoach();
+  const footage = await playlistFootage(user, playlistId);
+  if (!footage) throw new Error("That playlist is no longer available.");
+  if (footage.clips.length === 0) throw new Error("That playlist has no clips you can play.");
+  return footage;
 }

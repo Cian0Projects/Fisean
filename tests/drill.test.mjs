@@ -18,6 +18,7 @@ import {
   NOTE_CARD,
   noteCardLayouts,
   setNotePlace,
+  setFootage,
   wrapNote,
   VIDEO_TIMING,
   videoLengthMs,
@@ -382,4 +383,17 @@ test("the coach can put the notes anywhere, and the choice survives a save", () 
   // Auto is stored as nothing, and a rubbish value is ignored.
   assert.equal("notePlace" in setNotePlace(setNotePlace(d, "left"), "auto"), false);
   assert.equal(parseDrill({ ...JSON.parse(JSON.stringify(d)), notePlace: "sideways" }).notePlace, undefined);
+});
+
+test("a playlist of footage can be attached and taken off, and survives a save", () => {
+  const d = starterDrill();
+  assert.equal(d.footage, undefined);
+  const on = setFootage(d, "playlist-1");
+  assert.deepEqual(on.footage, { playlistId: "playlist-1" });
+  assert.deepEqual(parseDrill(JSON.parse(JSON.stringify(on))).footage, { playlistId: "playlist-1" });
+  assert.equal("footage" in setFootage(on, null), false);
+  // Rubbish is dropped rather than trusted.
+  for (const bad of [null, 5, {}, { playlistId: "" }, { playlistId: 7 }, { playlistId: "x".repeat(65) }]) {
+    assert.equal(parseDrill({ ...JSON.parse(JSON.stringify(d)), footage: bad }).footage, undefined);
+  }
 });

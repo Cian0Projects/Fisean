@@ -14,6 +14,14 @@
  * canvas API, mirroring DrillArt's discs and note card — if either changes
  * shape there, change it here too.
  *
+ * A drill with game footage attached opens with it: each clip of the playlist
+ * plays in the pitch's frame under "What happened", then the video cuts to the
+ * drill under "What should have happened". The clips are ordinary <video>
+ * elements drawn onto the same canvas, so the recorder sees one picture. They
+ * are muted and the recording has no sound track. Reading frames off a video
+ * from another origin needs CORS, hence `crossOrigin` below; the storage
+ * bucket's CORS rule (docs/DEPLOYMENT.md) is what allows it.
+ *
  * Recording runs in real time, so a ten-second drill takes ten seconds, and
  * the tab has to stay in front: browsers stop animation frames in a
  * background tab.
@@ -31,6 +39,7 @@ import {
   type NoteCardLayout,
   type Point,
 } from "@/lib/hurling/drill";
+import type { DrillFootage } from "@/lib/actions/drills";
 import { BADGE_MARK, pieceRadius } from "./DrillArt";
 
 const W = 1920;
@@ -66,6 +75,7 @@ export async function recordDrill({
   teamName,
   badge,
   speed,
+  footage,
   onProgress,
 }: {
   /** The editor's live board, for its pitch and kit. */
@@ -76,6 +86,8 @@ export async function recordDrill({
   /** The club badge's URL, drawn faint in the pitch's corner; null for none. */
   badge: string | null;
   speed: number;
+  /** Game footage to play first, as "what happened"; none for the drill alone. */
+  footage?: DrillFootage | null;
   onProgress: (fraction: number) => void;
 }): Promise<RecordedDrill> {
   const type = TYPES.find((t) => typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(t));
@@ -136,23 +148,57 @@ export async function recordDrill({
   document.body.appendChild(canvas);
   const ctx = canvas.getContext("2d")!;
 
-  const draw = (t: number) => {
-    const at = positionsAt(data, t);
-    const step = captionStep(data, t);
+  const clips = footage?.clips ?? [];
 
+  /** The title, what we are looking at, and where we are in it. */
+  const header = (label: string | null, counter: string) => {
     ctx.fillStyle = ink.stage;
     ctx.fillRect(0, 0, W, HEIGHT);
-
-    // Title, and where we are in the drill.
     ctx.textBaseline = "alphabetic";
     ctx.textAlign = "left";
     ctx.fillStyle = ink.ink;
     ctx.font = `900 52px ${font}`;
-    ctx.fillText(fit(ctx, title || "Untitled drill", pitchW * 0.72), px, 84);
+    ctx.fillText(fit(ctx, title || "Untitled drill", pitchW * (label ? 0.55 : 0.72)), px, 84);
     ctx.textAlign = "right";
+    if (label) {
+      ctx.fillStyle = ink.ash;
+      ctx.font = `800 34px ${font}`;
+      ctx.fillText(label, px + pitchW, 52);
+    }
     ctx.fillStyle = ink.dim;
     ctx.font = `700 30px ${font}`;
-    ctx.fillText(`Step ${step + 1} of ${data.steps.length}`, px + pitchW, 82);
+    ctx.fillText(counter, px + pitchW, label ? 92 : 82);
+  };
+
+  /** One frame of a clip, fitted into the pitch's frame. */
+  const drawFootage = (video: HTMLVideoElement, index: number) => {
+    header("What happened", `Clip ${index + 1} of ${clips.length}`);
+    ctx.fillStyle = "#000";
+    ctx.fillRect(px, py, pitchW, pitchH);
+    if (video.videoWidth && video.videoHeight) {
+      const f = Math.min(pitchW / video.videoWidth, pitchH / video.videoHeight);
+      const w = video.videoWidth * f;
+      const h = video.videoHeight * f;
+      ctx.drawImage(video, px + (pitchW - w) / 2, py + (pitchH - h) / 2, w, h);
+    }
+    ctx.strokeStyle = ink.line;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(px + 1, py + 1, pitchW - 2, pitchH - 2);
+    ctx.textAlign = "left";
+    ctx.fillStyle = ink.ink;
+    ctx.font = `500 30px ${font}`;
+    ctx.fillText(fit(ctx, clips[index].title, pitchW * 0.7), px, py + pitchH + 46);
+    ctx.textAlign = "right";
+    ctx.fillStyle = ink.faint;
+    ctx.font = `600 24px ${font}`;
+    ctx.fillText(teamName, px + pitchW, py + pitchH + 46);
+  };
+
+  const draw = (t: number) => {
+    const at = positionsAt(data, t);
+    const step = captionStep(data, t);
+
+    header(clips.length ? "What should have happened" : null, `Step ${step + 1} of ${data.steps.length}`);
 
     ctx.fillStyle = ink.pitch;
     ctx.fillRect(px, py, pitchW, pitchH);
@@ -185,8 +231,43 @@ export async function recordDrill({
     ctx.fillText(teamName, px + pitchW, py + pitchH + 46);
   };
 
-  const length = videoLengthMs(data, speed);
-  draw(0);
+  const drillMs = videoLengthMs(data, speed);
+  const footageMs = clips.reduce((sum, c) => sum + Math.max(0, c.endMs - c.startMs), 0);
+  const length = footageMs + drillMs;
+
+  // The clips load a little ahead of being needed, so one starts the moment
+  // the last ends. Kept in the document, out of sight, as the canvas is.
+  const loaded: Promise<HTMLVideoElement>[] = [];
+  const videos: HTMLVideoElement[] = [];
+  const prepare = (i: number): Promise<HTMLVideoElement> => {
+    if (!loaded[i]) {
+      loaded[i] = loadClip(clips[i]).then((v) => {
+        videos.push(v);
+        return v;
+      });
+      // Reported where it is awaited; this only stops an early failure of a
+      // clip not yet reached from being flagged as unhandled.
+      loaded[i].catch(() => {});
+    }
+    return loaded[i];
+  };
+  const cleanUp = () => {
+    canvas.remove();
+    for (const v of videos) {
+      v.pause();
+      v.removeAttribute("src");
+      v.load();
+      v.remove();
+    }
+  };
+
+  try {
+    if (clips.length) drawFootage(await prepare(0), 0);
+    else draw(0);
+  } catch (e) {
+    cleanUp();
+    throw e;
+  }
 
   const stream = canvas.captureStream(FPS);
   const recorder = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 8_000_000 });
@@ -202,12 +283,25 @@ export async function recordDrill({
   try {
     recorder.start(250);
     const start = performance.now();
+
+    // What happened: each clip in turn, from its in point to its out point.
+    for (let i = 0; i < clips.length; i++) {
+      const video = await prepare(i);
+      if (i + 1 < clips.length) void prepare(i + 1);
+      await playClip(video, clips[i], () => {
+        drawFootage(video, i);
+        onProgress(Math.min(1, (performance.now() - start) / length));
+      });
+    }
+
+    // What should have happened: the drill, timed from the cut.
+    const cut = performance.now();
     await new Promise<void>((resolve) => {
       const frame = (now: number) => {
-        const ms = now - start;
+        const ms = now - cut;
         draw(videoTimeAt(data, ms, speed));
-        onProgress(Math.min(1, ms / length));
-        if (ms >= length) resolve();
+        onProgress(Math.min(1, (now - start) / length));
+        if (ms >= drillMs) resolve();
         else requestAnimationFrame(frame);
       };
       requestAnimationFrame(frame);
@@ -216,11 +310,81 @@ export async function recordDrill({
     await stopped;
   } finally {
     stream.getTracks().forEach((t) => t.stop());
-    canvas.remove();
+    cleanUp();
   }
 
   const base = type.split(";")[0];
   return { blob: new Blob(chunks, { type: base }), ext: base === "video/mp4" ? "mp4" : "webm" };
+}
+
+/**
+ * A clip's video, loaded and parked on its in point. A clip that will not
+ * load fails the export with a plain sentence rather than leaving a silent
+ * gap, since a video that skipped the footage would say the opposite of what
+ * the coach set up.
+ */
+async function loadClip(clip: { src: string; startMs: number }): Promise<HTMLVideoElement> {
+  const video = document.createElement("video");
+  video.crossOrigin = "anonymous";
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = "auto";
+  Object.assign(video.style, {
+    position: "fixed",
+    left: "-10000px",
+    top: "0",
+    width: "2px",
+    height: "2px",
+    pointerEvents: "none",
+  });
+  document.body.appendChild(video);
+
+  const failed = new Error(
+    "The game footage could not be loaded into the video. Try again, or take the footage off to export the drill alone.",
+  );
+  const once = (event: string) =>
+    new Promise<void>((resolve, reject) => {
+      video.addEventListener(event, () => resolve(), { once: true });
+      video.addEventListener("error", () => reject(failed), { once: true });
+    });
+  try {
+    video.src = clip.src;
+    if (video.readyState < 1) await once("loadedmetadata");
+    video.currentTime = clip.startMs / 1000;
+    await once("seeked");
+    return video;
+  } catch (e) {
+    video.remove();
+    throw e;
+  }
+}
+
+/**
+ * Play a clip between its in and out points, calling `paint` on every frame
+ * so the canvas shows it. Stops at the out point, or when the file ends, or a
+ * few seconds late if the picture stalls, so a clip that will not play cannot
+ * hold the export forever.
+ */
+async function playClip(
+  video: HTMLVideoElement,
+  clip: { startMs: number; endMs: number },
+  paint: () => void,
+): Promise<void> {
+  paint();
+  await video.play();
+  const give = performance.now() + (clip.endMs - clip.startMs) + 6000;
+  await new Promise<void>((resolve) => {
+    const frame = () => {
+      paint();
+      if (video.ended || video.currentTime * 1000 >= clip.endMs - 20 || performance.now() > give) {
+        video.pause();
+        resolve();
+      } else {
+        requestAnimationFrame(frame);
+      }
+    };
+    requestAnimationFrame(frame);
+  });
 }
 
 /**

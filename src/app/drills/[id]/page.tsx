@@ -4,6 +4,7 @@ import { db } from "@/lib/db/client";
 import { drills } from "@/lib/db/schema";
 import { isCoach, requireUser } from "@/lib/auth/guard";
 import { parseDrill } from "@/lib/hurling/drill";
+import { visiblePlaylists } from "@/lib/queries/playlists";
 import { Nav } from "@/components/ui/Nav";
 import { DrillEditor } from "@/components/drills/DrillEditor";
 
@@ -14,6 +15,12 @@ export default async function DrillPage({ params }: { params: Promise<{ id: stri
 
   const [drill] = await db.select().from(drills).where(eq(drills.id, id)).limit(1);
   if (!drill || drill.teamId !== user.teamId) notFound();
+
+  // The attached playlist's name, if this coach can still open it.
+  const data = parseDrill(JSON.parse(drill.data));
+  const footageTitle = data.footage
+    ? ((await visiblePlaylists(user)).find((p) => p.id === data.footage!.playlistId)?.title ?? null)
+    : null;
 
   return (
     <>
@@ -26,7 +33,8 @@ export default async function DrillPage({ params }: { params: Promise<{ id: stri
         teamName={user.teamName}
         code={user.teamCode}
         badgeVersion={user.badgeVersion}
-        initial={{ title: drill.title, notes: drill.notes, data: parseDrill(JSON.parse(drill.data)) }}
+        footageTitle={footageTitle}
+        initial={{ title: drill.title, notes: drill.notes, data }}
       />
     </>
   );
