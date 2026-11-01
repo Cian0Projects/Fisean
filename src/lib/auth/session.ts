@@ -13,6 +13,7 @@ import { and, eq, gt, lt } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { clubs, sessions, users, teams, type Role } from "@/lib/db/schema";
 import type { GameCode } from "@/lib/hurling/codes";
+import type { OrgKind } from "@/lib/hurling/org";
 import { appSecret } from "./secret";
 
 const COOKIE = "fisean_session";
@@ -36,6 +37,8 @@ export type SessionUser = {
   teamName: string;
   /** Which game the club plays, for every word and rule that differs by code. */
   teamCode: GameCode;
+  /** Club or county, for every word that names the organisation; see `orgTerms`. */
+  orgKind: OrgKind;
   /** When the club badge last changed, or null for a club without one. */
   badgeVersion: number | null;
   /** The club's jersey colours for the drill board; null for the board's own. */
@@ -141,6 +144,7 @@ async function sessionRow(): Promise<(SessionUser & { clubApprovedAt: number | n
       position: users.position,
       teamName: teams.name,
       teamCode: teams.code,
+      orgKind: clubs.kind,
       badgeVersion: teams.badgeUpdatedAt,
       primaryColour: teams.primaryColour,
       secondaryColour: teams.secondaryColour,

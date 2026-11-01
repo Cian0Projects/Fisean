@@ -30,6 +30,7 @@ import { matches, teams, videos } from "@/lib/db/schema";
 import { oppositionFor } from "@/lib/db/oppositions";
 import { contentTypeFor, store } from "@/lib/storage";
 import { clubStorage } from "@/lib/queries/storage";
+import { orgTerms } from "@/lib/hurling/org";
 import {
   fileSizeProblem,
   isAcceptedVideo,
@@ -121,7 +122,11 @@ export async function POST(req: NextRequest) {
   } else if (fallbackMatchId) {
     const [match] = await db.select().from(matches).where(eq(matches.id, fallbackMatchId)).limit(1);
     // Not found and not yours read the same, so ids from other clubs reveal nothing.
-    if (!match || match.teamId !== user.teamId) return problem("That match is not one of yours.", 404);
+    // A deleted match reads as gone too: footage added to it would be hidden
+    // with it and purged with it.
+    if (!match || match.teamId !== user.teamId || match.deletedAt !== null) {
+      return problem("That match is not one of yours.", 404);
+    }
     existing = match;
   } else {
     return NextResponse.json({ needsMatch: true });
@@ -129,7 +134,7 @@ export async function POST(req: NextRequest) {
 
   // The club's tier, summed over all its teams' footage (see clubStorage).
   const { usedBytes, quotaBytes } = await clubStorage(user.clubId);
-  const tooBig = quotaProblem(usedBytes, size, quotaBytes);
+  const tooBig = quotaProblem(usedBytes, size, quotaBytes, orgTerms(user.orgKind).noun);
   if (tooBig) return problem(tooBig, 413);
 
   const [team] = await db

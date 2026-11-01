@@ -13,6 +13,7 @@ import {
   reviewPath,
 } from "@/lib/db/clubs";
 import { GAME_LABELS, isGameCode, type GameCode } from "@/lib/hurling/codes";
+import { orgKindOf, type OrgKind } from "@/lib/hurling/org";
 import { sendMail } from "@/lib/mail";
 import { clubReviewMail } from "@/lib/mail/templates";
 import { appUrl } from "@/lib/url";
@@ -100,7 +101,9 @@ export async function joinTeam(_prev: AuthState, form: FormData): Promise<AuthSt
   toCodePage(issued.requestId);
 }
 
-type StartPayload = { teamName: string; code: GameCode; displayName: string };
+// `kind` is optional because a sign-in started before the question was asked
+// may still be waiting in someone's inbox; it is a club.
+type StartPayload = { teamName: string; code: GameCode; displayName: string; kind?: OrgKind };
 
 /**
  * Set up a new club from the web. Anyone can; there is no code to ask for
@@ -114,14 +117,16 @@ export async function startClub(_prev: AuthState, form: FormData): Promise<AuthS
   const code = form.get("code");
   if (!isGameCode(code)) return { error: "Choose the game your team plays." };
 
+  const kind = orgKindOf(form.get("kind"));
   const fields = checkClubFields({
     teamName: String(form.get("teamName") ?? ""),
     displayName: String(form.get("displayName") ?? ""),
     email: String(form.get("email") ?? ""),
+    kind,
   });
   if ("error" in fields) return fields;
 
-  const payload: StartPayload = { teamName: fields.teamName, code, displayName: fields.displayName };
+  const payload: StartPayload = { teamName: fields.teamName, code, displayName: fields.displayName, kind };
   const issued = await issueSignIn({
     email: fields.email,
     purpose: "start",
@@ -184,10 +189,10 @@ async function finish(request: SignInRequest): Promise<AuthState> {
     }
 
     case "start": {
-      const { teamName, code, displayName } = payload as StartPayload;
+      const { teamName, code, displayName, kind } = payload as StartPayload;
       let club;
       try {
-        club = await createClub({ teamName, code, displayName, email: request.email });
+        club = await createClub({ teamName, code, kind, displayName, email: request.email });
       } catch (err) {
         if (err instanceof ClubSetupError) return { error: err.message };
         throw err;
@@ -218,6 +223,7 @@ async function askHostToCheck(clubId: string): Promise<void> {
     if (!club) return;
     const mail = clubReviewMail({
       clubName: club.name,
+      kind: club.kind,
       game: GAME_LABELS[club.game],
       adminName: club.admin?.name ?? "unknown",
       adminEmail: club.admin?.email ?? "no email",

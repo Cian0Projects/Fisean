@@ -7,7 +7,11 @@ import {
   deleteMatch,
   deleteVideo,
   moveToTeam,
+  purgeMatchNow,
+  purgeVideoNow,
   removeMember,
+  restoreMatch,
+  restoreVideo,
   rotateJoinCode,
   setClubCode,
   setMemberEmail,
@@ -15,6 +19,7 @@ import {
 } from "@/lib/actions/admin";
 import { GAME_CODES, GAME_LABELS, isGameCode, type GameCode } from "@/lib/hurling/codes";
 import { formatClock } from "@/lib/hurling/notation";
+import { orgTerms, type OrgKind } from "@/lib/hurling/org";
 import { codecWarning } from "@/lib/media/probe";
 import { matchDate, fileSize } from "@/lib/format";
 import { storageLevel } from "@/lib/media/upload";
@@ -27,6 +32,8 @@ import { FootageImport } from "./FootageImport";
 import type { Role } from "@/lib/db/schema";
 import type { ImportView } from "@/lib/queries/imports";
 import type { ClubStorage } from "@/lib/queries/storage";
+import type { DeletedForTeam, DeletedItem } from "@/lib/db/deleted";
+import { KEEP_DAYS } from "@/lib/media/deleted";
 
 type Member = {
   id: string;
@@ -76,6 +83,7 @@ type Video = {
  */
 export function AdminPanels({
   viewer,
+  orgKind,
   teamId,
   clubName,
   clubTeams,
@@ -89,8 +97,11 @@ export function AdminPanels({
   videos,
   imports,
   storage,
+  deleted,
 }: {
   viewer: { id: string; role: Role };
+  /** Club or county, so every label that names the organisation uses its word. */
+  orgKind: OrgKind;
   teamId: string;
   clubName: string;
   clubTeams: ClubTeam[];
@@ -104,8 +115,11 @@ export function AdminPanels({
   videos: Video[];
   imports: ImportView[];
   storage: ClubStorage;
+  /** Admins only; null for a coach, who cannot delete. */
+  deleted: DeletedForTeam | null;
 }) {
   const isAdmin = viewer.role === "admin";
+  const { noun } = orgTerms(orgKind);
   const otherTeams = clubTeams.filter((t) => t.id !== teamId);
 
   return (
@@ -120,7 +134,7 @@ export function AdminPanels({
             {/* Only the admin changes the badge; everyone else just sees it. */}
             <div className="shrink-0">
               {isAdmin ? (
-                <BadgeEditor initial={badgeVersion} />
+                <BadgeEditor initial={badgeVersion} kind={orgKind} />
               ) : (
                 <ClubBadge version={badgeVersion} className="h-20 w-20" />
               )}
@@ -154,19 +168,20 @@ export function AdminPanels({
         <div className="mt-12 grid gap-x-16 gap-y-14 lg:grid-cols-[minmax(0,1fr)_25rem]">
           <div className="space-y-14">
             {isAdmin ? (
-              <Panel members={members} viewerId={viewer.id} otherTeams={otherTeams} />
+              <Panel members={members} viewerId={viewer.id} otherTeams={otherTeams} noun={noun} />
             ) : (
               <Matches matches={matches} videos={videos} canDelete={false} />
             )}
           </div>
 
           <aside className="space-y-14">
-            {isAdmin && <ClubTeams teams={clubTeams} currentId={teamId} viewerId={viewer.id} />}
-            {isAdmin && <GameChoice key={teamId} initial={code} />}
-            {isAdmin && <ClubColours key={teamId} initial={colours} />}
+            {isAdmin && <ClubTeams teams={clubTeams} currentId={teamId} viewerId={viewer.id} noun={noun} />}
+            {isAdmin && <GameChoice key={teamId} initial={code} noun={noun} />}
+            {isAdmin && <ClubColours key={teamId} initial={colours} kind={orgKind} />}
             {isAdmin && <Matches matches={matches} videos={videos} canDelete />}
-            <Footage videos={videos} imports={imports} storage={storage} canDelete={isAdmin} />
-            {isAdmin && <CloseClub teamName={clubName} />}
+            <Footage videos={videos} imports={imports} storage={storage} canDelete={isAdmin} noun={noun} />
+            {deleted && <RecentlyDeleted deleted={deleted} noun={noun} />}
+            {isAdmin && <CloseClub teamName={clubName} noun={noun} />}
           </aside>
         </div>
       </main>
@@ -257,7 +272,7 @@ function TeamCode({ initial }: { initial: string }) {
  * stats simply read in the new code's words, and picking the old game again
  * puts everything back as it was.
  */
-function GameChoice({ initial }: { initial: GameCode }) {
+function GameChoice({ initial, noun }: { initial: GameCode; noun: string }) {
   const [code, setCode] = useState(initial);
   const [note, setNote] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -282,7 +297,7 @@ function GameChoice({ initial }: { initial: GameCode }) {
     <section>
       <SectionHead
         title="The game"
-        note="Sets the words on the stat sheet and the tags: kick-out or poc amach, 45 or 65, and whether football's two-point arc is drawn. Every clip and stat is kept when it changes. Each team in the club has its own."
+        note={`Sets the words on the stat sheet and the tags: kick-out or poc amach, 45 or 65, and whether football's two-point arc is drawn. Every clip and stat is kept when it changes. Each team in the ${noun} has its own.`}
       />
       <label htmlFor="club-code" className="sr-only">
         The game this team plays
@@ -321,10 +336,12 @@ function ClubTeams({
   teams,
   currentId,
   viewerId,
+  noun,
 }: {
   teams: ClubTeam[];
   currentId: string;
   viewerId: string;
+  noun: string;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -340,8 +357,8 @@ function ClubTeams({
   return (
     <section>
       <SectionHead
-        title="Teams in the club"
-        note="Each team has its own code, matches, clips and drills, and nobody on one can see another's. Only a club admin goes between them or moves someone across."
+        title={`Teams in the ${noun}`}
+        note={`Each team has its own code, matches, clips and drills, and nobody on one can see another's. Only a ${noun} admin goes between them or moves someone across.`}
       />
       <ul>
         {teams.map((t) => (
@@ -463,11 +480,9 @@ function AddTeam() {
 
 /* --------------------------------------------------------------- the panel */
 
-const ROLE_LABEL: Record<Role, string> = {
-  admin: "Club admin",
-  coach: "Coach",
-  player: "Player",
-};
+function roleLabel(role: Role, noun: string): string {
+  return role === "admin" ? `${noun.charAt(0).toUpperCase()}${noun.slice(1)} admin` : role === "coach" ? "Coach" : "Player";
+}
 
 // Management reads first, then the players, each alphabetical: the order a
 // club secretary would read the list out in.
@@ -482,10 +497,12 @@ function Panel({
   members,
   viewerId,
   otherTeams,
+  noun,
 }: {
   members: Member[];
   viewerId: string;
   otherTeams: ClubTeam[];
+  noun: string;
 }) {
   const sorted = [...members].sort(
     (a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role] || a.displayName.localeCompare(b.displayName),
@@ -497,8 +514,8 @@ function Panel({
         title="The panel"
         note={`Everyone who has joined with the team code, and players you have added by name. You decide who is a player and who is a coach. ${
           otherTeams.length > 0
-            ? "Use Move to team beside a name to put them on another of the club's teams."
-            : "To move someone to another of the club's teams, add that team under Teams in the club first."
+            ? `Use Move to team beside a name to put them on another of the ${noun}'s teams.`
+            : `To move someone to another of the ${noun}'s teams, add that team under Teams in the ${noun} first.`
         } Removing someone signs them out straight away.`}
       />
       {/* A player with no email is a name only: stats can be logged against
@@ -511,7 +528,7 @@ function Panel({
       ) : (
         <ul>
           {sorted.map((m) => (
-            <MemberRow key={m.id} member={m} isSelf={m.id === viewerId} otherTeams={otherTeams} />
+            <MemberRow key={m.id} member={m} isSelf={m.id === viewerId} otherTeams={otherTeams} noun={noun} />
           ))}
         </ul>
       )}
@@ -524,7 +541,7 @@ function Panel({
  * this app means an outcome on the field, and being a coach is not one. The
  * admin's flag is filled so it still stands out on a photocopy.
  */
-function RoleFlag({ role }: { role: Role }) {
+function RoleFlag({ role, noun }: { role: Role; noun: string }) {
   const admin = role === "admin";
   return (
     <span
@@ -536,7 +553,7 @@ function RoleFlag({ role }: { role: Role }) {
         color: admin ? "var(--color-stage)" : "var(--color-ink-dim)",
       }}
     >
-      {ROLE_LABEL[role]}
+      {roleLabel(role, noun)}
     </span>
   );
 }
@@ -545,10 +562,12 @@ function MemberRow({
   member,
   isSelf,
   otherTeams,
+  noun,
 }: {
   member: Member;
   isSelf: boolean;
   otherTeams: ClubTeam[];
+  noun: string;
 }) {
   const [role, setRole] = useState(member.role);
   const [error, setError] = useState<string | null>(null);
@@ -585,7 +604,7 @@ function MemberRow({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="text-[15px] font-semibold">{member.displayName}</span>
-          <RoleFlag role={role} />
+          <RoleFlag role={role} noun={noun} />
           {isSelf && (
             <span className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
               you
@@ -609,7 +628,7 @@ function MemberRow({
       >
         <option value="player">Player</option>
         <option value="coach">Coach</option>
-        <option value="admin">Club admin</option>
+        <option value="admin">{roleLabel("admin", noun)}</option>
       </select>
 
       {/* An admin goes to another team from the list of teams, not from
@@ -795,7 +814,7 @@ function MatchRow({
             onClick={() => {
               if (
                 !confirm(
-                  `Delete the match against ${match.opponent}? Its footage, clips and stats go with it, and cannot be brought back.`,
+                  `Delete the match against ${match.opponent}? Its footage, clips and stats go with it. You can put it back from Recently deleted for ${KEEP_DAYS} days.`,
                 )
               )
                 return;
@@ -811,6 +830,85 @@ function MatchRow({
   );
 }
 
+/**
+ * What an admin deleted in the last twenty days, to put back or to remove for
+ * good now (src/lib/media/deleted.ts). Shown only when there is something in
+ * it, so a club that has never deleted anything never sees it. A match is one
+ * row however many files it took with it.
+ */
+function RecentlyDeleted({ deleted, noun }: { deleted: DeletedForTeam; noun: string }) {
+  if (deleted.matches.length + deleted.videos.length === 0) return null;
+  return (
+    <section>
+      <SectionHead
+        title="Recently deleted"
+        note={`Kept for ${KEEP_DAYS} days, then removed for good. Until then it still counts towards the ${noun}'s storage.`}
+      />
+      <ul>
+        {deleted.matches.map((m) => (
+          <DeletedRow key={m.id} item={m} restore={restoreMatch} purge={purgeMatchNow} />
+        ))}
+        {deleted.videos.map((v) => (
+          <DeletedRow key={v.id} item={v} restore={restoreVideo} purge={purgeVideoNow} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function DeletedRow({
+  item,
+  restore,
+  purge,
+}: {
+  item: DeletedItem;
+  restore: (id: string) => Promise<{ error: string } | void>;
+  purge: (id: string) => Promise<void>;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <li className="fixture py-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[15px] font-semibold">{item.title}</div>
+          <div className="caption tabular mt-0.5">
+            {fileSize(item.sizeBytes)}. {item.left}.
+          </div>
+        </div>
+        <button
+          disabled={pending}
+          onClick={() =>
+            startTransition(async () => {
+              const result = await restore(item.id);
+              setError(result?.error ?? null);
+            })
+          }
+          className="btn-ghost text-xs"
+        >
+          Put back
+        </button>
+        <button
+          disabled={pending}
+          onClick={() => {
+            if (!confirm(`Remove ${item.title} for good now? This cannot be undone.`)) return;
+            startTransition(() => void purge(item.id));
+          }}
+          className="btn-ghost text-xs"
+        >
+          Delete now
+        </button>
+      </div>
+      {error && (
+        <p className="mt-2 text-[12px]" style={{ color: "var(--color-danger-ink)" }}>
+          {error}
+        </p>
+      )}
+    </li>
+  );
+}
+
 /* -------------------------------------------------------------- the club */
 
 /**
@@ -820,29 +918,29 @@ function MatchRow({
  * confirmed. The email has to come from an admin's own address, which is how
  * the script finds the club, so the link fills in the rest.
  */
-function CloseClub({ teamName }: { teamName: string }) {
+function CloseClub({ teamName, noun }: { teamName: string; noun: string }) {
   const subject = `Close ${teamName} on Ardawn`;
   const body =
     `Please close ${teamName} on Ardawn and delete everything in it.\n\n` +
-    "I am an admin of the club and am sending this from the address I sign in with.";
+    `I am an admin of the ${noun} and am sending this from the address I sign in with.`;
   const href = `mailto:hello@ardawnsport.ie?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
   return (
     <section>
-      <SectionHead title="Close the club" />
+      <SectionHead title={`Close the ${noun}`} />
       <div className="space-y-3 text-[14px] leading-relaxed" style={{ color: "var(--color-ink-dim)" }}>
         <p>
-          Closing the club deletes every team in it, with every match, file of footage, clip, stat,
+          Closing the {noun} deletes every team in it, with every match, file of footage, clip, stat,
           drill and person on their panels, and cannot be undone. So that it never happens by accident, it is done by us, not
           from this page.
         </p>
         <p>
-          To ask, email us from the address you sign in with. We reply to check it is what the club
+          To ask, email us from the address you sign in with. We reply to check it is what the {noun}
           wants, and delete everything within seven days of you confirming. Backups hold a copy for up
           to 30 days, then it is gone for good.
         </p>
         <a href={href} className="btn-outline inline-block">
-          Ask to close the club
+          Ask to close the {noun}
         </a>
       </div>
     </section>
@@ -862,19 +960,19 @@ const LEVEL_COLOUR = {
   high: "var(--color-danger)",
 } as const;
 
-function StorageUsage({ storage }: { storage: ClubStorage }) {
+function StorageUsage({ storage, noun }: { storage: ClubStorage; noun: string }) {
   const share = storage.quotaBytes ? storage.usedBytes / storage.quotaBytes : 0;
   const pct = Math.min(100, Math.round(share * 100));
   const level = storageLevel(storage.usedBytes, storage.quotaBytes);
   return (
     <div className="mb-6">
       <p className="text-[14px]" style={{ color: "var(--color-ink-dim)" }}>
-        Your club is on the {storage.storageGb} GB plan and has used {fileSize(storage.usedBytes)}, across all its
+        Your {noun} is on the {storage.storageGb} GB plan and has used {fileSize(storage.usedBytes)}, across all its
         teams.
       </p>
       <div
         role="progressbar"
-        aria-label="Club storage used"
+        aria-label={`${noun.charAt(0).toUpperCase()}${noun.slice(1)} storage used`}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={pct}
@@ -885,7 +983,7 @@ function StorageUsage({ storage }: { storage: ClubStorage }) {
       </div>
       {level === "high" && (
         <p className="mt-2 text-[13px]" style={{ color: "var(--color-ink-dim)" }}>
-          {share >= 1 ? "The club is full." : `The club has used ${pct}% of its storage.`} Delete footage nobody watches
+          {share >= 1 ? `The ${noun} is full.` : `The ${noun} has used ${pct}% of its storage.`} Delete footage nobody watches
           any more, or email hello@ardawnsport.ie for a larger plan.
         </p>
       )}
@@ -898,11 +996,13 @@ function Footage({
   imports,
   storage,
   canDelete,
+  noun,
 }: {
   videos: Video[];
   imports: ImportView[];
   storage: ClubStorage;
   canDelete: boolean;
+  noun: string;
 }) {
   const [, startTransition] = useTransition();
   const { uploads } = useUploads();
@@ -919,7 +1019,7 @@ function Footage({
         note="Everyone on the panel can watch what goes up here. A full match can take a while on club WiFi; if it stops, drop the same file again and it carries on from where it was."
       />
 
-      <StorageUsage storage={storage} />
+      <StorageUsage storage={storage} noun={noun} />
       <UploadArea />
       <FootageImport initial={imports} />
 
@@ -948,7 +1048,14 @@ function Footage({
                   {canDelete && (
                     <button
                       onClick={() => {
-                        if (!confirm(`Delete ${v.originalFilename} and all its clips?`)) return;
+                        if (
+                          !confirm(
+                            v.status === "ready"
+                              ? `Delete ${v.originalFilename} and all its clips? You can put it back from Recently deleted for ${KEEP_DAYS} days.`
+                              : `Delete ${v.originalFilename}? It never finished uploading, so it goes straight away.`,
+                          )
+                        )
+                          return;
                         startTransition(() => void deleteVideo(v.id));
                       }}
                       className="btn-ghost text-xs"

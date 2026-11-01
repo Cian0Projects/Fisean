@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { currentUser, waitingUser } from "@/lib/auth/session";
 import { signOut } from "@/lib/actions/auth";
 import { Gate } from "@/components/ui/Gate";
+import { orgTerms } from "@/lib/hurling/org";
 
 export const metadata: Metadata = { title: "Your club is being checked", robots: { index: false } };
 
@@ -17,11 +18,12 @@ export default async function WaitingPage() {
   if (!waiting) redirect((await currentUser()) ? "/admin" : "/login");
 
   const first = waiting.displayName.split(/\s+/)[0] || waiting.displayName;
+  const { noun } = orgTerms(waiting.orgKind);
 
   return (
     <Gate
-      title="Your club is being checked"
-      intro="Every new club on Ardawn is looked at by a person before it opens, so that each club is here once and is who it says it is."
+      title={`Your ${noun} is being checked`}
+      intro={`Every new club or county on Ardawn is looked at by a person before it opens, so that each one is here once and is who it says it is.`}
       footer={
         <form action={signOut}>
           <button type="submit" className="underline underline-offset-2">
@@ -40,7 +42,7 @@ export default async function WaitingPage() {
           team code for the panel, and drop in your first match.
         </p>
         <p>
-          In a hurry, or think your club is already on Ardawn? Email{" "}
+          In a hurry, or think your {noun} is already on Ardawn? Email{" "}
           <a href="mailto:hello@ardawnsport.ie" className="underline">
             hello@ardawnsport.ie
           </a>

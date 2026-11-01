@@ -13,7 +13,7 @@
  */
 import "server-only";
 import { and, asc, eq, isNotNull } from "drizzle-orm";
-import { isOurMatch } from "@/lib/queries/matches";
+import { isOurMatch, liveVideo } from "@/lib/queries/matches";
 import { db } from "@/lib/db/client";
 import { matchLineups, matchStats, matches, users, videoMarkers, videos } from "@/lib/db/schema";
 import { markersFromRows, type Markers } from "@/lib/hurling/notation";
@@ -59,7 +59,7 @@ export async function loadSeasonFootage(teamId: string): Promise<Map<string, Sea
     db
       .select({ id: videos.id, matchId: videos.matchId, durationMs: videos.durationMs, storageKey: videos.storageKey })
       .from(videos)
-      .where(and(eq(videos.teamId, teamId), eq(videos.status, "ready")))
+      .where(and(eq(videos.teamId, teamId), eq(videos.status, "ready"), liveVideo))
       .orderBy(asc(videos.createdAt)),
     loadTeamMarkers(teamId),
   ]);

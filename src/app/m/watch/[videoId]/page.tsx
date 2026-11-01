@@ -29,7 +29,7 @@ export default async function PhoneWatchPage({
 
   const [video] = await db.select().from(videos).where(eq(videos.id, videoId)).limit(1);
   // A file still uploading is half a file; it opens once it has all arrived.
-  if (!video || video.teamId !== user.teamId || video.status !== "ready") notFound();
+  if (!video || video.teamId !== user.teamId || video.status !== "ready" || video.deletedAt !== null) notFound();
 
   const [match] = video.matchId
     ? await db.select().from(matches).where(eq(matches.id, video.matchId)).limit(1)

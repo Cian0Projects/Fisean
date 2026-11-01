@@ -8,13 +8,22 @@
  * in our season. Opposition games are listed on /opposition instead.
  */
 import "server-only";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { matches, oppositions, type MatchKind } from "@/lib/db/schema";
+import { matches, oppositions, videos, type MatchKind } from "@/lib/db/schema";
 import type { Side } from "@/lib/hurling/stats";
 
-export const isOurMatch = eq(matches.kind, "ours");
-export const isOppositionGame = eq(matches.kind, "opposition");
+/**
+ * Not in recently deleted (src/lib/media/deleted.ts). A deleted match or
+ * video keeps its row for twenty days, so every list, total and lookup that
+ * a viewer reaches reads through these; one that forgot would show footage
+ * the admin has deleted. Both kinds of match below already include it.
+ */
+export const liveMatch = isNull(matches.deletedAt);
+export const liveVideo = isNull(videos.deletedAt);
+
+export const isOurMatch = and(eq(matches.kind, "ours"), liveMatch) as SQL;
+export const isOppositionGame = and(eq(matches.kind, "opposition"), liveMatch) as SQL;
 
 /**
  * The names on each side of the sheet. In our games, us and who we played;

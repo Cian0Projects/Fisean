@@ -35,7 +35,7 @@ export default async function MatchStatsPage({
   const [{ matchId }, asked] = await Promise.all([params, searchParams]);
 
   const [match] = await db.select().from(matches).where(eq(matches.id, matchId)).limit(1);
-  if (!match || match.teamId !== user.teamId) notFound();
+  if (!match || match.teamId !== user.teamId || match.deletedAt !== null) notFound();
 
   // A draft says so rather than 404ing: the player followed a real link,
   // and "not out yet" tells them to come back.

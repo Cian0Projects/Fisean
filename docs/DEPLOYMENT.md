@@ -347,6 +347,27 @@ systemctl start fisean
 
 ---
 
+## Recently deleted
+
+Deleting a match or a finished video does not remove it. It is hidden from
+every screen and listed under **Recently deleted** on the squad page, where
+an admin can put it back or remove it for good straight away. After 20 days
+(`KEEP_DAYS` in `src/lib/media/deleted.ts`) the nightly job removes it:
+`npm run purge-deleted` (`scripts/purge-deleted.ts`), run from
+`/etc/cron.daily/fisean-backup` after the backup and before the sweep below.
+It only ever removes rows that carry a deletion date at least 20 days old, so
+a missing or empty database means nothing is due. Deleted footage counts
+towards the club's storage until it is removed.
+
+To see what tonight's run would remove:
+
+```bash
+sudo -u fisean -H bash -c "cd /srv/fisean/app && npm run purge-deleted -- --dry-run"
+```
+
+A file still uploading or importing has nothing to put back, so deleting it
+removes it at once, as before.
+
 ## Reconciling storage
 
 Deleting a video removes its database row first and its file second, and the

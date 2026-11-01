@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useTransition } from "react";
 import { deleteMatch } from "@/lib/actions/admin";
 import { matchDate } from "@/lib/format";
+import { KEEP_DAYS } from "@/lib/media/deleted";
 import type { OppositionGame } from "@/lib/queries/opposition";
 import { UploadButton, UploadList, UploadProvider } from "@/components/admin/FootageUpload";
 
@@ -92,7 +93,11 @@ function GameRow({
           <button
             disabled={pending}
             onClick={() => {
-              if (!confirm(`Delete ${what}? Its footage, clips and stats go with it, and cannot be brought back.`)) {
+              if (
+                !confirm(
+                  `Delete ${what}? Its footage, clips and stats go with it. An admin can put it back from Recently deleted on the squad page for ${KEEP_DAYS} days.`,
+                )
+              ) {
                 return;
               }
               startTransition(() => void deleteMatch(game.id));

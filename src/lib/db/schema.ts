@@ -34,6 +34,7 @@ import {
   type Half,
 } from "../hurling/stats";
 import { GAME_CODES } from "../hurling/codes";
+import { ORG_KINDS } from "../hurling/org";
 import { SOURCE_KINDS } from "../media/import";
 import { NOTIFICATION_KINDS } from "../notify/digest";
 
@@ -59,6 +60,12 @@ const id = () =>
 export const clubs = sqliteTable("clubs", {
   id: id(),
   name: text("name").notNull(),
+  /**
+   * Whether this is a club or a county; see src/lib/hurling/org.ts. It changes
+   * only the words the workspace uses for it. Club for everything that signed
+   * up before the question was asked.
+   */
+  kind: text("kind", { enum: ORG_KINDS }).notNull().default("club"),
   /**
    * When the host checked the club was real and new, or null while it waits.
    * Anyone can fill in /start; until this is set, its admin sees only a
@@ -325,6 +332,14 @@ export const matches = sqliteTable(
      */
     statsSubmittedAt: integer("stats_submitted_at"),
     statsSubmittedBy: text("stats_submitted_by"),
+    /**
+     * When an admin deleted the match. A deleted match stays for twenty days
+     * (src/lib/media/deleted.ts) so a stray click can be undone, hidden from
+     * every list and roll-up meanwhile; the nightly purge then removes it and
+     * its footage for good. Its videos are stamped with the same time, so
+     * putting the match back puts back exactly the videos it took with it.
+     */
+    deletedAt: integer("deleted_at"),
     createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: integer("created_at").notNull().default(now),
   },
@@ -401,6 +416,14 @@ export const videos = sqliteTable(
      * shares it. Null is unset, drawn as the left.
      */
     ourEndFirstHalf: text("our_end_first_half", { enum: ["left", "right"] }),
+    /**
+     * When an admin deleted the video, or the match it belongs to; see
+     * `matches.deletedAt`. Only finished files are kept this way: one still
+     * uploading or importing has nothing worth restoring and goes at once.
+     * It keeps counting against the club's storage until it is purged,
+     * because the file is still in the bucket.
+     */
+    deletedAt: integer("deleted_at"),
     uploadedBy: text("uploaded_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: integer("created_at").notNull().default(now),
   },

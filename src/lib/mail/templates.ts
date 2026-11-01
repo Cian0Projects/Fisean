@@ -14,6 +14,7 @@ import { formatCode } from "../auth/email-code";
 import type { DigestLine } from "../notify/digest";
 import { digestSubject } from "../notify/digest";
 import type { SignInPurpose } from "../db/schema";
+import { orgTerms, type OrgKind } from "../hurling/org";
 
 export type Rendered = { subject: string; text: string; html: string };
 
@@ -89,24 +90,26 @@ export function signInMail(input: {
  */
 export function clubReviewMail(input: {
   clubName: string;
+  kind: OrgKind;
   game: string;
   adminName: string;
   adminEmail: string;
   similar: string[];
   reviewUrl: string;
 }): Rendered {
+  const { noun, Noun } = orgTerms(input.kind);
   const facts = [
-    `Club: ${input.clubName}`,
+    `${Noun}: ${input.clubName}`,
     `First team plays: ${input.game}`,
     `Set up by: ${input.adminName}, ${input.adminEmail}`,
   ];
   const similar = input.similar.length
     ? `Already on Ardawn with a similar name: ${input.similar.join(", ")}.`
-    : "No club already on Ardawn has a similar name.";
-  const note = "Their email address is proven, and is not on any other club: an address can only be on one.";
+    : `No ${noun} already on Ardawn has a similar name.`;
+  const note = "Their email address is proven, and is not on any other club or county: an address can only be on one.";
 
   const text = [
-    "A new club is waiting to be checked.",
+    `A new ${noun} is waiting to be checked.`,
     "",
     ...facts,
     "",
@@ -118,7 +121,7 @@ export function clubReviewMail(input: {
   ].join("\n");
 
   const html = frame(
-    `<p style="margin:0 0 16px;font-size:15px;line-height:1.5">A new club is waiting to be checked.</p>
+    `<p style="margin:0 0 16px;font-size:15px;line-height:1.5">A new ${noun} is waiting to be checked.</p>
 ${facts.map((f) => `<p style="margin:0 0 6px;font-size:15px;line-height:1.4">${escape(f)}</p>`).join("\n")}
 <p style="margin:16px 0 6px;font-size:14px;line-height:1.5;${input.similar.length ? "font-weight:600" : "color:#45443f"}">${escape(similar)}</p>
 <p style="margin:0 0 20px;font-size:14px;line-height:1.5;color:#45443f">${escape(note)}</p>
@@ -126,7 +129,7 @@ ${facts.map((f) => `<p style="margin:0 0 6px;font-size:15px;line-height:1.4">${e
     "Only you get this. The link works without signing in, so do not forward it.",
   );
 
-  return { subject: `New club to check: ${input.clubName}`, text, html };
+  return { subject: `New ${noun} to check: ${input.clubName}`, text, html };
 }
 
 /** To the club's admin, once the host has let the club in. */
@@ -146,18 +149,19 @@ export function clubApprovedMail(input: { name: string; clubName: string; url: s
 }
 
 /** To the club's admin, when the host could not confirm the club. */
-export function clubDeclinedMail(input: { name: string; clubName: string }): Rendered {
+export function clubDeclinedMail(input: { name: string; clubName: string; kind: OrgKind }): Rendered {
+  const { noun } = orgTerms(input.kind);
   const first = input.name.split(/\s+/)[0] || input.name;
   const lead = `Hi ${first}, we could not set up ${input.clubName} on Ardawn.`;
   const why =
-    "Usually that is because the club is already here, or because we could not confirm who the club is. " +
+    `Usually that is because the ${noun} is already here, or because we could not confirm who the ${noun} is. ` +
     "Email hello@ardawnsport.ie and we will sort it out with you.";
 
   const text = [lead, "", why].join("\n");
   const html = frame(
     `<p style="margin:0 0 16px;font-size:15px;line-height:1.5">${escape(lead)}</p>
 <p style="margin:0;font-size:14px;line-height:1.5;color:#45443f">${escape(why)}</p>`,
-    "Nothing was kept: the club and your account have been removed.",
+    `Nothing was kept: the ${noun} and your account have been removed.`,
   );
   return { subject: `About ${input.clubName} on Ardawn`, text, html };
 }

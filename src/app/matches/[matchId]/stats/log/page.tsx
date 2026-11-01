@@ -25,7 +25,7 @@ export default async function LogMatchStatsPage({
   const { matchId } = await params;
 
   const [match] = await db.select().from(matches).where(eq(matches.id, matchId)).limit(1);
-  if (!match || match.teamId !== user.teamId) notFound();
+  if (!match || match.teamId !== user.teamId || match.deletedAt !== null) notFound();
 
   if (!isCoach(user)) {
     return (

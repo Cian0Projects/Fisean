@@ -32,6 +32,7 @@ import {
   uploadKey,
 } from "@/lib/media/upload";
 import { clubStorage } from "@/lib/queries/storage";
+import { orgTerms } from "@/lib/hurling/org";
 import { importsForTeam, type ImportView } from "@/lib/queries/imports";
 
 export type LinkCheck =
@@ -113,7 +114,7 @@ export async function importFootage(input: {
 
   // The club's tier, summed over all its teams' footage (see clubStorage).
   const { usedBytes, quotaBytes } = await clubStorage(user.clubId);
-  const tooBig = quotaProblem(usedBytes, info.sizeBytes, quotaBytes);
+  const tooBig = quotaProblem(usedBytes, info.sizeBytes, quotaBytes, orgTerms(user.orgKind).noun);
   if (tooBig) return { ok: false, error: tooBig };
 
   const [team] = await db

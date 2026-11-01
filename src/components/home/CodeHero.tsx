@@ -114,13 +114,13 @@ export function CodeHero() {
             Every match, ready to watch back.
           </h1>
           <p className="measure mt-6 text-[17px] leading-relaxed text-ink sm:text-[19px]">
-            Video review for hurling, camogie, Gaelic football and ladies football.
-            Upload the match and the whole panel can watch it on their phones, then
+            Video review for hurling, camogie, Gaelic football and ladies football,
+            for clubs and counties. Upload the match and the whole panel can watch it on their phones, then
             clip it, keep the stats and plan training, all in one app.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-4">
             <a href="/start" className="btn-brand px-6 py-3.5 text-[15px]">
-              Set up your club
+              Set up your club or county
             </a>
             <a href="#how-it-works" className="btn-outline px-6 py-3.5 text-[15px]">
               See how it works

@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
+import { liveVideo } from "@/lib/queries/matches";
 import { db } from "@/lib/db/client";
-import { clips, playlistItems, playlistViewers, users } from "@/lib/db/schema";
+import { clips, playlistItems, playlistViewers, users, videos } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/guard";
 import { visibleClipIds } from "@/lib/queries/clips";
 import { describeAudience } from "@/lib/auth/visibility";
@@ -35,7 +36,9 @@ export default async function PlaylistsPage() {
         })
         .from(playlistItems)
         .innerJoin(clips, eq(clips.id, playlistItems.clipId))
-        .where(inArray(playlistItems.playlistId, ids))
+        // A clip of deleted footage drops out of the list until it is put back.
+        .innerJoin(videos, eq(videos.id, clips.videoId))
+        .where(and(inArray(playlistItems.playlistId, ids), liveVideo))
         .orderBy(asc(playlistItems.playlistId), asc(playlistItems.sortOrder))
     : [];
   const seen = await visibleClipIds(user, allItems);

@@ -8,6 +8,7 @@
  */
 import "server-only";
 import { redirect } from "next/navigation";
+import { orgTerms } from "../hurling/org";
 import { currentUser, waitingUser, type SessionUser } from "./session";
 
 export class Forbidden extends Error {
@@ -67,7 +68,7 @@ export async function requireCoach(): Promise<SessionUser> {
 
 export async function requireAdmin(): Promise<SessionUser> {
   const user = await requireUserOrThrow();
-  if (!isAdmin(user)) throw new Forbidden("Only a club admin can do that.");
+  if (!isAdmin(user)) throw new Forbidden(`Only a ${orgTerms(user.orgKind).noun} admin can do that.`);
   return user;
 }
 

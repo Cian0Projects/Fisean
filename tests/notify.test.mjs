@@ -97,6 +97,7 @@ test("the share email links every line and escapes what coaches typed", () => {
 test("the host is told who a new club is, what it looks like, and where to answer", () => {
   const review = clubReviewMail({
     clubName: "Kilmacud Crokes <Hurling>",
+    kind: "club",
     game: "Hurling",
     adminName: "Cian",
     adminEmail: "cian@example.ie",
@@ -107,14 +108,25 @@ test("the host is told who a new club is, what it looks like, and where to answe
   assert.ok(review.text.includes("Already on Ardawn with a similar name: Kilmacud Crokes."));
   assert.ok(review.text.includes("https://ardawnsport.ie/host/clubs/c1?k=abc"));
   assert.ok(review.html.includes("Kilmacud Crokes &lt;Hurling&gt;"));
-  const none = clubReviewMail({ clubName: "A", game: "Camogie", adminName: "B", adminEmail: "b@x.ie", similar: [], reviewUrl: "u" });
+  const none = clubReviewMail({ clubName: "A", kind: "club", game: "Camogie", adminName: "B", adminEmail: "b@x.ie", similar: [], reviewUrl: "u" });
   assert.ok(none.text.includes("No club already on Ardawn has a similar name."));
 
   const approved = clubApprovedMail({ name: "Cian Ó Cathasaigh", clubName: "St Brigid's", url: "https://ardawnsport.ie/admin" });
   assert.ok(approved.text.startsWith("Hi Cian, St Brigid's is ready on Ardawn."));
   assert.ok(approved.text.includes("https://ardawnsport.ie/admin"));
-  const declined = clubDeclinedMail({ name: "Cian", clubName: "St Brigid's" });
+  const declined = clubDeclinedMail({ name: "Cian", clubName: "St Brigid's", kind: "club" });
   assert.ok(declined.text.includes("hello@ardawnsport.ie"));
+
+  // A county is called a county throughout, not a club.
+  const county = clubReviewMail({ clubName: "Tipperary", kind: "county", game: "Hurling", adminName: "B", adminEmail: "b@x.ie", similar: [], reviewUrl: "u" });
+  assert.equal(county.subject, "New county to check: Tipperary");
+  assert.ok(county.text.includes("A new county is waiting to be checked."));
+  assert.ok(county.text.includes("County: Tipperary"));
+  const countyDeclined = clubDeclinedMail({ name: "B", clubName: "Tipperary", kind: "county" });
+  assert.ok(countyDeclined.text.includes("the county is already here"));
+  for (const mail of [county, countyDeclined]) {
+    for (const part of [mail.subject, mail.text, mail.html]) assert.doesNotMatch(part, DASHES);
+  }
 
   for (const mail of [review, none, approved, declined]) {
     for (const part of [mail.subject, mail.text, mail.html]) assert.doesNotMatch(part, DASHES);

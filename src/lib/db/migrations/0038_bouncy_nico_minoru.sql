@@ -1,0 +1,1 @@
+ALTER TABLE `clubs` ADD `kind` text DEFAULT 'club' NOT NULL;

@@ -16,6 +16,7 @@ import { db } from "./client";
 import { clubs, eventTypes, teams, users, videos } from "./schema";
 import { BUILT_IN_EVENTS } from "../hurling/events";
 import type { GameCode } from "../hurling/codes";
+import { orgKindOf, orgTerms, type OrgKind } from "../hurling/org";
 import { similarClubs } from "../hurling/club-names";
 import { defaultStorageGb } from "../media/upload";
 import { generateJoinCode } from "../auth/password";
@@ -84,11 +85,12 @@ export function checkClubFields(input: {
   teamName: string;
   displayName: string;
   email: string;
+  kind?: OrgKind;
 }): { teamName: string; displayName: string; email: string } | { error: string } {
   const teamName = input.teamName.trim();
   const displayName = input.displayName.trim();
   const email = normaliseEmail(input.email);
-  if (!teamName) return { error: "Enter the club's name." };
+  if (!teamName) return { error: `Enter the ${orgTerms(input.kind).noun}'s name.` };
   if (!displayName) return { error: "Enter your name." };
   if (!looksLikeEmail(email)) return { error: "Enter your email address." };
   return { teamName, displayName, email };
@@ -168,11 +170,14 @@ export async function createClub(input: {
   teamName: string;
   /** Which game the team plays. The terminal script leaves it out and gets hurling. */
   code?: GameCode;
+  /** A club or a county; the terminal script leaves it out and gets a club. */
+  kind?: OrgKind;
   displayName: string;
   /** On the web, already proven by the code emailed before this runs. */
   email: string;
 }): Promise<{ clubId: string; teamId: string; userId: string; joinCode: string }> {
-  const fields = checkClubFields(input);
+  const kind = orgKindOf(input.kind);
+  const fields = checkClubFields({ ...input, kind });
   if ("error" in fields) throw new ClubSetupError(fields.error);
   const { teamName, displayName, email } = fields;
 
@@ -190,7 +195,7 @@ export async function createClub(input: {
     // per club afterwards (`npm run set-storage`).
     const club = tx
       .insert(clubs)
-      .values({ name: teamName, storageGb: defaultStorageGb(process.env.TEAM_STORAGE_GB) })
+      .values({ name: teamName, kind, storageGb: defaultStorageGb(process.env.TEAM_STORAGE_GB) })
       .returning()
       .get();
     const team = tx
@@ -244,6 +249,7 @@ export function hostEmail(): string {
 export type ClubForReview = {
   id: string;
   name: string;
+  kind: OrgKind;
   approvedAt: number | null;
   createdAt: number;
   game: GameCode;
@@ -275,6 +281,7 @@ export async function clubForReview(clubId: string): Promise<ClubForReview | nul
   return {
     id: club.id,
     name: club.name,
+    kind: club.kind,
     approvedAt: club.approvedAt,
     createdAt: club.createdAt,
     game: team?.code ?? "hurling",

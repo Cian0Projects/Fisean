@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { and, count, desc, eq, inArray, isNotNull } from "drizzle-orm";
-import { isOurMatch } from "@/lib/queries/matches";
+import { isOurMatch, liveVideo } from "@/lib/queries/matches";
 import { visibleStat } from "@/lib/queries/stats";
 import { db } from "@/lib/db/client";
 import { matchGps, matchLineups, matchStats, matches, videos } from "@/lib/db/schema";
@@ -49,7 +49,7 @@ export default async function StatsPage() {
     db
       .select({ matchId: videos.matchId })
       .from(videos)
-      .where(eq(videos.teamId, user.teamId)),
+      .where(and(eq(videos.teamId, user.teamId), liveVideo)),
     db
       .select({ matchId: matchGps.matchId })
       .from(matchGps)

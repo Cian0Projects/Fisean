@@ -11,6 +11,7 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { clips, playlistItems, playlistViewers, playlists, users, videos } from "@/lib/db/schema";
 import { visibleClipIds } from "@/lib/queries/clips";
+import { liveVideo } from "@/lib/queries/matches";
 import { assertSafeKey } from "@/lib/storage";
 import { canSeePlaylist, type Shared } from "@/lib/auth/visibility";
 import type { SessionUser } from "@/lib/auth/session";
@@ -87,7 +88,7 @@ export async function playlistFootage(
     .from(playlistItems)
     .innerJoin(clips, eq(clips.id, playlistItems.clipId))
     .innerJoin(videos, eq(videos.id, clips.videoId))
-    .where(eq(playlistItems.playlistId, playlistId))
+    .where(and(eq(playlistItems.playlistId, playlistId), liveVideo))
     .orderBy(asc(playlistItems.sortOrder));
 
   const seen = await visibleClipIds(

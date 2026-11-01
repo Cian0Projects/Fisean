@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { clubForReview, validReview } from "@/lib/db/clubs";
+import { orgTerms } from "@/lib/hurling/org";
 import { GAME_LABELS } from "@/lib/hurling/codes";
 import { Gate } from "@/components/ui/Gate";
 import { ReviewForm } from "./ReviewForm";
@@ -44,7 +45,7 @@ export default async function ReviewPage({
   }
 
   const facts: [string, string][] = [
-    ["Club", club.name],
+    [orgTerms(club.kind).Noun, club.name],
     ["First team plays", GAME_LABELS[club.game]],
     ["Set up by", club.admin ? `${club.admin.name}, ${club.admin.email ?? "no email"}` : "nobody"],
     ["Set up on", new Date(club.createdAt).toLocaleString("en-IE", { dateStyle: "long", timeStyle: "short", timeZone: "Europe/Dublin" })],

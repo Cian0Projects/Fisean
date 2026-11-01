@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
-import { isOurMatch } from "@/lib/queries/matches";
+import { isOurMatch, liveVideo } from "@/lib/queries/matches";
 import { visibleStat } from "@/lib/queries/stats";
 import { db } from "@/lib/db/client";
 import {
@@ -51,7 +51,7 @@ export default async function PhoneHome() {
     ? await db
         .select({ id: videos.id, matchId: videos.matchId, status: videos.status })
         .from(videos)
-        .where(inArray(videos.matchId, ids))
+        .where(and(inArray(videos.matchId, ids), liveVideo))
     : [];
 
   // The first ready file for each match is the one a tap should open.
@@ -80,7 +80,7 @@ export default async function PhoneHome() {
     .innerJoin(clips, eq(clips.id, clipPlayers.clipId))
     .innerJoin(videos, eq(videos.id, clips.videoId))
     .leftJoin(matches, eq(matches.id, videos.matchId))
-    .where(and(eq(clipPlayers.userId, user.id), eq(clips.teamId, user.teamId)))
+    .where(and(eq(clipPlayers.userId, user.id), eq(clips.teamId, user.teamId), liveVideo))
     .orderBy(desc(clips.createdAt))
     .limit(30);
   const seen = await visibleClipIds(user, taggedIn);

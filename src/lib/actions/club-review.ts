@@ -42,7 +42,7 @@ export async function answerClubReview(_prev: ReviewState, form: FormData): Prom
   if (answer === "decline") {
     await declineClub(clubId);
     if (admin?.email) {
-      const mail = clubDeclinedMail({ name: admin.name, clubName: club.name });
+      const mail = clubDeclinedMail({ name: admin.name, clubName: club.name, kind: club.kind });
       await sendMail({ to: admin.email, toName: admin.name, ...mail }).catch((err) =>
         console.error(`Declined ${club.name} but could not email ${admin.email}.`, err),
       );

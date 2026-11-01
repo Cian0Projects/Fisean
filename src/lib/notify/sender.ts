@@ -25,6 +25,7 @@ import {
 } from "@/lib/db/schema";
 import { canSeePlaylist } from "@/lib/auth/visibility";
 import { visibleClipIds } from "@/lib/queries/clips";
+import { liveVideo } from "@/lib/queries/matches";
 import { matchDate } from "@/lib/format";
 import { sendMail } from "@/lib/mail";
 import { digestMail } from "@/lib/mail/templates";
@@ -129,7 +130,8 @@ async function describe(userId: string, rows: Pending[]): Promise<DigestItem[]> 
       })
       .from(videos)
       .leftJoin(matches, eq(matches.id, videos.matchId))
-      .where(inArray(videos.id, footageIds));
+      // Deleted before the email went: left out, as the page would.
+      .where(and(inArray(videos.id, footageIds), liveVideo));
     for (const v of found) {
       if (v.status !== "ready") continue;
       const title = v.opponent ? `v ${v.opponent}, ${matchDate(v.playedOn ?? "")}` : v.file;
@@ -179,7 +181,7 @@ async function describe(userId: string, rows: Pending[]): Promise<DigestItem[]> 
           .innerJoin(clipPlayers, and(eq(clipPlayers.clipId, clips.id), eq(clipPlayers.userId, userId)))
           .innerJoin(videos, eq(videos.id, clips.videoId))
           .leftJoin(matches, eq(matches.id, videos.matchId))
-          .where(inArray(clips.id, taggedIds))
+          .where(and(inArray(clips.id, taggedIds), liveVideo))
       : [];
     const shared = sharedIds.length
       ? await db
@@ -187,7 +189,7 @@ async function describe(userId: string, rows: Pending[]): Promise<DigestItem[]> 
           .from(clips)
           .innerJoin(videos, eq(videos.id, clips.videoId))
           .leftJoin(matches, eq(matches.id, videos.matchId))
-          .where(inArray(clips.id, sharedIds))
+          .where(and(inArray(clips.id, sharedIds), liveVideo))
       : [];
     // Made private, or unshared, since: left out, as the page would.
     const seen = me ? await visibleClipIds(me, [...tagged, ...shared]) : new Set<string>();

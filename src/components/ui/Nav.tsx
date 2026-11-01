@@ -6,6 +6,7 @@ import { signOut } from "@/lib/actions/auth";
 import type { SessionUser } from "@/lib/auth/session";
 import { Mark } from "@/components/ui/Mark";
 import { ClubBadge } from "@/components/ui/ClubBadge";
+import { orgTerms } from "@/lib/hurling/org";
 import { InstallHint } from "@/components/ui/InstallHint";
 
 /**
@@ -100,7 +101,7 @@ export function Nav({ user }: { user: SessionUser }) {
             <div className="text-[13px] font-semibold">{user.displayName}</div>
             {user.role !== "player" && (
               <div className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
-                {user.role === "admin" ? "Club admin" : "Coach"}
+                {user.role === "admin" ? `${orgTerms(user.orgKind).Noun} admin` : "Coach"}
               </div>
             )}
           </Link>

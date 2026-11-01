@@ -212,11 +212,17 @@ export function fileSizeWarning(bytes: number): string | null {
 }
 
 /** Null when the file fits, or the sentence to show the coach when it does not. */
-export function quotaProblem(usedBytes: number, incomingBytes: number, quotaBytes: number): string | null {
+export function quotaProblem(
+  usedBytes: number,
+  incomingBytes: number,
+  quotaBytes: number,
+  /** "club" or "county": the storage belongs to whichever the account is. */
+  noun = "club",
+): string | null {
   if (usedBytes + incomingBytes <= quotaBytes) return null;
   const gb = (n: number) => `${(n / 1024 ** 3).toFixed(1)} GB`;
   return (
-    `This file is ${gb(incomingBytes)} and the club has ${gb(Math.max(0, quotaBytes - usedBytes))} ` +
+    `This file is ${gb(incomingBytes)} and the ${noun} has ${gb(Math.max(0, quotaBytes - usedBytes))} ` +
     `of its ${gb(quotaBytes)} left. Delete footage nobody watches any more to make room.`
   );
 }

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
   matches,
@@ -16,9 +16,12 @@ import {
 } from "@/lib/db/schema";
 import { ClubSetupError, createTeam, freshJoinCode } from "@/lib/db/clubs";
 import { oppositionFor } from "@/lib/db/oppositions";
+import { purgeMatch, purgeVideo } from "@/lib/db/deleted";
+import { deletedWithMatch } from "@/lib/media/deleted";
 import { badgeProblem } from "@/lib/media/badge";
 import { isGameCode, type GameCode } from "@/lib/hurling/codes";
 import { parseColour } from "@/lib/hurling/kit";
+import { orgTerms } from "@/lib/hurling/org";
 import type { End } from "@/lib/hurling/pitch";
 import { halfLengthProblem } from "@/lib/hurling/notation";
 import { playerNameProblem, sameName, tidyName } from "@/lib/hurling/squad";
@@ -70,25 +73,82 @@ export async function createMatch(input: {
 }
 
 /**
- * Delete a match and everything that hangs off it: its footage, clips,
- * number sheet and stats. The video rows go by cascade, but the files they
- * point to are in storage, not the database, so they are read out first and
- * removed after; otherwise "deleted" would mean only "no longer listed".
+ * Delete a match: into recently deleted, for twenty days, then gone for good
+ * with its footage, clips, number sheet and stats (src/lib/media/deleted.ts).
+ *
+ * Only finished files are kept. One still uploading or importing has nothing
+ * to put back, so it goes at once, as before; leaving it would also leave an
+ * upload that could carry on into a match nobody can see.
  */
 export async function deleteMatch(matchId: string): Promise<void> {
   const user = await requireAdmin();
   const [match] = await db.select().from(matches).where(eq(matches.id, matchId)).limit(1);
   if (!match) return;
   assertSameTeam(user, match);
+  if (match.deletedAt !== null) return;
+
+  const unfinished = await db
+    .select({ id: videos.id, storageKey: videos.storageKey, uploadId: videos.uploadId })
+    .from(videos)
+    .where(and(eq(videos.matchId, matchId), ne(videos.status, "ready")));
+  if (unfinished.length) {
+    await db.delete(videos).where(inArray(videos.id, unfinished.map((v) => v.id)));
+    await removeStoredFiles(unfinished);
+  }
+
+  // One stamp for the match and the videos it takes with it, which is how
+  // putting it back knows which videos to bring. A video deleted on its own
+  // earlier keeps its own stamp.
+  const now = Date.now();
+  db.transaction((tx) => {
+    tx.update(matches).set({ deletedAt: now }).where(eq(matches.id, matchId)).run();
+    tx.update(videos)
+      .set({ deletedAt: now })
+      .where(and(eq(videos.matchId, matchId), isNull(videos.deletedAt)))
+      .run();
+  });
+  revalidateDeleted();
+}
+
+/** Put a deleted match back, with the videos that were deleted with it. */
+export async function restoreMatch(matchId: string): Promise<void> {
+  const user = await requireAdmin();
+  const [match] = await db.select().from(matches).where(eq(matches.id, matchId)).limit(1);
+  if (!match || match.deletedAt === null) return;
+  assertSameTeam(user, match);
 
   const footage = await db
-    .select({ storageKey: videos.storageKey, uploadId: videos.uploadId })
+    .select({ id: videos.id, deletedAt: videos.deletedAt })
     .from(videos)
     .where(eq(videos.matchId, matchId));
-  await db.delete(matches).where(eq(matches.id, matchId));
-  await removeStoredFiles(footage);
+  const back = deletedWithMatch(match.deletedAt, footage).map((v) => v.id);
+  db.transaction((tx) => {
+    tx.update(matches).set({ deletedAt: null }).where(eq(matches.id, matchId)).run();
+    if (back.length) tx.update(videos).set({ deletedAt: null }).where(inArray(videos.id, back)).run();
+  });
+  revalidateDeleted();
+}
+
+/**
+ * Remove a deleted match for good now, rather than waiting out its twenty
+ * days: for a club that needs the room back. Only from recently deleted.
+ */
+export async function purgeMatchNow(matchId: string): Promise<void> {
+  const user = await requireAdmin();
+  const [match] = await db.select().from(matches).where(eq(matches.id, matchId)).limit(1);
+  if (!match || match.deletedAt === null) return;
+  assertSameTeam(user, match);
+  await purgeMatch(matchId);
+  revalidateDeleted();
+}
+
+/** Every screen a deleted or restored match or video can appear on. */
+function revalidateDeleted(): void {
   revalidatePath("/");
   revalidatePath("/admin");
+  revalidatePath("/stats", "layout");
+  revalidatePath("/m");
+  revalidatePath("/playlists", "layout");
   revalidatePath("/opposition", "layout");
 }
 
@@ -159,15 +219,56 @@ export async function setHalfLength(matchId: string, minutes: number): Promise<{
 
 /* ----------------------------------------------------------------- videos */
 
+/**
+ * Delete a video: into recently deleted if it is a finished file, at once if
+ * it never finished, since there is nothing to put back. See deleteMatch.
+ */
 export async function deleteVideo(videoId: string): Promise<void> {
   const user = await requireAdmin();
   const [video] = await db.select().from(videos).where(eq(videos.id, videoId)).limit(1);
   if (!video) return;
   assertSameTeam(user, video);
+  if (video.deletedAt !== null) return;
 
-  await db.delete(videos).where(eq(videos.id, videoId));
-  await removeStoredFiles([video]);
-  revalidatePath("/");
+  if (video.status !== "ready") {
+    await db.delete(videos).where(eq(videos.id, videoId));
+    await removeStoredFiles([video]);
+  } else {
+    await db.update(videos).set({ deletedAt: Date.now() }).where(eq(videos.id, videoId));
+  }
+  revalidateDeleted();
+}
+
+/**
+ * Put a deleted video back. Not while its match is deleted: it would come
+ * back into a match nobody can see, so the match is put back instead.
+ */
+export async function restoreVideo(videoId: string): Promise<{ error: string } | void> {
+  const user = await requireAdmin();
+  const [video] = await db.select().from(videos).where(eq(videos.id, videoId)).limit(1);
+  if (!video || video.deletedAt === null) return;
+  assertSameTeam(user, video);
+
+  if (video.matchId) {
+    const [match] = await db
+      .select({ deletedAt: matches.deletedAt })
+      .from(matches)
+      .where(eq(matches.id, video.matchId))
+      .limit(1);
+    if (match?.deletedAt != null) return { error: "Its match is deleted too. Put the match back instead." };
+  }
+  await db.update(videos).set({ deletedAt: null }).where(eq(videos.id, videoId));
+  revalidateDeleted();
+}
+
+/** Remove a deleted video for good now. Only from recently deleted. */
+export async function purgeVideoNow(videoId: string): Promise<void> {
+  const user = await requireAdmin();
+  const [video] = await db.select().from(videos).where(eq(videos.id, videoId)).limit(1);
+  if (!video || video.deletedAt === null) return;
+  assertSameTeam(user, video);
+  await purgeVideo(videoId);
+  revalidateDeleted();
 }
 
 /** Deferred like the rest of storage, so an action that never deletes never loads it. */
@@ -213,7 +314,7 @@ export async function setMemberRole(
       .from(users)
       .innerJoin(teams, eq(teams.id, users.teamId))
       .where(and(eq(teams.clubId, admin.clubId), eq(users.role, "admin")));
-    if (remaining.length <= 1) return { error: "The club needs at least one admin." };
+    if (remaining.length <= 1) return { error: `The ${orgTerms(admin.orgKind).noun} needs at least one admin.` };
   }
 
   await db.update(users).set({ role }).where(eq(users.id, userId));
@@ -372,7 +473,7 @@ export async function moveToTeam(
 
   const [destination] = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
   if (!destination || destination.clubId !== admin.clubId) {
-    return { error: "That team is not in your club." };
+    return { error: `That team is not in your ${orgTerms(admin.orgKind).noun}.` };
   }
 
   await db.update(users).set({ teamId }).where(eq(users.id, userId));

@@ -20,10 +20,10 @@ export default function LoginPage({
   return (
     <Gate
       title="Sign in"
-      intro="Match footage, clipped and tagged, with the stat sheet beside it. Private to your club."
+      intro="Match footage, clipped and tagged, with the stat sheet beside it. Private to your club or county."
       footer={
         <>
-          Setting up a new club? <GateLink href="/start">Start here</GateLink>
+          Setting up a new club or county? <GateLink href="/start">Start here</GateLink>
         </>
       }
     >
@@ -66,7 +66,7 @@ export default function LoginPage({
         style={{ borderColor: "var(--color-line)" }}
       >
         <p className="text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
-          Don&apos;t have an account yet? An email code only works once you have joined your club&apos;s panel.
+          Don&apos;t have an account yet? An email code only works once you have joined your team&apos;s panel.
         </p>
         <a
           href={next ? `/join?next=${encodeURIComponent(next)}` : "/join"}

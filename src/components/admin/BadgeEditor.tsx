@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { removeClubBadge, setClubBadge } from "@/lib/actions/admin";
 import { BADGE_ACCEPT, BADGE_PX, fitWithin } from "@/lib/media/badge";
 import { ClubBadge } from "@/components/ui/ClubBadge";
+import { orgTerms, type OrgKind } from "@/lib/hurling/org";
 
 /**
  * The admin's badge, beside the club's name on the squad page. The badge is
@@ -12,7 +13,8 @@ import { ClubBadge } from "@/components/ui/ClubBadge";
  * it leaves, so a 6 MB photo of the crest on a jersey uploads as a few
  * kilobytes and the server only ever handles one format.
  */
-export function BadgeEditor({ initial }: { initial: number | null }) {
+export function BadgeEditor({ initial, kind }: { initial: number | null; kind: OrgKind }) {
+  const { noun } = orgTerms(kind);
   const [version, setVersion] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -38,7 +40,7 @@ export function BadgeEditor({ initial }: { initial: number | null }) {
   }
 
   function remove() {
-    if (!confirm("Remove the club badge?")) return;
+    if (!confirm(`Remove the ${noun} badge?`)) return;
     setError(null);
     startTransition(async () => {
       await removeClubBadge();
@@ -58,7 +60,7 @@ export function BadgeEditor({ initial }: { initial: number | null }) {
             ? { border: "1.5px dashed var(--color-ash-dim)", borderRadius: 2, color: "var(--color-ink-faint)" }
             : undefined
         }
-        aria-label={version == null ? "Add the club badge" : "Change the club badge"}
+        aria-label={version == null ? `Add the ${noun} badge` : `Change the ${noun} badge`}
       >
         {version == null ? (
           <span className="text-[12px] leading-tight">{pending ? "Adding…" : "Add badge"}</span>

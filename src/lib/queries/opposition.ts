@@ -13,6 +13,7 @@ import { db } from "@/lib/db/client";
 import { clips, matches, oppositions, users, videos, type MatchKind } from "@/lib/db/schema";
 import type { Viewer } from "@/lib/auth/visibility";
 import { visibleClipIds } from "@/lib/queries/clips";
+import { liveMatch, liveVideo } from "@/lib/queries/matches";
 
 export type OppositionSummary = {
   id: string;
@@ -40,7 +41,7 @@ export async function loadOppositionList(teamId: string): Promise<OppositionSumm
         playedOn: matches.playedOn,
       })
       .from(matches)
-      .where(eq(matches.teamId, teamId)),
+      .where(and(eq(matches.teamId, teamId), liveMatch)),
   ]);
 
   const byId = new Map<string, OppositionSummary>(
@@ -107,7 +108,7 @@ export async function loadOpposition(
     })
     .from(matches)
     .leftJoin(other, eq(other.id, matches.vsOppositionId))
-    .where(and(eq(matches.teamId, teamId), theirs))
+    .where(and(eq(matches.teamId, teamId), theirs, liveMatch))
     .orderBy(desc(matches.playedOn), desc(matches.createdAt));
 
   const ids = gameRows.map((g) => g.id);
@@ -115,7 +116,7 @@ export async function loadOpposition(
     ? await db
         .select({ id: videos.id, matchId: videos.matchId, status: videos.status })
         .from(videos)
-        .where(inArray(videos.matchId, ids))
+        .where(and(inArray(videos.matchId, ids), liveVideo))
         .orderBy(asc(videos.createdAt))
     : [];
 
@@ -158,6 +159,7 @@ export async function loadOpposition(
         .where(
           and(
             eq(clips.teamId, teamId),
+            liveVideo,
             or(
               and(eq(matches.oppositionId, opp.id), eq(clips.aboutSide, "opposition")),
               and(eq(matches.vsOppositionId, opp.id), eq(clips.aboutSide, "us")),

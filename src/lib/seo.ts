@@ -12,7 +12,7 @@ export const SITE = "https://ardawnsport.ie";
 export const SITE_TITLE = "Ardawn: GAA video review for hurling, camogie and football";
 
 export const SITE_DESCRIPTION =
-  "Upload the match, clip it, log the stats and plan training. Video review for hurling, camogie, Gaelic football and ladies football clubs, on any phone.";
+  "Upload the match, clip it, log the stats and plan training. Video review for clubs and counties in hurling, camogie, Gaelic football and ladies football.";
 
 /**
  * The share-card fields for a page with its own title and description.

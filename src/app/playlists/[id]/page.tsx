@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
+import { liveVideo } from "@/lib/queries/matches";
 import { db } from "@/lib/db/client";
 import { clips, playlistItems, playlistViewers, playlists, users, videos } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/guard";
@@ -41,7 +42,7 @@ export default async function PlaylistPage({
     .from(playlistItems)
     .innerJoin(clips, eq(clips.id, playlistItems.clipId))
     .innerJoin(videos, eq(videos.id, clips.videoId))
-    .where(eq(playlistItems.playlistId, id))
+    .where(and(eq(playlistItems.playlistId, id), liveVideo))
     .orderBy(asc(playlistItems.sortOrder));
 
   // Someone's private clip put on a shared playlist stays theirs: it is left

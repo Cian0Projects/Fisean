@@ -1,5 +1,6 @@
 import { and, asc, count, desc, eq } from "drizzle-orm";
-import { isOurMatch } from "@/lib/queries/matches";
+import { isOurMatch, liveVideo } from "@/lib/queries/matches";
+import { deletedForTeam } from "@/lib/db/deleted";
 import { db } from "@/lib/db/client";
 import { clubs, matches, teams, users, videos } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/guard";
@@ -7,6 +8,7 @@ import { Nav } from "@/components/ui/Nav";
 import { AdminPanels } from "@/components/admin/AdminPanels";
 import { importsForTeam } from "@/lib/queries/imports";
 import { clubStorage } from "@/lib/queries/storage";
+import { orgTerms } from "@/lib/hurling/org";
 
 export default async function AdminPage() {
   const user = await requireUser();
@@ -20,7 +22,7 @@ export default async function AdminPage() {
           <h1 className="display text-5xl">Squad settings</h1>
           <p className="measure mt-4 text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
             Matches, footage and the panel are looked after by the coaches and
-            the club admin. Everything you can do is on the matches page.
+            the {orgTerms(user.orgKind).noun} admin. Everything you can do is on the matches page.
           </p>
         </main>
       </>
@@ -72,7 +74,7 @@ export default async function AdminPage() {
   const videoRows = await db
     .select()
     .from(videos)
-    .where(eq(videos.teamId, user.teamId))
+    .where(and(eq(videos.teamId, user.teamId), liveVideo))
     .orderBy(desc(videos.createdAt));
 
   return (
@@ -80,6 +82,7 @@ export default async function AdminPage() {
       <Nav user={user} />
       <AdminPanels
         viewer={{ id: user.id, role: user.role }}
+        orgKind={user.orgKind}
         teamId={user.teamId}
         clubName={club?.name ?? team?.name ?? ""}
         clubTeams={clubTeams}
@@ -108,6 +111,7 @@ export default async function AdminPage() {
         }))}
         imports={await importsForTeam(user.teamId)}
         storage={await clubStorage(user.clubId)}
+        deleted={user.role === "admin" ? await deletedForTeam(user.teamId) : null}
       />
     </>
   );

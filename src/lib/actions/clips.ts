@@ -50,12 +50,18 @@ export async function createClip(input: ClipInput): Promise<SavedClip> {
   const user = await requireUserOrThrow();
 
   const [video] = await db
-    .select({ id: videos.id, teamId: videos.teamId, durationMs: videos.durationMs, kind: matches.kind })
+    .select({
+      id: videos.id,
+      teamId: videos.teamId,
+      durationMs: videos.durationMs,
+      kind: matches.kind,
+      deletedAt: videos.deletedAt,
+    })
     .from(videos)
     .leftJoin(matches, eq(matches.id, videos.matchId))
     .where(eq(videos.id, input.videoId))
     .limit(1);
-  if (!video) throw new Error("That video no longer exists.");
+  if (!video || video.deletedAt !== null) throw new Error("That video no longer exists.");
   assertSameTeam(user, video);
 
   const startMs = Math.max(0, Math.round(input.startMs));

@@ -10,7 +10,7 @@ import { MarkTile } from "@/components/ui/Mark";
  * graphite every screen in the app is set on. Only colours the image needs
  * are written out, because ImageResponse cannot read the CSS tokens.
  */
-export const alt = "Ardawn: GAA video review for hurling, camogie, Gaelic football and ladies football clubs";
+export const alt = "Ardawn: GAA video review for hurling, camogie, Gaelic football and ladies football clubs and counties";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 

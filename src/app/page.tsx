@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
-import { isOurMatch } from "@/lib/queries/matches";
+import { isOurMatch, liveVideo } from "@/lib/queries/matches";
 import { visibleStat } from "@/lib/queries/stats";
 import { db } from "@/lib/db/client";
 import {
@@ -177,14 +177,14 @@ function PublicHomepage() {
 
         <section id="questions">
           <div className="sheet grid gap-10 py-16 sm:py-20 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.6fr)] lg:gap-20">
-            <h2 className="headline text-[clamp(2.7rem,5vw,4.4rem)]">Questions clubs ask</h2>
+            <h2 className="headline text-[clamp(2.7rem,5vw,4.4rem)]">Questions clubs and counties ask</h2>
             <div className="border-t-[3px] border-rule">
               <Question q="What footage works?">
                 Any match saved as an MP4. Upload it, or bring it in from Veo, Pixellot,
                 Hudl, Spiideo, Google Drive or Dropbox.
               </Question>
               <Question q="Who can see our footage?">
-                Only your club. It is stored in the EU, and removing a player ends their access at
+                Only your club or county. It is stored in the EU, and removing a player ends their access at
                 once.{" "}
                 <a href="/privacy" className="font-semibold text-ink underline">
                   Where footage is kept and who can see it
@@ -194,8 +194,8 @@ function PublicHomepage() {
                 No. It works in the browser on any phone or laptop.
               </Question>
               <Question q="How do we get started?">
-                Press Set up your club, upload a match, and send the panel your club&apos;s
-                code. We check each new club before it opens, usually within a day. Questions? Email{" "}
+                Press Set up your club or county, upload a match, and send the panel your
+                team&apos;s code. We check each new club or county before it opens, usually within a day. Questions? Email{" "}
                 <a href="mailto:hello@ardawnsport.ie" className="font-semibold text-ink underline">
                   hello@ardawnsport.ie
                 </a>
@@ -210,7 +210,7 @@ function PublicHomepage() {
             <h2 className="headline max-w-xl text-[clamp(2.7rem,5vw,4.4rem)]">Bring your next match in.</h2>
             <div className="flex flex-col items-start gap-3 sm:items-end">
               <a href="/start" className="btn-brand px-5 py-3 text-[14px]">
-                Set up your club
+                Set up your club or county
               </a>
               <p className="text-[14px] text-ink-dim">
                 Got a code?{" "}
@@ -329,7 +329,7 @@ async function Dashboard() {
     .select({ matchId: videos.matchId, videoId: videos.id, createdAt: videos.createdAt })
     .from(videos)
     .innerJoin(matches, eq(matches.id, videos.matchId))
-    .where(and(eq(videos.teamId, user.teamId), eq(videos.status, "ready"), isOurMatch))
+    .where(and(eq(videos.teamId, user.teamId), eq(videos.status, "ready"), liveVideo, isOurMatch))
     .orderBy(desc(videos.createdAt))
     .limit(1);
 
@@ -352,7 +352,7 @@ async function Dashboard() {
   const ids = matchRows.map((m) => m.id);
 
   const videoRows = ids.length
-    ? await db.select().from(videos).where(inArray(videos.matchId, ids))
+    ? await db.select().from(videos).where(and(inArray(videos.matchId, ids), liveVideo))
     : [];
 
   // Every stat on every listed sheet, in one pass: the counts per match and
@@ -390,7 +390,7 @@ async function Dashboard() {
         .innerJoin(videos, eq(videos.id, clips.videoId))
         // The panel's clips and your own: a count that took in other
         // people's private clips would say there is more than anyone can find.
-        .where(and(inArray(videos.matchId, ids), or(eq(clips.visibility, "team"), eq(clips.createdBy, user.id))))
+        .where(and(inArray(videos.matchId, ids), liveVideo, or(eq(clips.visibility, "team"), eq(clips.createdBy, user.id))))
         .groupBy(videos.matchId)
     : [];
 
@@ -426,6 +426,7 @@ async function Dashboard() {
             inArray(videos.matchId, ids),
             eq(clips.visibility, "team"),
             eq(videos.status, "ready"),
+            liveVideo,
           ),
         )
     : [];
@@ -480,7 +481,7 @@ async function Dashboard() {
     .innerJoin(clips, eq(clips.id, clipPlayers.clipId))
     .innerJoin(videos, eq(videos.id, clips.videoId))
     .leftJoin(matches, eq(matches.id, videos.matchId))
-    .where(and(eq(clipPlayers.userId, user.id), eq(clips.teamId, user.teamId)))
+    .where(and(eq(clipPlayers.userId, user.id), eq(clips.teamId, user.teamId), liveVideo))
     .orderBy(desc(clips.createdAt))
     .limit(24);
   const seenClips = await visibleClipIds(user, taggedIn);
@@ -499,7 +500,7 @@ async function Dashboard() {
     .from(clips)
     .innerJoin(videos, eq(videos.id, clips.videoId))
     .leftJoin(matches, eq(matches.id, videos.matchId))
-    .where(and(eq(clips.teamId, user.teamId), eq(clips.visibility, "team")))
+    .where(and(eq(clips.teamId, user.teamId), eq(clips.visibility, "team"), liveVideo))
     .orderBy(desc(clips.createdAt))
     .limit(6);
 

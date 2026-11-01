@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { setClubColours } from "@/lib/actions/admin";
 import { homeKit, parseColour } from "@/lib/hurling/kit";
+import { orgTerms, type OrgKind } from "@/lib/hurling/org";
 
 /** What the pickers show before a club has chosen: the board's own blue and a plain white. */
 const PICKER_PRIMARY = "#1f2f96";
@@ -17,9 +18,12 @@ const PICKER_SECONDARY = "#ffffff";
  */
 export function ClubColours({
   initial,
+  kind,
 }: {
   initial: { primary: string | null; secondary: string | null };
+  kind: OrgKind;
 }) {
+  const { noun, Noun } = orgTerms(kind);
   const [saved, setSaved] = useState(initial);
   const [primary, setPrimary] = useState(initial.primary);
   const [secondary, setSecondary] = useState(initial.secondary);
@@ -51,10 +55,10 @@ export function ClubColours({
   return (
     <section>
       <div className="section-head mb-4">
-        <h2 className="title text-xl">Club colours</h2>
+        <h2 className="title text-xl">{Noun} colours</h2>
         <p className="caption measure mt-1">
           Your primary and secondary colours. The home side on the drill board, in the editor, the
-          drill book and the exported video, is drawn in them. Each team in the club shares them.
+          drill book and the exported video, is drawn in them. Each team in the {noun} shares them.
         </p>
       </div>
 

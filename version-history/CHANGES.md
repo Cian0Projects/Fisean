@@ -6,6 +6,16 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## Counties can sign up, not only clubs
+*2026-11-01*
+
+The landing page and sign-up form read as if Ardawn were only for clubs, but a county board runs panels the same way. The sign-up form now starts with a choice of club or county, and the form's own wording follows it as it is picked. The choice is stored on the club (`clubs.kind`, a column that defaults to club, so every existing account is unchanged) and the workspace uses the same word afterwards: "County colours", "Teams in the county", "County admin", the storage messages, the waiting page and the emails to the host and the admin. The words live in `src/lib/hurling/org.ts`. The landing page, login page and share text now say "clubs and counties". A county is the same product underneath: same teams, same permissions, same storage tiers.
+
+## Deleted matches and footage wait 20 days before they go
+*2026-11-01*
+
+Deleting a match or a finished video used to remove the file from the bucket on the spot, and footage has no second copy, so one stray click lost a match with every clip, comment and stat on it. Now a delete stamps `deleted_at` on the match and the videos it takes with it (migration 0037), and the rows and files stay for 20 days, hidden from every list, roll-up, playlist and email through `liveMatch` and `liveVideo` in `src/lib/queries/matches.ts` (folded into `isOurMatch` and `isOppositionGame`), and from every page that opens one by id. Admins see a Recently deleted list on the squad page to put things back or remove them for good at once; putting a match back brings exactly the videos deleted with it. `npm run purge-deleted`, nightly after the backup, removes what has waited its 20 days, and can only ever touch rows already carrying a deletion date that old. Uploads that never finished still go at once. Deleted footage counts towards the club's storage until it is purged. The privacy page says so. Rules in `src/lib/media/deleted.ts`, database side in `src/lib/db/deleted.ts`.
+
 ## The host is emailed when the server throws
 *2026-11-01*
 

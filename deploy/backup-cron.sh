@@ -11,6 +11,12 @@ set -e
 # is also where npm run preflight looks, so the two cannot disagree.
 sudo -u fisean -H bash -c "cd /srv/fisean/app && npm run --silent backup"
 
+# Then remove what admins deleted more than twenty days ago
+# (scripts/purge-deleted.ts). After the backup, so tonight's copy still has
+# the rows; like the sweep, a failure is reported and does not stop a deploy.
+sudo -u fisean -H bash -c "cd /srv/fisean/app && npm run --silent purge-deleted" \
+  || echo "fisean-backup: purging deleted footage failed, see the output above" >&2
+
 # Then sweep the bucket for files no video uses (scripts/reconcile-storage.ts).
 # After the backup, so a bad sweep still leaves tonight's copy. update.sh runs
 # this file too, before it pulls and builds, so a failed sweep must not stop a

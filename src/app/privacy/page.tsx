@@ -20,10 +20,11 @@ import { socialFor } from "@/lib/seo";
  *   the day-long link stableWindow in src/lib/storage/sigv4.ts: playback
  *                     links are signed for up to 24 hours, so a video
  *                     already open outlives the session by that much
- *   deletion          deleteVideo, deleteMatch in the same file, and
+ *   deletion          deleteVideo, deleteMatch in the same file, which
+ *                     hide for KEEP_DAYS (src/lib/media/deleted.ts) before
+ *                     scripts/purge-deleted.ts removes rows and files, and
  *                     closeClub in src/lib/db/clubs.ts (run by the host,
- *                     scripts/close-club.ts), each removing the files from
- *                     storage too
+ *                     scripts/close-club.ts), which removes at once
  *   one cookie        src/lib/auth/session.ts, 90 days
  *   backups           docs/DEPLOYMENT.md, kept 30 days
  *
@@ -135,8 +136,10 @@ export default function PrivacyPage() {
           <Answer q="Can footage and data be deleted?">
             <p>
               Yes, by your admin, from the squad page, without asking anyone. Deleting a file of
-              footage or a whole match removes the video from storage, along with its clips and
-              stats. Removing someone from the panel deletes their account. The clips they made and
+              footage or a whole match hides it from everyone at once and keeps it for 20 days
+              under Recently deleted, in case it was a mistake. After that the video is removed
+              from storage, along with its clips and stats. Your admin can also remove it for good
+              straight away from the same list. Removing someone from the panel deletes their account. The clips they made and
               the stats logged against their jersey number stay with the club, without their name.
             </p>
             <p>
