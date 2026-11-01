@@ -408,6 +408,25 @@ export const videos = sqliteTable(
 );
 
 /**
+ * Files in the bucket that no video row uses, and how many nights running the
+ * sweep (scripts/reconcile-storage.ts) has seen each one. A file is only
+ * removed after it has been here for several separate nights, so one bad night
+ * (a restore from an old backup, a half-finished migration) cannot delete
+ * anything: it would have to keep looking unused for days. A file that is
+ * referenced again, or gone from the bucket, is dropped from here and starts
+ * over. Deliberately not a foreign key: the point is a key with no row.
+ */
+export const storageOrphans = sqliteTable("storage_orphans", {
+  key: text("key").primaryKey(),
+  firstSeenAt: integer("first_seen_at").notNull(),
+  lastSeenAt: integer("last_seen_at").notNull(),
+  /** The UTC day (YYYY-MM-DD) of the last sighting, so a rerun the same day counts once. */
+  lastSeenDay: text("last_seen_day").notNull(),
+  /** Separate nights it has been seen unreferenced, this one included. */
+  nights: integer("nights").notNull().default(1),
+});
+
+/**
  * A match file the server is fetching from another app, for a club bringing
  * its old footage across (src/lib/media/import.ts). The video row exists from
  * the start, as an upload in progress, so the match shows up at once and the

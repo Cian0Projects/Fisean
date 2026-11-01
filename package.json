@@ -23,6 +23,7 @@
     "pending-clubs": "tsx scripts/pending-clubs.ts",
     "ingest": "tsx scripts/ingest.ts",
     "backup": "tsx scripts/backup.ts",
+    "reconcile": "tsx scripts/reconcile-storage.ts",
     "preflight": "tsx scripts/preflight.ts",
     "seed": "tsx scripts/seed-demo.ts",
     "smoke": "tsx scripts/smoke.ts"

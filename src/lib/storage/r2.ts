@@ -18,7 +18,9 @@ import {
   type ByteRange,
   type MediaStat,
   type MediaStore,
+  type StoredObject,
   type StoredPart,
+  type StoredUpload,
 } from "./index";
 
 type R2Config = {
@@ -66,6 +68,38 @@ export function parseParts(xml: string): StoredPart[] {
     });
   }
   return parts;
+}
+
+function epochMs(iso: string | null): number {
+  const t = iso ? Date.parse(iso) : NaN;
+  return Number.isFinite(t) ? t : 0;
+}
+
+/** The `<Contents>` entries of a ListObjectsV2 response. */
+export function parseObjects(xml: string): StoredObject[] {
+  const objects: StoredObject[] = [];
+  for (const m of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
+    const key = xmlValue(m[1], "Key");
+    if (!key) continue;
+    objects.push({
+      key,
+      sizeBytes: Number(xmlValue(m[1], "Size")),
+      lastModified: epochMs(xmlValue(m[1], "LastModified")),
+    });
+  }
+  return objects;
+}
+
+/** The `<Upload>` entries of a ListMultipartUploads response. */
+export function parseUploads(xml: string): StoredUpload[] {
+  const uploads: StoredUpload[] = [];
+  for (const m of xml.matchAll(/<Upload>([\s\S]*?)<\/Upload>/g)) {
+    const key = xmlValue(m[1], "Key");
+    const uploadId = xmlValue(m[1], "UploadId");
+    if (!key || !uploadId) continue;
+    uploads.push({ key, uploadId, initiated: epochMs(xmlValue(m[1], "Initiated")) });
+  }
+  return uploads;
 }
 
 export function completeBody(parts: StoredPart[]): string {
@@ -205,5 +239,59 @@ export class R2Store implements MediaStore {
 
   async abortMultipart(key: string, uploadId: string): Promise<void> {
     await this.call(this.url("DELETE", key, { uploadId }), { method: "DELETE" });
+  }
+
+  /** A bucket-level URL, for the listing calls that name no key. */
+  private bucketUrl(query: Record<string, string>): string {
+    return presign({
+      method: "GET",
+      host: this.cfg.host,
+      path: `/${this.cfg.bucket}`,
+      query,
+      accessKeyId: this.cfg.accessKeyId,
+      secretAccessKey: this.cfg.secretAccessKey,
+      region: "auto",
+      date: new Date(),
+      expiresSec: CALL_SECONDS,
+    });
+  }
+
+  async listObjects(): Promise<StoredObject[]> {
+    const objects: StoredObject[] = [];
+    let token = "";
+    // A thousand keys a page. The bound is a guard against a response that
+    // never stops saying it is truncated, not a limit anyone should reach.
+    for (let page = 0; page < 100_000; page++) {
+      const query: Record<string, string> = { "list-type": "2", "max-keys": "1000" };
+      if (token) query["continuation-token"] = token;
+      const xml = await (await this.call(this.bucketUrl(query))).text();
+      objects.push(...parseObjects(xml));
+      if (xmlValue(xml, "IsTruncated") !== "true") return objects;
+      token = xmlValue(xml, "NextContinuationToken") ?? "";
+      // Truncated with no way to ask for the rest: a partial list would make
+      // everything past it look unused, so fail rather than return it.
+      if (!token) throw new Error("R2 listing was truncated without a continuation token.");
+    }
+    throw new Error("R2 listing did not finish.");
+  }
+
+  async listMultipartUploads(): Promise<StoredUpload[]> {
+    const uploads: StoredUpload[] = [];
+    let keyMarker = "";
+    let idMarker = "";
+    for (let page = 0; page < 100_000; page++) {
+      const query: Record<string, string> = { uploads: "", "max-uploads": "1000" };
+      if (keyMarker) query["key-marker"] = keyMarker;
+      if (idMarker) query["upload-id-marker"] = idMarker;
+      const xml = await (await this.call(this.bucketUrl(query))).text();
+      uploads.push(...parseUploads(xml));
+      if (xmlValue(xml, "IsTruncated") !== "true") return uploads;
+      keyMarker = xmlValue(xml, "NextKeyMarker") ?? "";
+      idMarker = xmlValue(xml, "NextUploadIdMarker") ?? "";
+      if (!keyMarker && !idMarker) {
+        throw new Error("R2 upload listing was truncated without a marker.");
+      }
+    }
+    throw new Error("R2 upload listing did not finish.");
   }
 }

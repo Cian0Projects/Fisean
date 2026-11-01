@@ -253,6 +253,13 @@
       "when": 1793553073560,
       "tag": "0035_common_red_hulk",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1793555346725,
+      "tag": "0036_sturdy_risque",
+      "breakpoints": true
     }
   ]
 }

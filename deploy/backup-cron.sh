@@ -10,3 +10,10 @@ set -e
 # No BACKUP_DIR here: the script's default (data/backups in the app folder)
 # is also where npm run preflight looks, so the two cannot disagree.
 sudo -u fisean -H bash -c "cd /srv/fisean/app && npm run --silent backup"
+
+# Then sweep the bucket for files no video uses (scripts/reconcile-storage.ts).
+# After the backup, so a bad sweep still leaves tonight's copy. update.sh runs
+# this file too, before it pulls and builds, so a failed sweep must not stop a
+# deploy: it is reported on stderr (cron mails it) and the script carries on.
+sudo -u fisean -H bash -c "cd /srv/fisean/app && npm run --silent reconcile" \
+  || echo "fisean-backup: storage reconcile failed, see the output above" >&2

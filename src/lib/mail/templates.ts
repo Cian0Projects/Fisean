@@ -198,6 +198,71 @@ ${lines
 }
 
 /**
+ * The host's account of the nightly storage sweep (scripts/reconcile-storage.ts).
+ * Sent every run, and straight away when a run stops, so a quiet inbox means
+ * the sweep is not running rather than that nothing is wrong. Only the host
+ * reads it, so keys appear in full.
+ */
+export function storageSweepMail(input: {
+  /** Why the run stopped, or null when it ran. */
+  aborted: string | null;
+  deleteEnabled: boolean;
+  bucketObjects: number;
+  /** Files unreferenced and old enough, with the nights each has been seen. */
+  orphans: { key: string; nights: number }[];
+  /** How many of them were due for removal. */
+  due: number;
+  removed: number;
+  abortedUploads: number;
+  failures: string[];
+  at: string;
+}): Rendered {
+  const mode = input.deleteEnabled
+    ? "Deletion is on."
+    : "Deletion is off, so this run only reported. Set RECONCILE_DELETE=1 to allow it.";
+  const facts = input.aborted
+    ? ["The sweep stopped and removed nothing.", `Reason: ${input.aborted}`, mode]
+    : [
+        `Objects in the bucket: ${input.bucketObjects}`,
+        `Unused files seen tonight: ${input.orphans.length}`,
+        `Due for removal: ${input.due}`,
+        `Removed: ${input.removed}`,
+        `Abandoned uploads aborted: ${input.abortedUploads}`,
+        mode,
+      ];
+  const shown = input.orphans.slice(0, 20).map((o) => `${o.key} (night ${o.nights})`);
+  const more = input.orphans.length - shown.length;
+  const unused = more > 0 ? [...shown, `and ${more} more`] : shown;
+  const failures = input.failures.slice(0, 20);
+
+  const text = [
+    ...facts,
+    ...(unused.length ? ["", "Unused files:", ...unused] : []),
+    ...(failures.length ? ["", "Could not be removed:", ...failures] : []),
+    "",
+    `Time: ${input.at}`,
+  ].join("\n");
+
+  const p = (s: string) => `<p style="margin:0 0 6px;font-size:15px;line-height:1.4">${escape(s)}</p>`;
+  const list = (title: string, items: string[]) =>
+    items.length
+      ? `<p style="margin:16px 0 6px;font-size:15px;font-weight:600">${escape(title)}</p>
+<pre style="margin:0;padding:12px;background:#f4f2ee;font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-word">${escape(items.join("\n"))}</pre>`
+      : "";
+  const html = frame(
+    `${facts.map(p).join("\n")}
+${list("Unused files", unused)}
+${list("Could not be removed", failures)}`,
+    escape(`Time: ${input.at}`),
+  );
+
+  const subject = input.aborted
+    ? "Storage sweep stopped, nothing removed"
+    : `Storage sweep: ${input.removed} removed, ${input.orphans.length} unused`;
+  return { subject, text, html };
+}
+
+/**
  * Sent to the host when the server throws (src/lib/notify/error-alerts.ts).
  * Only the host reads it, so the stack goes in whole; the caller has already
  * stripped codes and keys from every field.

@@ -347,6 +347,70 @@ systemctl start fisean
 
 ---
 
+## Reconciling storage
+
+Deleting a video removes its database row first and its file second, and the
+second step is allowed to fail so the app stays coherent. A browser that dies
+partway through an upload also leaves parts in the bucket. Neither shows up
+anywhere, and R2 bills for both, so a sweep removes them.
+
+`npm run reconcile` (`scripts/reconcile-storage.ts`) lists the whole bucket and
+compares it with the database. Deleting is the one thing in this app that
+cannot be undone, so the sweep is slow and cautious on purpose, and **it only
+reports until you switch deletion on**.
+
+**What it considers.** Only keys of the shape the app writes,
+`<teamId>/<uuid>.<ext>`, where the team still exists. `backups/` and anything
+else (a file you put in the bucket by hand, a club's leftovers after the club
+was closed) is never looked at, counted as unused or touched. A file counts as
+used if any `videos` row, in any state, has it as its `storage_key` (or HLS,
+proxy or sprite key).
+
+**When it removes something.** A key must be unused and more than 7 days old,
+and must also have been seen unused on 3 earlier nights (kept in the
+`storage_orphans` table) and be unused again tonight, so a file is removed on
+its fourth night at the earliest. Two runs on the same day are one night. A
+file that is used again, or gone, starts over. Unfinished multipart uploads
+more than 7 days old that no row's `upload_id` refers to are aborted the same
+way, without the three nights.
+
+**When it stops.** It aborts, removes nothing, records nothing and emails you
+straight away if:
+
+- the file at `DATABASE_PATH` does not exist (it never creates one);
+- the `videos` table has no rows;
+- the run would remove more than 20 items, or more than 2% of all objects in
+  the bucket. Note that 2% means a bucket of under 50 objects can never have
+  anything removed automatically.
+
+**Switching deletion on.** Set `RECONCILE_DELETE=1` in `.env.local`. Anything
+else, including leaving it unset, means report only: the nightly job still
+records unused files and emails you, but removes nothing. Run it that way for
+at least four nights and read the emails first. The list should be files you
+recognise as leftovers.
+
+**The email.** Every run emails `ALERT_EMAIL` a summary: objects in the
+bucket, unused files with how many nights each has been seen, how many were
+due, how many were removed, and any failures. A run that stops sends its
+reason at once. If `ALERT_EMAIL` is unset it prints a warning and sends
+nothing. If the nightly emails stop arriving, the sweep is not running.
+
+It runs nightly straight after the backup, from `deploy/backup-cron.sh`. It
+also runs when `update.sh` takes its pre-update backup (the same file), so a
+failure there is printed but does not stop a deploy. To see what it would do
+without recording anything or emailing, run it by hand with `--dry-run`:
+
+```bash
+sudo -u fisean -H bash -c "cd /srv/fisean/app && npm run reconcile -- --dry-run"
+```
+
+The API token from step 4 needs permission to list and delete objects, which
+"Object Read & Write" gives. On the local driver the same sweep runs over
+`MEDIA_DIR`. The limits and the 7 days are constants at the top of
+`src/lib/media/orphans.ts`.
+
+---
+
 ## Closing a club
 
 Clubs cannot delete themselves from the app. The squad page tells an admin to

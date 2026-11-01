@@ -24,7 +24,9 @@ import {
   type ByteRange,
   type MediaStat,
   type MediaStore,
+  type StoredObject,
   type StoredPart,
+  type StoredUpload,
 } from "./index";
 
 const ROOT = resolve(process.env.MEDIA_DIR ?? "./data/media");
@@ -182,5 +184,43 @@ export class LocalDiskStore implements MediaStore {
   async abortMultipart(key: string, uploadId: string): Promise<void> {
     const dir = await this.ownedUpload(key, uploadId).catch(() => null);
     if (dir) await rm(dir, { recursive: true, force: true });
+  }
+
+  async listObjects(): Promise<StoredObject[]> {
+    const objects: StoredObject[] = [];
+    const walk = async (dir: string, prefix: string): Promise<void> => {
+      for (const entry of await readdir(dir, { withFileTypes: true })) {
+        // Keys start with a letter or digit, so a dot-name is never an object
+        // (and `.multipart` is the scratch folder for unfinished uploads).
+        if (entry.name.startsWith(".")) continue;
+        if (entry.isDirectory()) {
+          await walk(join(dir, entry.name), `${prefix}${entry.name}/`);
+        } else if (entry.isFile()) {
+          const s = await stat(join(dir, entry.name));
+          objects.push({ key: `${prefix}${entry.name}`, sizeBytes: s.size, lastModified: s.mtimeMs });
+        }
+      }
+    };
+    await walk(ROOT, "").catch((err: NodeJS.ErrnoException) => {
+      // No media folder yet is an empty store, not a failure.
+      if (err.code !== "ENOENT") throw err;
+    });
+    return objects;
+  }
+
+  async listMultipartUploads(): Promise<StoredUpload[]> {
+    const uploads: StoredUpload[] = [];
+    const names = await readdir(MULTIPART).catch(() => [] as string[]);
+    for (const uploadId of names) {
+      if (!UPLOAD_ID.test(uploadId)) continue;
+      const file = join(this.uploadDir(uploadId), "key");
+      const key = await readFile(file, "utf8").catch(() => null);
+      if (!key) continue;
+      // The `key` file is written when the upload starts and never again, so
+      // its mtime is when the upload began (parts land beside it, not in it).
+      const { mtimeMs } = await stat(file);
+      uploads.push({ key, uploadId, initiated: mtimeMs });
+    }
+    return uploads;
   }
 }

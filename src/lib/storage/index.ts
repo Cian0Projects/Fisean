@@ -34,6 +34,22 @@ export type StoredPart = {
   etag: string;
 };
 
+/** A finished object in the store, as a listing reports it. */
+export type StoredObject = {
+  key: string;
+  sizeBytes: number;
+  /** Epoch ms. */
+  lastModified: number;
+};
+
+/** A multipart upload the store still holds open. */
+export type StoredUpload = {
+  key: string;
+  uploadId: string;
+  /** Epoch ms. */
+  initiated: number;
+};
+
 export interface MediaStore {
   /**
    * A URL a <video> element can load with range requests. Signed, and stable
@@ -59,6 +75,15 @@ export interface MediaStore {
   /** Stitch the parts, in order, into the object at `key`. */
   completeMultipart(key: string, uploadId: string, parts: StoredPart[]): Promise<void>;
   abortMultipart(key: string, uploadId: string): Promise<void>;
+
+  /**
+   * Every finished object, all pages of it (S3's ListObjectsV2). Used by the
+   * nightly reconcile (scripts/reconcile-storage.ts), not by anything a
+   * request waits on, so it may take a while on a large bucket.
+   */
+  listObjects(): Promise<StoredObject[]>;
+  /** Every open multipart upload, all pages of it (S3's ListMultipartUploads). */
+  listMultipartUploads(): Promise<StoredUpload[]>;
 }
 
 export type StorageDriver = "local" | "r2";
