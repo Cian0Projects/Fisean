@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * A club's games, ours against them and theirs brought in to study, as a
+ * A club's games, ours against them and theirs brought in for analysis, as a
  * fixture list. Coaches upload footage to a game from here; an admin can
  * delete an opposition game, which takes its footage and clips with it.
  * Our own games are deleted where they always were, on the squad page.
@@ -50,7 +50,7 @@ function GameRow({
   const [pending, startTransition] = useTransition();
   const ours = game.kind === "ours";
   const what = ours ? `${name} v us` : `${name} v ${game.vsName ?? "another team"}`;
-  const where = [game.competition, ours ? "played against us" : "studied"].filter(Boolean).join(", ");
+  const where = [game.competition, ours ? "played against us" : "for analysis"].filter(Boolean).join(", ");
 
   return (
     <li className="fixture flex flex-wrap items-center gap-x-4 gap-y-1 py-3">

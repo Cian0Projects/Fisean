@@ -2,7 +2,7 @@
 
 /**
  * The coaches' forms on the opposition pages: adding a game of theirs to
- * study, putting a club on the list ahead of any footage, and on a club's own
+ * analyse, putting a club on the list ahead of any footage, and on a club's own
  * page renaming it or merging a second spelling into it.
  *
  * Names are typed, with the clubs already listed offered as you type, because
@@ -42,7 +42,7 @@ export function OppositionGameForm({
 }: {
   /** Every club already listed, offered as you type. */
   names: string[];
-  /** On a club's own page the studied team is that club. */
+  /** On a club's own page the team being analysed is that club. */
   team?: string;
   halfLengthMin: number;
 }) {
@@ -86,7 +86,7 @@ export function OppositionGameForm({
       className="rounded p-4"
       style={{ border: "1px solid var(--color-line-strong)", background: "var(--color-surface)" }}
     >
-      <h2 className="title text-base">Add a game to study</h2>
+      <h2 className="title text-base">Add a game to analyse</h2>
       <p className="caption mt-1">Two other clubs. Upload the footage to it once it is added.</p>
       <datalist id="opposition-names">
         {names.map((n) => (
@@ -97,7 +97,7 @@ export function OppositionGameForm({
         {fixedTeam == null && (
           <div>
             <label className="label mb-1.5 block" htmlFor="opp-team">
-              The team you are studying
+              The team you are analysing
             </label>
             <input
               id="opp-team"

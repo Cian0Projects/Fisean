@@ -9,9 +9,10 @@ import { Nav } from "@/components/ui/Nav";
 import { AddOpposition, OppositionGameForm } from "@/components/opposition/OppositionForms";
 
 /**
- * Opposition analysis: every club this team has played or studied, most
- * recent first. Each opens on everything known about them. Coaches add the
- * games; the whole panel watches and clips them.
+ * Opposition analysis: every club this team has played or analysed, most
+ * recent first. The clubs lead, on a phone too; the coaches' forms follow.
+ * Each opens on everything known about them. Coaches add the games; the
+ * whole panel watches and clips them.
  */
 export default async function OppositionPage() {
   const user = await requireUser();
@@ -36,32 +37,18 @@ export default async function OppositionPage() {
       <main className="sheet pt-10 pb-20 lg:pt-14">
         <div className="grid gap-x-16 gap-y-10 lg:grid-cols-[17rem_minmax(0,1fr)]">
           <header className="lg:sticky lg:top-24 lg:self-start">
-            <h1 className="display text-[clamp(2.75rem,5vw,3.75rem)]">Opposition</h1>
+            <h1 className="display text-[clamp(2.75rem,5vw,3.75rem)]">Opposition analysis</h1>
             <p className="mt-4 text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
-              Everything on the clubs you play: our games against them, and their own games brought in to study.
+              Your opposition analysis page. Pick a club to review their games and clips.
             </p>
-            <p className="caption mt-3 max-w-[30ch]">
-              {coach
-                ? "Add a game of theirs, upload the footage, and the whole panel can watch it and clip it."
-                : "Open a game to watch it and clip it. A clip of yours is yours until you share it."}
-            </p>
-            {coach && (
-              <div className="mt-6">
-                <AddOpposition />
-              </div>
-            )}
           </header>
 
           <div className="space-y-12">
-            {coach && (
-              <OppositionGameForm names={list.map((o) => o.name)} halfLengthMin={team?.halfLengthMin ?? 30} />
-            )}
-
             {ordered.length === 0 ? (
               <div className="section-head">
                 <p className="py-4 text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
-                  No clubs yet. Every team you play joins this list, and so does every team in a game added to
-                  study.
+                  No clubs yet. Every team you play joins this list, and so does every team in a game added for
+                  analysis.
                 </p>
               </div>
             ) : (
@@ -85,6 +72,15 @@ export default async function OppositionPage() {
                 </ul>
               </section>
             )}
+
+            {coach && (
+              <section className="space-y-8">
+                <OppositionGameForm names={list.map((o) => o.name)} halfLengthMin={team?.halfLengthMin ?? 30} />
+                <div className="max-w-md">
+                  <AddOpposition />
+                </div>
+              </section>
+            )}
           </div>
         </div>
       </main>
@@ -92,12 +88,12 @@ export default async function OppositionPage() {
   );
 }
 
-/** "Played twice, 1 game studied, last 13 Sep." in the list's own words. */
+/** "Played twice, 1 game analysed, last 13 Sep." in the list's own words. */
 function describe(o: { played: number; studied: number; lastOn: string | null }): string {
   if (!o.lastOn) return "No games yet";
   const parts = [
     o.played ? (o.played === 1 ? "Played once" : `Played ${o.played} times`) : null,
-    o.studied ? `${o.studied} ${o.studied === 1 ? "game" : "games"} studied` : null,
+    o.studied ? `${o.studied} ${o.studied === 1 ? "game" : "games"} analysed` : null,
   ].filter(Boolean);
   return `${parts.join(", ")}, last ${matchDate(o.lastOn)}`;
 }

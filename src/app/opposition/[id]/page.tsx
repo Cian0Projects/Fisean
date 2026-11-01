@@ -12,7 +12,7 @@ import { OppositionGameForm, OppositionTools } from "@/components/opposition/Opp
 import { OppositionGames } from "@/components/opposition/OppositionGames";
 
 /**
- * One club: their games, ours against them and theirs studied, and every
+ * One club: their games, ours against them and theirs for analysis, and every
  * clip about them the viewer may see, from any of those games. A clip is
  * about them when whoever made it said so (clips.about_side); a clip of our
  * own wides in the league game against them stays with that match.
@@ -44,7 +44,7 @@ export default async function OppositionTeamPage({ params }: { params: Promise<{
         <div className="grid gap-x-16 gap-y-10 lg:grid-cols-[17rem_minmax(0,1fr)]">
           <header className="lg:sticky lg:top-24 lg:self-start">
             <Link href="/opposition" className="caption hover:underline">
-              Opposition
+              Opposition analysis
             </Link>
             <h1 className="display mt-2 text-[clamp(2.4rem,4.5vw,3.5rem)] text-balance break-words">{opp.name}</h1>
             <p className="mt-4 text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
@@ -66,24 +66,15 @@ export default async function OppositionTeamPage({ params }: { params: Promise<{
           </header>
 
           <div className="space-y-14">
-            {coach && (
-              <OppositionGameForm
-                key={opp.id}
-                names={list.map((o) => o.name)}
-                team={opp.name}
-                halfLengthMin={team?.halfLengthMin ?? 30}
-              />
-            )}
-
             <section>
               <div className="section-head flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <h2 className="title text-xl">Games</h2>
-                <span className="caption">Ours against them, and theirs brought in to study.</span>
+                <span className="caption">Against us and against other clubs.</span>
               </div>
               {opp.games.length === 0 ? (
                 <p className="py-4 text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
                   {coach
-                    ? `Add a game of ${opp.name}'s above, then upload the footage to it.`
+                    ? `Add a game of ${opp.name}'s below, then upload the footage to it.`
                     : `No games of ${opp.name}'s yet. The coaches add them.`}
                 </p>
               ) : (
@@ -136,6 +127,15 @@ export default async function OppositionTeamPage({ params }: { params: Promise<{
                 </div>
               )}
             </section>
+
+            {coach && (
+              <OppositionGameForm
+                key={opp.id}
+                names={list.map((o) => o.name)}
+                team={opp.name}
+                halfLengthMin={team?.halfLengthMin ?? 30}
+              />
+            )}
           </div>
         </div>
       </main>
