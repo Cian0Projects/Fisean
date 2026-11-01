@@ -17,6 +17,7 @@ import { clubs, eventTypes, teams, users, videos } from "./schema";
 import { BUILT_IN_EVENTS } from "../hurling/events";
 import type { GameCode } from "../hurling/codes";
 import { similarClubs } from "../hurling/club-names";
+import { defaultStorageGb } from "../media/upload";
 import { generateJoinCode } from "../auth/password";
 import { appSecret } from "../auth/secret";
 import { keyedHash, looksLikeEmail, normaliseEmail, sameHash } from "../auth/email-code";
@@ -185,7 +186,13 @@ export async function createClub(input: {
   // One transaction, so a failure part-way never leaves a club with no admin.
   // The first team takes the club's name; a club with one team needs no other.
   return db.transaction((tx) => {
-    const club = tx.insert(clubs).values({ name: teamName }).returning().get();
+    // TEAM_STORAGE_GB is only the tier a club starts on; the host changes it
+    // per club afterwards (`npm run set-storage`).
+    const club = tx
+      .insert(clubs)
+      .values({ name: teamName, storageGb: defaultStorageGb(process.env.TEAM_STORAGE_GB) })
+      .returning()
+      .get();
     const team = tx
       .insert(teams)
       .values({ clubId: club.id, name: teamName, joinCode, code: input.code ?? "hurling" })

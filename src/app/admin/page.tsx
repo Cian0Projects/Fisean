@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { Nav } from "@/components/ui/Nav";
 import { AdminPanels } from "@/components/admin/AdminPanels";
 import { importsForTeam } from "@/lib/queries/imports";
+import { clubStorage } from "@/lib/queries/storage";
 
 export default async function AdminPage() {
   const user = await requireUser();
@@ -106,6 +107,7 @@ export default async function AdminPage() {
           moovAtStart: v.moovAtStart,
         }))}
         imports={await importsForTeam(user.teamId)}
+        storage={await clubStorage(user.clubId)}
       />
     </>
   );

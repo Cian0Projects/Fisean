@@ -17,7 +17,7 @@ import "./_env";
 import { randomUUID } from "node:crypto";
 import { readdir, stat, statfs } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { teamQuotaBytes } from "../src/lib/media/upload";
+import { defaultStorageGb } from "../src/lib/media/upload";
 import { storageDriver, store } from "../src/lib/storage";
 
 const DB_PATH = resolve(process.env.DATABASE_PATH ?? "./data/fisean.db");
@@ -53,8 +53,8 @@ function checkSettings() {
 
   ok(`New clubs wait for your check, emailed to ${process.env.HOST_EMAIL?.trim() || "hello@ardawnsport.ie"}`);
 
-  const gb = teamQuotaBytes(process.env.TEAM_STORAGE_GB) / 1024 ** 3;
-  ok(`Each club may store ${gb} GB, about ${Math.floor(gb / 3)} matches at 3 GB`);
+  const gb = defaultStorageGb(process.env.TEAM_STORAGE_GB);
+  ok(`A new club starts on ${gb} GB, about ${Math.floor(gb / 3)} matches at 3 GB (npm run set-storage changes one club)`);
 }
 
 async function checkStorage(): Promise<boolean> {

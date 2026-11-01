@@ -107,7 +107,8 @@ type StartPayload = { teamName: string; code: GameCode; displayName: string };
  * first. The club is made when their emailed code comes back, and waits
  * there until the host has checked it is real and not already here (see
  * "Checking a new club" in src/lib/db/clubs.ts). Every club is a promise of
- * up to TEAM_STORAGE_GB of the host's disk, which is why someone looks.
+ * up to its storage tier (TEAM_STORAGE_GB to start) of the host's disk, which
+ * is why someone looks.
  */
 export async function startClub(_prev: AuthState, form: FormData): Promise<AuthState> {
   const code = form.get("code");

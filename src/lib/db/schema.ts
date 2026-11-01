@@ -67,6 +67,14 @@ export const clubs = sqliteTable("clubs", {
    * Clubs from before the check were approved as they stood.
    */
   approvedAt: integer("approved_at"),
+  /**
+   * The club's storage tier in GB: the footage all its teams together may
+   * hold. The host sets it (`npm run set-storage`); a new club starts on
+   * `TEAM_STORAGE_GB` (see `defaultStorageGb` in src/lib/media/upload.ts).
+   * The column default is 100 so clubs that existed before tiers keep what
+   * the host's default always was.
+   */
+  storageGb: integer("storage_gb").notNull().default(100),
   createdAt: integer("created_at").notNull().default(now),
 });
 

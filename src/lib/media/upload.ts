@@ -141,12 +141,74 @@ export function uploadKey(teamId: string, filename: string, uuid: string): strin
 }
 
 /**
- * Bytes per club, from `TEAM_STORAGE_GB`. Hosting one instance for many clubs
- * means one club's season of 4K footage must not fill the disk for the rest.
+ * The tier a new club starts on, from `TEAM_STORAGE_GB`. That variable is
+ * only this default now: once a club exists its own `clubs.storage_gb` rules,
+ * and the host changes it with `npm run set-storage`.
  */
-export function teamQuotaBytes(env: string | undefined): number {
-  const gb = Number(env);
-  return (Number.isFinite(gb) && gb > 0 ? gb : DEFAULT_TEAM_STORAGE_GB) * 1024 ** 3;
+export function defaultStorageGb(env: string | undefined): number {
+  const gb = Math.floor(Number(env));
+  return Number.isFinite(gb) && gb > 0 ? gb : DEFAULT_TEAM_STORAGE_GB;
+}
+
+/**
+ * Bytes a club may hold, from its tier. The quota belongs to the club, not to
+ * a team: a dual club's hurlers and footballers draw on one allowance, and
+ * the admin who buys the tier is the admin of every team in it. Hosting one
+ * instance for many clubs means one club's season of 4K footage must not fill
+ * the disk for the rest.
+ */
+export function clubQuotaBytes(storageGb: number): number {
+  const gb = Number.isFinite(storageGb) && storageGb > 0 ? storageGb : DEFAULT_TEAM_STORAGE_GB;
+  return gb * 1024 ** 3;
+}
+
+/**
+ * The most one file may be, whatever the tier. A club on a large tier can
+ * hold many files; none may be bigger than this. 20 GiB is a long match at
+ * high bitrate, and a bound on what one upload (and one phone download) asks.
+ */
+export const MAX_FILE_BYTES = 20 * 1024 ** 3;
+
+/**
+ * From here a file uploads fine but is likely to be hard to watch on a phone:
+ * it is slow to start, uses a lot of data and may not decode at all.
+ */
+export const WARN_FILE_BYTES = 8 * 1024 ** 3;
+
+export type StorageLevel = "ok" | "watch" | "high";
+
+/**
+ * How full a club is, for the colour of its storage bar: under half is fine,
+ * from half to under three quarters is worth watching, three quarters and
+ * over is high. A quota that is zero or broken reads as high rather than
+ * hiding a problem.
+ */
+export function storageLevel(usedBytes: number, quotaBytes: number): StorageLevel {
+  if (!(quotaBytes > 0)) return "high";
+  const share = usedBytes / quotaBytes;
+  if (share >= 0.75) return "high";
+  if (share >= 0.5) return "watch";
+  return "ok";
+}
+
+const gbLabel = (n: number) => `${(n / 1024 ** 3).toFixed(1)} GB`;
+
+/** Null when a file is within the hard limit, or the sentence to show when it is not. */
+export function fileSizeProblem(bytes: number): string | null {
+  if (bytes <= MAX_FILE_BYTES) return null;
+  return (
+    `This file is ${gbLabel(bytes)} and Ardawn takes files up to ${gbLabel(MAX_FILE_BYTES)}. ` +
+    "Export the match again at 1080p, or split it in two, and upload the parts."
+  );
+}
+
+/** Null for a file of a sensible size, or a warning for one that is large but allowed. */
+export function fileSizeWarning(bytes: number): string | null {
+  if (bytes <= WARN_FILE_BYTES || bytes > MAX_FILE_BYTES) return null;
+  return (
+    `This file is ${gbLabel(bytes)}. It will upload, but phones may struggle to play a file this large. ` +
+    "Exporting the match at 1080p makes a much smaller file."
+  );
 }
 
 /** Null when the file fits, or the sentence to show the coach when it does not. */

@@ -14,7 +14,7 @@
  * src/lib/media/import.ts, the fetching in source.ts and importer.ts.
  */
 import { revalidatePath } from "next/cache";
-import { and, eq, ne, sum } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { footageImports, matches, teams, videos } from "@/lib/db/schema";
 import { oppositionFor } from "@/lib/db/oppositions";
@@ -23,7 +23,15 @@ import { contentTypeFor, store } from "@/lib/storage";
 import { SOURCE_LABELS, readSourceLink, suggestMatch, type SourceKind } from "@/lib/media/import";
 import { checkSource, SourceError, type SourceInfo } from "@/lib/media/source";
 import { queueImport } from "@/lib/media/importer";
-import { localDay, quotaProblem, readNewMatch, teamQuotaBytes, uploadKey } from "@/lib/media/upload";
+import {
+  fileSizeProblem,
+  fileSizeWarning,
+  localDay,
+  quotaProblem,
+  readNewMatch,
+  uploadKey,
+} from "@/lib/media/upload";
+import { clubStorage } from "@/lib/queries/storage";
 import { importsForTeam, type ImportView } from "@/lib/queries/imports";
 
 export type LinkCheck =
@@ -35,6 +43,8 @@ export type LinkCheck =
       sizeBytes: number;
       title: string;
       playedOn: string;
+      /** Set when the file is large but allowed; shown beside it. */
+      warning: string | null;
     }
   | { ok: false; link: string; error: string };
 
@@ -57,6 +67,10 @@ export async function checkFootageLink(link: string): Promise<LinkCheck> {
   if ("error" in found) return { ok: false, link, error: found.error };
 
   const { info, source } = found;
+  // Said now, with the link still in the box, rather than after the match is named.
+  const tooLarge = fileSizeProblem(info.sizeBytes);
+  if (tooLarge) return { ok: false, link, error: tooLarge };
+
   const guess = suggestMatch(info.filename, info.lastModified, localDay(new Date()));
   return {
     ok: true,
@@ -64,6 +78,7 @@ export async function checkFootageLink(link: string): Promise<LinkCheck> {
     sourceLabel: SOURCE_LABELS[source],
     filename: info.filename,
     sizeBytes: info.sizeBytes,
+    warning: fileSizeWarning(info.sizeBytes),
     ...guess,
   };
 }
@@ -93,11 +108,12 @@ export async function importFootage(input: {
     .limit(1);
   if (already) return { ok: false, error: "That link is already on its way in." };
 
-  const [{ used }] = await db
-    .select({ used: sum(videos.sizeBytes) })
-    .from(videos)
-    .where(and(eq(videos.teamId, user.teamId), ne(videos.status, "failed")));
-  const tooBig = quotaProblem(Number(used ?? 0), info.sizeBytes, teamQuotaBytes(process.env.TEAM_STORAGE_GB));
+  const tooLarge = fileSizeProblem(info.sizeBytes);
+  if (tooLarge) return { ok: false, error: tooLarge };
+
+  // The club's tier, summed over all its teams' footage (see clubStorage).
+  const { usedBytes, quotaBytes } = await clubStorage(user.clubId);
+  const tooBig = quotaProblem(usedBytes, info.sizeBytes, quotaBytes);
   if (tooBig) return { ok: false, error: tooBig };
 
   const [team] = await db

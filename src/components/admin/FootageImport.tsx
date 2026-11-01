@@ -34,6 +34,7 @@ type Draft = {
   filename?: string;
   sizeBytes?: number;
   sourceLabel?: string;
+  warning?: string | null;
   title: string;
   playedOn: string;
 };
@@ -88,6 +89,7 @@ export function FootageImport({ initial }: { initial: ImportView[] }) {
                     filename: res.filename,
                     sizeBytes: res.sizeBytes,
                     sourceLabel: res.sourceLabel,
+                    warning: res.warning,
                     title: res.title,
                     playedOn: res.playedOn,
                   }
@@ -281,6 +283,11 @@ function DraftRow({
             </div>
           )}
           {draft.state === "checking" && <p className="caption mt-0.5">Looking at the link…</p>}
+          {draft.warning && draft.state !== "failed" && (
+            <p className="mt-1.5 text-[13px]" style={{ color: "var(--color-ink-dim)" }}>
+              {draft.warning}
+            </p>
+          )}
         </div>
         <button type="button" onClick={onRemove} disabled={draft.state === "sending"} className="btn-ghost text-xs">
           Remove

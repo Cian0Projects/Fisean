@@ -1,0 +1,1 @@
+ALTER TABLE `clubs` ADD `storage_gb` integer DEFAULT 100 NOT NULL;

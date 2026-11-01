@@ -84,8 +84,10 @@ kept only for display. A match and its footage are separate rows on purpose —
 the match can exist before the file does, and one match can hold more than one
 video (two camera angles, or a recording that split part-way through).
 
-Each club has a storage allowance, `TEAM_STORAGE_GB` (100 GB unless the host
-sets otherwise), so one club's season of footage cannot fill the disk for the
+Each club has a storage tier, in GB, shared by all its teams: new clubs start
+on `TEAM_STORAGE_GB` (100 GB unless the host sets otherwise) and the host
+changes one club's with `npm run set-storage`. No single file may be over
+20 GB. Either way one club's season of footage cannot fill the disk for the
 rest.
 
 **When the file is already on the server**, the host can skip the browser:

@@ -6,6 +6,11 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## A storage tier for each club, and a 20 GB limit on a file
+*2026-11-01*
+
+The one `TEAM_STORAGE_GB` allowance is now a tier kept on each club (`clubs.storage_gb`, migration 0035, default 100 so existing clubs are unchanged), so the host can give a club more or less room. `TEAM_STORAGE_GB` survives only as the tier a new club starts on. The allowance is also now summed over all of a club's teams rather than per team, which is what the README always said: a dual club's hurlers and footballers share one tier. The host changes a tier with `npm run set-storage -- --email <admin> --gb 250` (without `--gb` it just shows the tier and usage). Separately, no single file may be over 20 GB, whatever the tier. A browser upload is refused before any byte is sent, the server checks again in `/api/upload`, and a pasted import link is refused at the first step. From 8 GB a file is allowed but the coach is warned that phones may struggle and told to export at 1080p. The rules are pure and tested in `src/lib/media/upload.ts` (`MAX_FILE_BYTES`, `WARN_FILE_BYTES`, `clubQuotaBytes`, `defaultStorageGb`), and the squad page's Footage section now shows the club's tier and what it has used, as a bar that is green under 50% full, amber from 50%, and red from 75% (`storageLevel`).
+
 ## Export a playlist, or one clip, as a video
 *2026-11-01*
 

@@ -28,6 +28,8 @@ import {
   MAX_URLS_PER_REQUEST,
   PARALLEL_PARTS,
   VIDEO_ACCEPT,
+  fileSizeProblem,
+  fileSizeWarning,
   isAcceptedVideo,
   localDay,
   partBytes,
@@ -43,6 +45,8 @@ type Upload = {
   sent: number;
   state: "sending" | "finishing" | "failed";
   error?: string;
+  /** A large file that is allowed: said while it uploads, not as a failure. */
+  warning?: string;
   videoId?: string;
 };
 
@@ -228,7 +232,16 @@ export function UploadProvider({ children, pageDrop = true }: { children: React.
       live.current.set(id, { abort, videoId });
       setUploads((all) => [
         ...all,
-        { id, filename: file.name, matchLabel: matchLabel(match), total: file.size, sent: 0, state: "sending", videoId },
+        {
+          id,
+          filename: file.name,
+          matchLabel: matchLabel(match),
+          total: file.size,
+          sent: 0,
+          state: "sending",
+          videoId,
+          warning: fileSizeWarning(file.size) ?? undefined,
+        },
       ]);
 
       try {
@@ -270,6 +283,12 @@ export function UploadProvider({ children, pageDrop = true }: { children: React.
       for (const file of files) {
         if (!isAcceptedVideo(file.name)) {
           fail(file, "That is not a video Ardawn can play. Use an MP4, MOV or WebM file.");
+          continue;
+        }
+        // Before a single byte is sent, or a match is named for a file that can't go up.
+        const tooLarge = fileSizeProblem(file.size);
+        if (tooLarge) {
+          fail(file, tooLarge);
           continue;
         }
         // Without a match the server either resumes this file, if it is
@@ -440,6 +459,11 @@ function NameMatch({
       <p className="caption mt-1 truncate">
         {file.name}, {fileSize(file.size)}
       </p>
+      {fileSizeWarning(file.size) && (
+        <p className="mt-2 text-[13px]" style={{ color: "var(--color-ink-dim)" }}>
+          {fileSizeWarning(file.size)}
+        </p>
+      )}
 
       <form
         className="mt-5 space-y-4"
@@ -606,6 +630,12 @@ function UploadRow({
           {failed ? "Dismiss" : "Cancel"}
         </button>
       </div>
+
+      {!failed && upload.warning && (
+        <p className="mt-1.5 text-[13px]" style={{ color: "var(--color-ink-dim)" }}>
+          {upload.warning}
+        </p>
+      )}
 
       {failed ? (
         <p className="mt-2 text-[13px]" style={{ color: "var(--color-danger-ink)" }}>

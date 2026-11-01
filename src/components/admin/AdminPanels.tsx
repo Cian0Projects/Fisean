@@ -17,6 +17,7 @@ import { GAME_CODES, GAME_LABELS, isGameCode, type GameCode } from "@/lib/hurlin
 import { formatClock } from "@/lib/hurling/notation";
 import { codecWarning } from "@/lib/media/probe";
 import { matchDate, fileSize } from "@/lib/format";
+import { storageLevel } from "@/lib/media/upload";
 import { ClubBadge } from "@/components/ui/ClubBadge";
 import { BadgeEditor } from "./BadgeEditor";
 import { ClubColours } from "./ClubColours";
@@ -25,6 +26,7 @@ import { UploadArea, UploadProvider, useUploads } from "./FootageUpload";
 import { FootageImport } from "./FootageImport";
 import type { Role } from "@/lib/db/schema";
 import type { ImportView } from "@/lib/queries/imports";
+import type { ClubStorage } from "@/lib/queries/storage";
 
 type Member = {
   id: string;
@@ -86,6 +88,7 @@ export function AdminPanels({
   matches,
   videos,
   imports,
+  storage,
 }: {
   viewer: { id: string; role: Role };
   teamId: string;
@@ -100,6 +103,7 @@ export function AdminPanels({
   matches: Match[];
   videos: Video[];
   imports: ImportView[];
+  storage: ClubStorage;
 }) {
   const isAdmin = viewer.role === "admin";
   const otherTeams = clubTeams.filter((t) => t.id !== teamId);
@@ -161,7 +165,7 @@ export function AdminPanels({
             {isAdmin && <GameChoice key={teamId} initial={code} />}
             {isAdmin && <ClubColours key={teamId} initial={colours} />}
             {isAdmin && <Matches matches={matches} videos={videos} canDelete />}
-            <Footage videos={videos} imports={imports} canDelete={isAdmin} />
+            <Footage videos={videos} imports={imports} storage={storage} canDelete={isAdmin} />
             {isAdmin && <CloseClub teamName={clubName} />}
           </aside>
         </div>
@@ -845,13 +849,59 @@ function CloseClub({ teamName }: { teamName: string }) {
   );
 }
 
+/**
+ * What the club has used of its tier. The tier belongs to the whole club, so
+ * this counts every team's footage, not just the files listed below it. The
+ * bar is green under half full, amber from half, red from three quarters
+ * (see `storageLevel`); the words under it say the same, so the colour is
+ * never the only signal.
+ */
+const LEVEL_COLOUR = {
+  ok: "var(--color-brand)",
+  watch: "var(--color-mark)",
+  high: "var(--color-danger)",
+} as const;
+
+function StorageUsage({ storage }: { storage: ClubStorage }) {
+  const share = storage.quotaBytes ? storage.usedBytes / storage.quotaBytes : 0;
+  const pct = Math.min(100, Math.round(share * 100));
+  const level = storageLevel(storage.usedBytes, storage.quotaBytes);
+  return (
+    <div className="mb-6">
+      <p className="text-[14px]" style={{ color: "var(--color-ink-dim)" }}>
+        Your club is on the {storage.storageGb} GB plan and has used {fileSize(storage.usedBytes)}, across all its
+        teams.
+      </p>
+      <div
+        role="progressbar"
+        aria-label="Club storage used"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={pct}
+        className="mt-2 h-1 overflow-hidden"
+        style={{ background: "var(--color-line)", borderRadius: 1 }}
+      >
+        <div className="h-full" style={{ width: `${pct}%`, background: LEVEL_COLOUR[level] }} />
+      </div>
+      {level === "high" && (
+        <p className="mt-2 text-[13px]" style={{ color: "var(--color-ink-dim)" }}>
+          {share >= 1 ? "The club is full." : `The club has used ${pct}% of its storage.`} Delete footage nobody watches
+          any more, or email hello@ardawnsport.ie for a larger plan.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function Footage({
   videos,
   imports,
+  storage,
   canDelete,
 }: {
   videos: Video[];
   imports: ImportView[];
+  storage: ClubStorage;
   canDelete: boolean;
 }) {
   const [, startTransition] = useTransition();
@@ -869,6 +919,7 @@ function Footage({
         note="Everyone on the panel can watch what goes up here. A full match can take a while on club WiFi; if it stops, drop the same file again and it carries on from where it was."
       />
 
+      <StorageUsage storage={storage} />
       <UploadArea />
       <FootageImport initial={imports} />
 

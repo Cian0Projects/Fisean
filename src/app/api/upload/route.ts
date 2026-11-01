@@ -22,20 +22,21 @@
  * /api/upload/[videoId]; the rules for them are in src/lib/media/upload.ts.
  */
 import { NextResponse, type NextRequest } from "next/server";
-import { and, eq, ne, sum } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { currentUser } from "@/lib/auth/session";
 import { isCoach } from "@/lib/auth/guard";
 import { db } from "@/lib/db/client";
 import { matches, teams, videos } from "@/lib/db/schema";
 import { oppositionFor } from "@/lib/db/oppositions";
 import { contentTypeFor, store } from "@/lib/storage";
+import { clubStorage } from "@/lib/queries/storage";
 import {
+  fileSizeProblem,
   isAcceptedVideo,
   missingParts,
   planParts,
   quotaProblem,
   readNewMatch,
-  teamQuotaBytes,
   uploadKey,
   type NewMatch,
 } from "@/lib/media/upload";
@@ -63,6 +64,10 @@ export async function POST(req: NextRequest) {
     return problem("That is not a video Ardawn can play. Use an MP4, MOV or WebM file.", 400);
   }
   if (!Number.isInteger(size) || size <= 0) return problem("That file looks empty.", 400);
+  // Before anything else, resuming included: the limit is on the file, and
+  // the browser has already checked it, so this is for a client that did not.
+  const tooLarge = fileSizeProblem(size);
+  if (tooLarge) return problem(tooLarge, 413);
 
   const media = await store();
   const plan = planParts(size);
@@ -122,11 +127,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ needsMatch: true });
   }
 
-  const [{ used }] = await db
-    .select({ used: sum(videos.sizeBytes) })
-    .from(videos)
-    .where(and(eq(videos.teamId, user.teamId), ne(videos.status, "failed")));
-  const tooBig = quotaProblem(Number(used ?? 0), size, teamQuotaBytes(process.env.TEAM_STORAGE_GB));
+  // The club's tier, summed over all its teams' footage (see clubStorage).
+  const { usedBytes, quotaBytes } = await clubStorage(user.clubId);
+  const tooBig = quotaProblem(usedBytes, size, quotaBytes);
   if (tooBig) return problem(tooBig, 413);
 
   const [team] = await db
