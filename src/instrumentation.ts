@@ -8,7 +8,12 @@
  * are written in too, so a club that signed up before them gets them on the
  * next deploy rather than only a club that signs up after. Matches made
  * before oppositions existed are put on one the same way.
+ *
+ * onRequestError emails the host when a request throws, if ALERT_EMAIL is set
+ * (src/lib/notify/error-mail.ts holds the throttling and the sending).
  */
+import type { Instrumentation } from "next";
+
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   const { seedTaxonomy } = await import("./lib/db/clubs");
@@ -21,3 +26,10 @@ export async function register() {
   const { startDigestTimer } = await import("./lib/notify/sender");
   startDigestTimer();
 }
+
+export const onRequestError: Instrumentation.onRequestError = async (err, request, context) => {
+  // The mailer reads the filesystem, so the Edge runtime has nothing to send with.
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  const { emailServerError } = await import("./lib/notify/error-mail");
+  await emailServerError(err, request, context);
+};

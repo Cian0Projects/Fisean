@@ -196,3 +196,35 @@ ${lines
 
   return { subject: digestSubject(input.lines), text, html };
 }
+
+/**
+ * Sent to the host when the server throws (src/lib/notify/error-alerts.ts).
+ * Only the host reads it, so the stack goes in whole; the caller has already
+ * stripped codes and keys from every field.
+ */
+export function serverErrorMail(input: {
+  route: string;
+  method: string;
+  message: string;
+  stack: string;
+  at: string;
+}): Rendered {
+  const facts = [
+    `Route: ${input.route}`,
+    `Method: ${input.method}`,
+    `Error: ${input.message}`,
+    `Time: ${input.at}`,
+  ];
+  const note = "The same error on the same route is emailed at most once an hour.";
+
+  const text = ["The Ardawn server threw an error.", "", ...facts, "", input.stack || "No stack was recorded.", "", note].join("\n");
+
+  const html = frame(
+    `<p style="margin:0 0 16px;font-size:15px;line-height:1.5">The Ardawn server threw an error.</p>
+${facts.map((f) => `<p style="margin:0 0 6px;font-size:15px;line-height:1.4">${escape(f)}</p>`).join("\n")}
+<pre style="margin:16px 0;padding:12px;background:#f4f2ee;font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-word">${escape(input.stack || "No stack was recorded.")}</pre>`,
+    escape(note),
+  );
+
+  return { subject: `Server error on ${input.route}: ${input.message.slice(0, 80)}`, text, html };
+}

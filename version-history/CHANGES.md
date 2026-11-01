@@ -6,6 +6,11 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## The host is emailed when the server throws
+*2026-11-01*
+
+`onRequestError` in `src/instrumentation.ts` now emails `ALERT_EMAIL` (unset means no alerts) the route, method, error message, stack and time of any server error. It is throttled in memory to one email per distinct error (message plus route) per hour and 20 a day, so one broken page cannot flood the inbox or dent the sending domain's standing, and the send can never throw. Cookies, headers and request bodies are never read, query strings are dropped from the route, and six digit sign-in codes and link keys are stripped from the message and stack. The rules are pure and tested in `src/lib/notify/error-alerts.ts`; the sending is `src/lib/notify/error-mail.ts` and the wording is `serverErrorMail` in `src/lib/mail/templates.ts`.
+
 ## A storage tier for each club, and a 20 GB limit on a file
 *2026-11-01*
 
