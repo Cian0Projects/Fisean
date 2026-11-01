@@ -587,7 +587,7 @@ function drawPiece(ctx: CanvasRenderingContext2D, p: DrillPiece, c: Point, k: nu
 }
 
 /** Cut a line to fit, with an ellipsis. */
-function fit(ctx: CanvasRenderingContext2D, text: string, max: number): string {
+export function fit(ctx: CanvasRenderingContext2D, text: string, max: number): string {
   if (ctx.measureText(text).width <= max) return text;
   let s = text;
   while (s.length > 1 && ctx.measureText(`${s}…`).width > max) s = s.slice(0, -1);

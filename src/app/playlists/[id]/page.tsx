@@ -7,7 +7,7 @@ import { canShare } from "@/lib/auth/visibility";
 import { visibleClipIds } from "@/lib/queries/clips";
 import { canOpenPlaylist } from "@/lib/queries/playlists";
 import { loadComments } from "@/lib/queries/comments";
-import { store } from "@/lib/storage";
+import { assertSafeKey, store } from "@/lib/storage";
 import { PlaylistPlayer, type PlaylistClip } from "@/components/playlists/PlaylistPlayer";
 import { PlaylistAudience } from "@/components/playlists/PlaylistAudience";
 
@@ -71,6 +71,7 @@ export default async function PlaylistPage({
     clipId: i.clipId,
     videoId: i.videoId,
     src: media.readUrl(i.storageKey),
+    exportSrc: `/api/media/${assertSafeKey(i.storageKey)}`,
     title: i.title,
     note: i.note,
     startMs: i.startMs,
@@ -112,6 +113,7 @@ export default async function PlaylistPage({
     <PlaylistPlayer
       playlistId={playlist.id}
       title={playlist.title}
+      teamName={user.teamName}
       note={playlist.description}
       setBy={setBy?.displayName ?? null}
       clips={playlistClips}

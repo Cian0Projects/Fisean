@@ -6,6 +6,11 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## Export a playlist, or one clip, as a video
+*2026-11-01*
+
+A playlist page now has an "Export video" button, and each clip in its running order has its own "Export" button, so a coach can send the panel one reel or one moment as a file that plays in WhatsApp. It is made in the browser the way the drill video is (`src/components/playlists/recordPlaylist.ts`: canvas plus MediaRecorder, MP4 where the browser can, no ffmpeg, real time with the tab in front), and keeps the footage's own sound. Comments go on the video as they do in the player: the clip halts on the frame a comment was made on, with the words in a card and the drawing laid over the picture, held long enough to read, then plays on. The card sits in any of nine spots on the picture (the same grid the drill board uses for step notes) or can be left off, and the choice is remembered per browser. The rules that need no canvas (hold time, card placement, file names) are in `src/lib/hurling/clip-export.ts`. Anyone who can open the playlist can export it; the clips are read through `/api/media`, which already checks the viewer's club.
+
 ## Club colours on the drill board
 *2026-11-01*
 

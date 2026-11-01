@@ -28,12 +28,16 @@ import { addComment } from "@/lib/actions/review";
 import { inPlayingOrder } from "@/lib/hurling/stops";
 import type { CommentRow, Viewer } from "@/components/review/types";
 import { ChevronIcon, PauseIcon, PlayIcon } from "@/components/ui/Icon";
+import { ExportPanel } from "./ExportPanel";
+import { usePlaylistExport } from "./usePlaylistExport";
 
 export type PlaylistClip = {
   itemId: string;
   clipId: string;
   videoId: string;
   src: string;
+  /** Through our own media route, which the export can read; see recordPlaylist.ts. */
+  exportSrc: string;
   title: string;
   note: string | null;
   startMs: number;
@@ -48,6 +52,7 @@ const NO_COMMENTS: CommentRow[] = [];
 export function PlaylistPlayer({
   playlistId,
   title,
+  teamName,
   note,
   setBy,
   clips,
@@ -56,6 +61,7 @@ export function PlaylistPlayer({
 }: {
   playlistId: string;
   title: string;
+  teamName: string;
   /** What the coach said when they set it: the reason to watch. */
   note: string | null;
   setBy: string | null;
@@ -80,6 +86,7 @@ export function PlaylistPlayer({
   const setComments = (rows: CommentRow[]) =>
     current && setCommentsByClip((prev) => ({ ...prev, [current.clipId]: rows }));
   const stop = useCommentStops(engine, current ?? null, comments);
+  const exporting = usePlaylistExport({ title, teamName, clips, commentsByClip });
 
   // Record that this player watched it. Coaches ask who has.
   useEffect(() => {
@@ -308,20 +315,24 @@ export function PlaylistPlayer({
           className="w-full shrink-0 border-t lg:w-80 lg:border-l lg:border-t-0"
           style={{ borderColor: "var(--color-line)", background: "var(--color-surface)" }}
         >
+          <ExportPanel exporting={exporting} clipCount={clips.length} />
           <h2 className="label border-b px-4 py-3" style={{ borderColor: "var(--color-line)" }}>
             Running order
           </h2>
           <ol>
             {clips.map((c, i) => (
-              <li key={c.itemId}>
+              <li
+                key={c.itemId}
+                className="flex items-center border-b"
+                style={{
+                  borderColor: "var(--color-line)",
+                  background: i === index ? "var(--color-surface-2)" : "transparent",
+                }}
+              >
                 <button
                   onClick={() => goTo(i)}
                   aria-current={i === index ? "true" : undefined}
-                  className="flex w-full items-center gap-3 border-b px-4 py-2.5 text-left"
-                  style={{
-                    borderColor: "var(--color-line)",
-                    background: i === index ? "var(--color-surface-2)" : "transparent",
-                  }}
+                  className="flex min-w-0 flex-1 items-center gap-3 px-4 py-2.5 text-left"
                 >
                   <span className="jersey shrink-0">{i + 1}</span>
                   <span className="min-w-0 flex-1">
@@ -333,6 +344,17 @@ export function PlaylistPlayer({
                     </span>
                   </span>
                 </button>
+                {exporting.supported && (
+                  <button
+                    type="button"
+                    className="btn-ghost mr-2 shrink-0 text-xs"
+                    disabled={exporting.busy}
+                    aria-label={`Export clip ${i + 1} as a video`}
+                    onClick={() => void exporting.run(i)}
+                  >
+                    Export
+                  </button>
+                )}
               </li>
             ))}
           </ol>
