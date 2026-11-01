@@ -23,25 +23,44 @@
  * than once, from the start-up hook and from the actions, and two queues
  * would fetch the same file twice.
  */
-import { eq, isNull } from "drizzle-orm";
+import { asc, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { footageImports, videos } from "@/lib/db/schema";
 import { contentTypeFor, store, type MediaStore } from "@/lib/storage";
 import { SOURCE_LABELS, type SourceKind } from "./import";
 import { finishUpload } from "./finish";
+import { nextImport, type Waiting } from "./schedule";
 import { openSource, SourceError } from "./source";
 import { missingParts, partBytes, planParts, type PartPlan } from "./upload";
 
-/** Imports fetched at once across every club; the rest wait their turn. */
-const AT_ONCE = 2;
+/**
+ * Imports fetched at once across every club; the rest wait their turn. A club
+ * never has more than one of these (see ./schedule.ts), so this is also the
+ * most clubs moving footage at the same moment.
+ *
+ * Memory is what bounds it. Every part in flight is held whole in memory
+ * (`readExactly` fills one buffer per part before it is stored), so the worst
+ * case is AT_ONCE * PARTS_AT_ONCE parts at once, 18 with these numbers. A part
+ * is 8 MiB for any file up to about 78 GB (`planParts`), and files are
+ * capped at MAX_FILE_BYTES (20 GB), so it is always 8 MiB: 18 parts is
+ * 144 MiB, and a store that copies the buffer on the way out could double
+ * that. The stream fallback holds one part per import, so it is lower.
+ * Raising either number raises this bound in proportion.
+ */
+const AT_ONCE = 6;
 /** Parts of one import fetched at once. */
 const PARTS_AT_ONCE = 3;
 /** Tries for one part before the import stops and asks the coach. */
 const RETRIES = 6;
 
-type Queue = { running: Set<string>; waiting: string[] };
-const queue: Queue = ((globalThis as { __ardawnImports?: Queue }).__ardawnImports ??= {
-  running: new Set(),
+/**
+ * `waiting` is in the order imports joined it; `running` maps each running
+ * import to its club. The key is new because the shape changed: an old queue
+ * left on globalThis by a hot reload would have the wrong one.
+ */
+type Queue = { running: Map<string, string>; waiting: Waiting[] };
+const queue: Queue = ((globalThis as { __ardawnImportQueue?: Queue }).__ardawnImportQueue ??= {
+  running: new Map(),
   waiting: [],
 });
 
@@ -51,25 +70,33 @@ class Cancelled extends Error {}
 /** The source sent the whole file when asked for a range; switch to reading it through. */
 class NoRanges extends Error {}
 
-export function queueImport(id: string): void {
-  if (queue.running.has(id) || queue.waiting.includes(id)) return;
-  queue.waiting.push(id);
+/** `teamId` is the import's own row, passed in so choosing what runs next needs no query. */
+export function queueImport(id: string, teamId: string): void {
+  if (queue.running.has(id) || queue.waiting.some((w) => w.id === id)) return;
+  queue.waiting.push({ id, teamId });
   pump();
 }
 
-/** Pick up every import that was going when the server last stopped. */
+/**
+ * Pick up every import that was going when the server last stopped, oldest
+ * first, so the order they had before the restart is the order they wait in.
+ */
 export async function resumeImports(): Promise<void> {
   const rows = await db
-    .select({ id: footageImports.id })
+    .select({ id: footageImports.id, teamId: footageImports.teamId })
     .from(footageImports)
-    .where(isNull(footageImports.error));
-  for (const r of rows) queueImport(r.id);
+    .where(isNull(footageImports.error))
+    .orderBy(asc(footageImports.createdAt));
+  for (const r of rows) queueImport(r.id, r.teamId);
 }
 
 function pump(): void {
-  while (queue.running.size < AT_ONCE && queue.waiting.length) {
-    const id = queue.waiting.shift()!;
-    queue.running.add(id);
+  for (;;) {
+    const id = nextImport(queue.waiting, [...queue.running.values()], AT_ONCE);
+    if (id === null) return;
+    const at = queue.waiting.findIndex((w) => w.id === id);
+    const [{ teamId }] = queue.waiting.splice(at, 1);
+    queue.running.set(id, teamId);
     void run(id).finally(() => {
       queue.running.delete(id);
       pump();

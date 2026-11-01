@@ -175,7 +175,7 @@ export async function importFootage(input: {
     throw err;
   }
 
-  queueImport(jobId);
+  queueImport(jobId, user.teamId);
   revalidatePath("/");
   revalidatePath("/admin");
   const saved = (await importsForTeam(user.teamId)).find((i) => i.id === jobId)!;
@@ -220,7 +220,7 @@ export async function retryImport(
     await db.update(footageImports).set({ error: null }).where(eq(footageImports.id, id));
   }
 
-  queueImport(id);
+  queueImport(id, job.teamId);
   return { ok: true };
 }
 
