@@ -6,6 +6,16 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## Club colours on the drill board
+*2026-11-01*
+
+The club admin now chooses a primary and a secondary colour in "Club colours" on the squad page, and the home side of every drill is drawn in them: the disc and its runs in the primary, a thin ring at the hem and the number in the secondary. The away side keeps the board's own colour so the sides still tell apart, and a club that has chosen nothing sees no change. The colours are stored on `teams` (`primary_colour`, `secondary_colour`, migration 0034) and written to every team in the club, as the badge is. The board reads them as custom properties on its `<svg>` (`kitStyle` in `DrillArt.tsx`), which is also how the exported video picks them up. `src/lib/hurling/kit.ts` validates the hex and keeps the number readable: the secondary is used for it only when it contrasts with the primary, otherwise it is white or near black.
+
+## Opposition analysis, stage one: a page for every club
+*2026-10-31*
+
+Every club a team plays or studies now has its own record (`oppositions`) and its own page under Opposition in the masthead. A match used to name its opponent in free text, so "St Finbarr's" and "St. Finbarrs" were two teams. Each spelling is now put on one opposition by a key that ignores case, spacing, punctuation and fadas (`oppositionKey` in `src/lib/hurling/opposition.ts`), and coaches can rename a club or merge another spelling into it. Matches made before this are linked as the server starts. Coaches can add a game between two other clubs to study (`matches.kind = "opposition"`) and upload its footage. The studied team goes on the sheet's opposition side and the team they played goes in our slot, so everything about a club sits on the same side of every sheet. Opposition games are matches, so clipping, comments, drawings and playlists work on them as they are. They are kept out of every list, total and season roll-up about us by one filter (`isOurMatch` in `src/lib/queries/matches.ts`). Every clip now says which side of the match it is about (`clips.about_side`). The default is us in our games and the studied team in opposition games, and it can be changed in the clip panel. A clip about a club's side, in any game, appears on that club's page for whoever may see it. Stats logged from the studied team's side and the stats-driven analysis report follow in stages two and three (`docs/OPPOSITION-ANALYSIS.md`).
+
 ## The stats clock pauses and skips, for watching a match back
 *2026-10-30*
 

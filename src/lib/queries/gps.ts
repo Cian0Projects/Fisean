@@ -1,5 +1,6 @@
 import "server-only";
 import { and, eq, isNotNull } from "drizzle-orm";
+import { isOurMatch } from "@/lib/queries/matches";
 import { db } from "@/lib/db/client";
 import { gpsNames, matchGps, matches } from "@/lib/db/schema";
 import { gpsNameKey, type GpsPlayer } from "@/lib/hurling/gps";
@@ -61,7 +62,7 @@ export async function loadSeasonGps(teamId: string): Promise<Map<string, PlayerG
       })
       .from(matchGps)
       .innerJoin(matches, eq(matches.id, matchGps.matchId))
-      .where(and(eq(matchGps.teamId, teamId), isNotNull(matches.statsSubmittedAt))),
+      .where(and(eq(matchGps.teamId, teamId), isOurMatch, isNotNull(matches.statsSubmittedAt))),
     loadGpsLinks(teamId),
   ]);
   const byPlayer = new Map<string, PlayerGps[]>();

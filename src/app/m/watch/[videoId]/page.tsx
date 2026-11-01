@@ -6,6 +6,7 @@ import { requireUserFor } from "@/lib/auth/guard";
 import { store } from "@/lib/storage";
 import { codecWarning } from "@/lib/media/probe";
 import { loadVisibleClips } from "@/lib/queries/clips";
+import { sidesOf } from "@/lib/queries/matches";
 import { PhoneWatch } from "@/components/mobile/PhoneWatch";
 import { tagsForCode } from "@/lib/hurling/events";
 
@@ -33,6 +34,8 @@ export default async function PhoneWatchPage({
   const [match] = video.matchId
     ? await db.select().from(matches).where(eq(matches.id, video.matchId)).limit(1)
     : [null];
+
+  const sides = await sidesOf(match, user.teamName);
 
   const [allEvents, squad, markerRows, initialClips, media] = await Promise.all([
     db
@@ -73,6 +76,8 @@ export default async function PhoneWatchPage({
       }}
       match={{
         id: match?.id ?? null,
+        kind: match?.kind ?? "ours",
+        sides,
         opponent: match?.opponent ?? "Training",
         competition: match?.competition ?? null,
         playedOn: match?.playedOn ?? "",

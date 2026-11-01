@@ -170,7 +170,12 @@ async function sendParts(
 /** Where a file should go, as far as the browser knows when it starts. */
 type Target = { matchId?: string; newMatch?: { title: string; playedOn: string } };
 
-export function UploadProvider({ children }: { children: React.ReactNode }) {
+/**
+ * `pageDrop` off is for a page where every upload is to a match already
+ * listed (an opposition game): a file dropped anywhere there would ask to
+ * name a new match of ours, which is not what anyone dropping it meant.
+ */
+export function UploadProvider({ children, pageDrop = true }: { children: React.ReactNode; pageDrop?: boolean }) {
   const router = useRouter();
   const [uploads, setUploads] = useState<Upload[]>([]);
   /** Files waiting for the coach to name the match they are of. */
@@ -305,7 +310,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   return (
     <UploadContext.Provider value={{ uploads, begin, cancel, dismiss }}>
       {children}
-      <PageDropTarget />
+      {pageDrop && <PageDropTarget />}
       {waiting.length > 0 && (
         <NameMatch
           // A fresh form per file, so each starts from its own date.
@@ -542,8 +547,6 @@ export function UploadButton({
 
 /** The visible drop area in the Footage panel, plus whatever is on its way up. */
 export function UploadArea() {
-  const { uploads, cancel, dismiss } = useUploads();
-
   return (
     <div className="mb-6 space-y-3">
       <div
@@ -556,19 +559,21 @@ export function UploadArea() {
         <UploadButton className="btn-primary">Or choose a file</UploadButton>
       </div>
 
-      {uploads.length > 0 && (
-        <ul>
-          {uploads.map((u) => (
-            <UploadRow
-              key={u.id}
-              upload={u}
-              onCancel={() => cancel(u.id)}
-              onDismiss={() => dismiss(u.id)}
-            />
-          ))}
-        </ul>
-      )}
+      <UploadList />
     </div>
+  );
+}
+
+/** Whatever is on its way up, with its progress, or nothing. */
+export function UploadList() {
+  const { uploads, cancel, dismiss } = useUploads();
+  if (!uploads.length) return null;
+  return (
+    <ul>
+      {uploads.map((u) => (
+        <UploadRow key={u.id} upload={u} onCancel={() => cancel(u.id)} onDismiss={() => dismiss(u.id)} />
+      ))}
+    </ul>
   );
 }
 

@@ -34,6 +34,8 @@ export function Nav({ user }: { user: SessionUser }) {
     // watch back.
     { href: "/stats", label: "Stats", match: isStatsPage },
     { href: "/playlists", label: "Playlists", match: (p: string) => p.startsWith("/playlists") },
+    // The whole panel reads up on the opposition; coaches add the games.
+    { href: "/opposition", label: "Opposition", match: (p: string) => p.startsWith("/opposition") },
     // The drill board is the coaches' planning, not something a player reviews.
     ...(user.role !== "player"
       ? [{ href: "/drills", label: "Drills", match: (p: string) => p.startsWith("/drills") }]

@@ -1,4 +1,5 @@
-import { asc, count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq } from "drizzle-orm";
+import { isOurMatch } from "@/lib/queries/matches";
 import { db } from "@/lib/db/client";
 import { clubs, matches, teams, users, videos } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/guard";
@@ -64,7 +65,7 @@ export default async function AdminPage() {
   const matchRows = await db
     .select()
     .from(matches)
-    .where(eq(matches.teamId, user.teamId))
+    .where(and(eq(matches.teamId, user.teamId), isOurMatch))
     .orderBy(desc(matches.playedOn));
 
   const videoRows = await db
@@ -85,6 +86,7 @@ export default async function AdminPage() {
         teamName={team?.name ?? ""}
         code={team?.code ?? user.teamCode}
         badgeVersion={team?.badgeUpdatedAt ?? null}
+        colours={{ primary: team?.primaryColour ?? null, secondary: team?.secondaryColour ?? null }}
         members={members}
         matches={matchRows.map((m) => ({
           id: m.id,

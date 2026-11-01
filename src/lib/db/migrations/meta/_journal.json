@@ -232,6 +232,20 @@
       "when": 1793384827920,
       "tag": "0032_third_human_fly",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1793479575623,
+      "tag": "0033_broken_human_fly",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1793546745855,
+      "tag": "0034_chunky_mandroid",
+      "breakpoints": true
     }
   ]
 }

@@ -295,6 +295,7 @@ export function ReviewWorkspace({
         endMs,
         title: "",
         audience: { visibility: "private", roles: [], userIds: [] },
+        aboutSide: match.kind === "opposition" ? "opposition" : "us",
         createdBy: viewer.id,
         authorName: viewer.displayName,
         eventTypeIds: [],
@@ -323,7 +324,7 @@ export function ReviewWorkspace({
         return null;
       }
     },
-    [video.id, viewer.id, viewer.displayName, flash],
+    [video.id, viewer.id, viewer.displayName, match.kind, flash],
   );
 
   /** The `C` key. Captures backwards from the playhead. */
@@ -612,7 +613,7 @@ export function ReviewWorkspace({
         />
         <div className="min-w-0 flex-1">
           <div className="title truncate text-[15px]">
-            {match.opponent}
+            {match.kind === "opposition" ? `${match.sides.opposition} v ${match.sides.us}` : match.opponent}
             {match.competition && (
               <span className="ml-2 text-[12px] font-normal" style={{ color: "var(--color-ink-faint)" }}>
                 {match.competition}
@@ -894,6 +895,9 @@ export function ReviewWorkspace({
                 <ClipInspector
                   key={selected.id}
                   clip={selected}
+                  // Training footage has no sides to choose between.
+                  sides={match.id ? match.sides : null}
+                  oppositionGame={match.kind === "opposition"}
                   squad={squad}
                   viewer={viewer}
                   engine={engine}

@@ -27,6 +27,7 @@ import { currentUser } from "@/lib/auth/session";
 import { isCoach } from "@/lib/auth/guard";
 import { db } from "@/lib/db/client";
 import { matches, teams, videos } from "@/lib/db/schema";
+import { oppositionFor } from "@/lib/db/oppositions";
 import { contentTypeFor, store } from "@/lib/storage";
 import {
   isAcceptedVideo,
@@ -140,13 +141,15 @@ export async function POST(req: NextRequest) {
   try {
     // The new match and its video row land together or not at all.
     const created = db.transaction((tx) => {
+      const opp = existing ? null : oppositionFor(tx, user.teamId, named!.opponent, user.id);
       const match =
         existing ??
         tx
           .insert(matches)
           .values({
             teamId: user.teamId,
-            opponent: named!.opponent,
+            opponent: opp!.name,
+            oppositionId: opp!.id,
             playedOn: named!.playedOn,
             // The club's usual half length; 35 at senior inter-county, 30 at
             // most club grades.

@@ -19,6 +19,7 @@ import { codecWarning } from "@/lib/media/probe";
 import { matchDate, fileSize } from "@/lib/format";
 import { ClubBadge } from "@/components/ui/ClubBadge";
 import { BadgeEditor } from "./BadgeEditor";
+import { ClubColours } from "./ClubColours";
 import { AddPlayer } from "./AddPlayer";
 import { UploadArea, UploadProvider, useUploads } from "./FootageUpload";
 import { FootageImport } from "./FootageImport";
@@ -80,6 +81,7 @@ export function AdminPanels({
   teamName,
   code,
   badgeVersion,
+  colours,
   members,
   matches,
   videos,
@@ -93,6 +95,7 @@ export function AdminPanels({
   teamName: string;
   code: GameCode;
   badgeVersion: number | null;
+  colours: { primary: string | null; secondary: string | null };
   members: Member[];
   matches: Match[];
   videos: Video[];
@@ -156,6 +159,7 @@ export function AdminPanels({
           <aside className="space-y-14">
             {isAdmin && <ClubTeams teams={clubTeams} currentId={teamId} viewerId={viewer.id} />}
             {isAdmin && <GameChoice key={teamId} initial={code} />}
+            {isAdmin && <ClubColours key={teamId} initial={colours} />}
             {isAdmin && <Matches matches={matches} videos={videos} canDelete />}
             <Footage videos={videos} imports={imports} canDelete={isAdmin} />
             {isAdmin && <CloseClub teamName={clubName} />}

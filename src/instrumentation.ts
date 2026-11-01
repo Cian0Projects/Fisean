@@ -6,12 +6,15 @@
  *
  * Built-in tags added since the database was made (the football ones, say)
  * are written in too, so a club that signed up before them gets them on the
- * next deploy rather than only a club that signs up after.
+ * next deploy rather than only a club that signs up after. Matches made
+ * before oppositions existed are put on one the same way.
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   const { seedTaxonomy } = await import("./lib/db/clubs");
   void seedTaxonomy().catch((err) => console.error("Could not add the built-in tags:", err));
+  const { linkOppositions } = await import("./lib/db/oppositions");
+  void linkOppositions().catch((err) => console.error("Could not link matches to their opposition:", err));
   const { resumeImports } = await import("./lib/media/importer");
   // Not awaited: the server should not wait on four gigabytes to start.
   void resumeImports().catch((err) => console.error("Could not resume footage imports:", err));

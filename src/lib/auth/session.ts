@@ -38,6 +38,9 @@ export type SessionUser = {
   teamCode: GameCode;
   /** When the club badge last changed, or null for a club without one. */
   badgeVersion: number | null;
+  /** The club's jersey colours for the drill board; null for the board's own. */
+  primaryColour: string | null;
+  secondaryColour: string | null;
 };
 
 export async function createSession(userId: string): Promise<void> {
@@ -139,6 +142,8 @@ async function sessionRow(): Promise<(SessionUser & { clubApprovedAt: number | n
       teamName: teams.name,
       teamCode: teams.code,
       badgeVersion: teams.badgeUpdatedAt,
+      primaryColour: teams.primaryColour,
+      secondaryColour: teams.secondaryColour,
       clubApprovedAt: clubs.approvedAt,
     })
     .from(sessions)

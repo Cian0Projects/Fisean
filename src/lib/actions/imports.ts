@@ -17,6 +17,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq, ne, sum } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { footageImports, matches, teams, videos } from "@/lib/db/schema";
+import { oppositionFor } from "@/lib/db/oppositions";
 import { assertSameTeam, requireCoach } from "@/lib/auth/guard";
 import { contentTypeFor, store } from "@/lib/storage";
 import { SOURCE_LABELS, readSourceLink, suggestMatch, type SourceKind } from "@/lib/media/import";
@@ -113,11 +114,13 @@ export async function importFootage(input: {
   try {
     // The match, its video and the import land together or not at all.
     jobId = db.transaction((tx) => {
+      const opp = oppositionFor(tx, user.teamId, named.opponent, user.id);
       const match = tx
         .insert(matches)
         .values({
           teamId: user.teamId,
-          opponent: named.opponent,
+          opponent: opp.name,
+          oppositionId: opp.id,
           playedOn: named.playedOn,
           halfLengthMin: team?.halfLengthMin ?? 30,
           createdBy: user.id,

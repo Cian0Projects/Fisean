@@ -4,6 +4,7 @@ import { db } from "@/lib/db/client";
 import { drills } from "@/lib/db/schema";
 import { isCoach, requireUser } from "@/lib/auth/guard";
 import { parseDrill } from "@/lib/hurling/drill";
+import { homeKit } from "@/lib/hurling/kit";
 import { visiblePlaylists } from "@/lib/queries/playlists";
 import { Nav } from "@/components/ui/Nav";
 import { DrillEditor } from "@/components/drills/DrillEditor";
@@ -33,6 +34,7 @@ export default async function DrillPage({ params }: { params: Promise<{ id: stri
         teamName={user.teamName}
         code={user.teamCode}
         badgeVersion={user.badgeVersion}
+        kit={homeKit({ primary: user.primaryColour, secondary: user.secondaryColour })}
         footageTitle={footageTitle}
         initial={{ title: drill.title, notes: drill.notes, data }}
       />

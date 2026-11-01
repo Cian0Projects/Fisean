@@ -56,6 +56,7 @@ export async function loadVisibleClips(videoId: string, user: Viewer): Promise<C
       title: clips.title,
       visibility: clips.visibility,
       shareRoles: clips.shareRoles,
+      aboutSide: clips.aboutSide,
       createdBy: clips.createdBy,
       authorName: users.displayName,
     })
@@ -103,6 +104,7 @@ export async function loadVisibleClips(videoId: string, user: Viewer): Promise<C
     endMs: c.endMs,
     title: c.title,
     audience: { visibility: c.visibility, roles: c.shareRoles ?? [], userIds: shared.get(c.id) ?? [] },
+    aboutSide: c.aboutSide,
     createdBy: c.createdBy,
     authorName: c.authorName ?? "Removed",
     eventTypeIds: tagsByClip.get(c.id) ?? [],

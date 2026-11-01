@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { isOurMatch } from "@/lib/queries/matches";
 import { visibleStat } from "@/lib/queries/stats";
 import { db } from "@/lib/db/client";
 import {
@@ -328,14 +329,14 @@ async function Dashboard() {
     .select({ matchId: videos.matchId, videoId: videos.id, createdAt: videos.createdAt })
     .from(videos)
     .innerJoin(matches, eq(matches.id, videos.matchId))
-    .where(and(eq(videos.teamId, user.teamId), eq(videos.status, "ready")))
+    .where(and(eq(videos.teamId, user.teamId), eq(videos.status, "ready"), isOurMatch))
     .orderBy(desc(videos.createdAt))
     .limit(1);
 
   const season = await db
     .select()
     .from(matches)
-    .where(eq(matches.teamId, user.teamId))
+    .where(and(eq(matches.teamId, user.teamId), isOurMatch))
     .orderBy(desc(matches.playedOn))
     .limit(20);
 

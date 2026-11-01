@@ -244,6 +244,7 @@ export function PhoneWatch({
       id: tempId,
       ...draft,
       title: draft.title.trim(),
+      aboutSide: match.kind === "opposition" ? "opposition" : "us",
       eventTypeIds: [],
       playerIds: [],
       createdBy: viewer.id,
@@ -433,7 +434,11 @@ export function PhoneWatch({
           </Link>
           <div className="min-w-0 flex-1 leading-tight">
             <div className="title truncate text-[16px]">
-              {match.id ? `v ${match.opponent}` : match.opponent}
+              {!match.id
+                ? match.opponent
+                : match.kind === "opposition"
+                  ? `${match.sides.opposition} v ${match.sides.us}`
+                  : `v ${match.opponent}`}
             </div>
             {match.playedOn && (
               <div className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>

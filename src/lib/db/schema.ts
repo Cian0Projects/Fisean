@@ -102,6 +102,14 @@ export const teams = sqliteTable(
     badge: blob("badge", { mode: "buffer" }),
     /** When the badge last changed. It versions the badge's URL, so browsers can cache it for good. */
     badgeUpdatedAt: integer("badge_updated_at"),
+    /**
+     * The club's jersey colours as `#rrggbb`, or null for the board's own.
+     * Like the badge they belong to the club, so an admin's change is written
+     * to every team in it. The drill board draws the home side in them; see
+     * src/lib/hurling/kit.ts.
+     */
+    primaryColour: text("primary_colour"),
+    secondaryColour: text("secondary_colour"),
     createdAt: integer("created_at").notNull().default(now),
   },
   (t) => [uniqueIndex("teams_join_code").on(t.joinCode), index("teams_club").on(t.clubId)],
@@ -208,7 +216,48 @@ export const sessions = sqliteTable(
   (t) => [index("sessions_user").on(t.userId)],
 );
 
+/* ------------------------------------------------------------ oppositions */
+
+/**
+ * A team this team plays or studies: Glen Rovers, Sars, the county champions.
+ * Each team keeps its own list, because the senior hurlers' notes on a club
+ * are not the camogie team's notes on it.
+ *
+ * Before this a match named its opponent in free text, so "St Finbarr's" and
+ * "St. Finbarrs" were two teams and nothing could gather all that was known
+ * about one. `key` is the name with case, spacing and punctuation taken out
+ * (`oppositionKey` in src/lib/hurling/opposition.ts), and is unique per team,
+ * so typing the same name twice finds the one opposition. Spellings that
+ * differ in more than that are put together by hand (mergeOppositions).
+ */
+export const oppositions = sqliteTable(
+  "oppositions",
+  {
+    id: id(),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    key: text("key").notNull(),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: integer("created_at").notNull().default(now),
+  },
+  (t) => [uniqueIndex("oppositions_team_key").on(t.teamId, t.key)],
+);
+
 /* ---------------------------------------------------------------- matches */
+
+/**
+ * "ours" is a game this team played. "opposition" is footage of two other
+ * teams, brought in to study one or both of them: their county semi-final
+ * off Veo. Opposition games are matches so that everything done on a match
+ * (clips, comments, drawings, playlists, the stat sheet) works on them
+ * unchanged, and kept out of everything about us by `isOurMatch` in
+ * src/lib/queries/matches.ts. One opposition game counted by mistake would
+ * put another club's scores in our season totals.
+ */
+export const MATCH_KINDS = ["ours", "opposition"] as const;
+export type MatchKind = (typeof MATCH_KINDS)[number];
 
 export const matches = sqliteTable(
   "matches",
@@ -217,7 +266,24 @@ export const matches = sqliteTable(
     teamId: text("team_id")
       .notNull()
       .references(() => teams.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: MATCH_KINDS }).notNull().default("ours"),
+    /**
+     * The team on the sheet's "opposition" side, and its name as shown.
+     * In our games that is who we played. In an opposition game it is the
+     * team being studied, and `vsOppositionId` is who they were playing,
+     * logged in the slot our own team fills in our games. Laid out that way,
+     * everything about a team sits on the opposition side of every sheet it
+     * appears on, ours or not, and one roll-up reads them all.
+     *
+     * `opponent` stays as the name every screen already prints; it is
+     * written from the opposition's name, and renamed with it. Bare ids, not
+     * foreign keys: SQLite can only add a referencing column without its ON
+     * DELETE rule, and an opposition is only ever removed by merging it into
+     * another, which moves its matches first.
+     */
     opponent: text("opponent").notNull(),
+    oppositionId: text("opposition_id"),
+    vsOppositionId: text("vs_opposition_id"),
     competition: text("competition"),
     venue: text("venue"),
     /** ISO date, e.g. "2026-09-13". */
@@ -254,7 +320,11 @@ export const matches = sqliteTable(
     createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: integer("created_at").notNull().default(now),
   },
-  (t) => [index("matches_team_date").on(t.teamId, t.playedOn)],
+  (t) => [
+    index("matches_team_date").on(t.teamId, t.playedOn),
+    index("matches_opposition").on(t.oppositionId),
+    index("matches_vs_opposition").on(t.vsOppositionId),
+  ],
 );
 
 /* ----------------------------------------------------------------- videos */
@@ -439,6 +509,15 @@ export const clips = sqliteTable(
       .default("team"),
     /** The whole groups an "assigned" clip is shared with. */
     shareRoles: text("share_roles", { mode: "json" }).$type<Role[]>(),
+    /**
+     * Which side of the match the clip is about, by the stat sheet's sides:
+     * "us" is our team in our games, and the team the studied one was
+     * playing in an opposition game. A clip about the "opposition" side goes
+     * on that team's opposition page. createClip starts it on "us" in our
+     * games and "opposition" in opposition games, since that is what nearly
+     * every clip on each is about.
+     */
+    aboutSide: text("about_side", { enum: SIDES }).notNull().default("us"),
     /** Where on the pitch it happened, normalised 0–1. Drives shot maps. */
     pitchX: real("pitch_x"),
     pitchY: real("pitch_y"),

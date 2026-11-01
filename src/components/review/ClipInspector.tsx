@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * Detail panel for the selected clip: its title, the comments on it, who can
- * see it, and adding it to a playlist.
+ * Detail panel for the selected clip: its title, the comments on it, which
+ * team it is about, who can see it, and adding it to a playlist.
  *
  * A clip here is for talking about, not for counting. There are no event
  * tags and no stat logging on a clip: what it is goes in the title, in the
@@ -23,13 +23,14 @@ import type { PlayerEngine } from "@/components/player/engine";
 import { formatClock } from "@/lib/hurling/notation";
 import { inPlayingOrder } from "@/lib/hurling/stops";
 import { CommentItem } from "./CommentItem";
-import { setClipAudience, updateClip } from "@/lib/actions/clips";
+import { setClipAbout, setClipAudience, updateClip } from "@/lib/actions/clips";
 import { canShare, describeAudience, type Audience } from "@/lib/auth/visibility";
 import { AudiencePicker } from "@/components/ui/AudiencePicker";
 import { addComment } from "@/lib/actions/review";
 import { listEditablePlaylists } from "@/lib/actions/reads";
 import { addClipToPlaylist, createPlaylist } from "@/lib/actions/playlists";
 import type { Shape } from "@/lib/db/schema";
+import { SIDES, type Side } from "@/lib/hurling/stats";
 import type { ClipRow, CommentRow, SquadMember, Viewer } from "./types";
 
 /** A drawing made on one frame of this clip, waiting for its comment. */
@@ -37,6 +38,10 @@ export type DrawingDraft = { atMs: number; shapes: Shape[] };
 
 type Props = {
   clip: ClipRow;
+  /** What each side of the match is called; null for training footage. */
+  sides: Record<Side, string> | null;
+  /** Two other clubs, so either side is a team with an opposition page. */
+  oppositionGame: boolean;
   squad: SquadMember[];
   viewer: Viewer;
   engine: PlayerEngine;
@@ -53,6 +58,8 @@ type Props = {
 
 export function ClipInspector({
   clip,
+  sides,
+  oppositionGame,
   squad,
   viewer,
   engine,
@@ -108,6 +115,22 @@ export function ClipInspector({
       }
     });
   };
+
+  // Saved on the tap, like the audience. Whoever may edit the clip may say
+  // who it is about; it moves it on or off that team's opposition page.
+  const setAbout = (side: Side) => {
+    if (side === clip.aboutSide) return;
+    const before = clip.aboutSide;
+    onClipChange({ aboutSide: side });
+    startTransition(async () => {
+      try {
+        await setClipAbout(clip.id, side);
+      } catch {
+        onClipChange({ aboutSide: before });
+      }
+    });
+  };
+  const canEdit = viewer.role !== "player" || clip.createdBy === viewer.id;
 
   const postComment = async () => {
     const body = draft.trim();
@@ -232,6 +255,34 @@ export function ClipInspector({
             </div>
           </div>
         </section>
+
+        {sides && (
+          <section>
+            <span className="label mb-1.5 block">Who it is about</span>
+            {canEdit && !clip.pending ? (
+              <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Who it is about">
+                {SIDES.map((side) => (
+                  <button
+                    key={side}
+                    role="radio"
+                    aria-checked={clip.aboutSide === side}
+                    onClick={() => setAbout(side)}
+                    className={`${clip.aboutSide === side ? "btn-primary" : "btn-outline"} px-2 py-1 text-[12px]`}
+                  >
+                    {sides[side]}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+                {sides[clip.aboutSide]}.
+              </p>
+            )}
+            {(oppositionGame || clip.aboutSide === "opposition") && (
+              <p className="caption mt-1.5">Listed on {sides[clip.aboutSide]}&rsquo;s opposition page.</p>
+            )}
+          </section>
+        )}
 
         <section>
           <span className="label mb-1.5 block">Who can see it</span>

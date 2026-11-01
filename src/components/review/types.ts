@@ -4,6 +4,7 @@ import { clipTagTone, type TagTone } from "@/lib/hurling/events";
 import { toneColour } from "@/components/ui/TagMark";
 import type { Markers } from "@/lib/hurling/notation";
 import type { Audience } from "@/lib/auth/visibility";
+import type { Side } from "@/lib/hurling/stats";
 
 export type EventTypeRow = {
   id: string;
@@ -30,6 +31,8 @@ export type ClipRow = {
   title: string;
   /** Who can see it (src/lib/auth/visibility.ts). */
   audience: Audience;
+  /** Which side of the match it is about; see the clips schema. */
+  aboutSide: Side;
   createdBy: string | null;
   authorName: string;
   eventTypeIds: string[];
@@ -69,6 +72,10 @@ export type VideoInfo = {
 
 export type MatchInfo = {
   id: string | null;
+  /** An opposition game is two other clubs; see the matches schema. */
+  kind: "ours" | "opposition";
+  /** What each side of the sheet is called: for our games, us and who we played. */
+  sides: Record<Side, string>;
   opponent: string;
   competition: string | null;
   playedOn: string;

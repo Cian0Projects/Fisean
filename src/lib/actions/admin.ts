@@ -15,8 +15,10 @@ import {
   ROLES,
 } from "@/lib/db/schema";
 import { ClubSetupError, createTeam, freshJoinCode } from "@/lib/db/clubs";
+import { oppositionFor } from "@/lib/db/oppositions";
 import { badgeProblem } from "@/lib/media/badge";
 import { isGameCode, type GameCode } from "@/lib/hurling/codes";
+import { parseColour } from "@/lib/hurling/kit";
 import type { End } from "@/lib/hurling/pitch";
 import { halfLengthProblem } from "@/lib/hurling/notation";
 import { playerNameProblem, sameName, tidyName } from "@/lib/hurling/squad";
@@ -44,11 +46,13 @@ export async function createMatch(input: {
   const halves = input.halfLengthMin != null ? halfLengthProblem(input.halfLengthMin) : null;
   if (halves) throw new Error(halves);
 
+  const opp = oppositionFor(db, user.teamId, opponent, user.id);
   const [match] = await db
     .insert(matches)
     .values({
       teamId: user.teamId,
-      opponent,
+      opponent: opp.name,
+      oppositionId: opp.id,
       playedOn: input.playedOn,
       competition: input.competition?.trim() || null,
       venue: input.venue?.trim() || null,
@@ -85,6 +89,7 @@ export async function deleteMatch(matchId: string): Promise<void> {
   await removeStoredFiles(footage);
   revalidatePath("/");
   revalidatePath("/admin");
+  revalidatePath("/opposition", "layout");
 }
 
 /* ---------------------------------------------------------------- markers */
@@ -414,6 +419,37 @@ export async function removeClubBadge(): Promise<void> {
     .set({ badge: null, badgeUpdatedAt: null })
     .where(eq(teams.clubId, admin.clubId));
   revalidatePath("/", "layout");
+}
+
+/* ---------------------------------------------------------------- colours */
+
+/**
+ * Set the club's jersey colours, on every team in the club at once, as the
+ * badge is. Null clears one; a primary cleared leaves the board on its own
+ * colours, so the secondary goes with it rather than lingering unseen.
+ * Anything that is not a plain `#rrggbb` is refused, since the value ends up
+ * in a style attribute on every page that draws a drill.
+ */
+export async function setClubColours(input: {
+  primary: string | null;
+  secondary: string | null;
+}): Promise<{ primary: string | null; secondary: string | null } | { error: string }> {
+  const admin = await requireAdmin();
+
+  const primary = input.primary == null ? null : parseColour(input.primary);
+  const secondary = input.secondary == null ? null : parseColour(input.secondary);
+  if ((input.primary != null && !primary) || (input.secondary != null && !secondary)) {
+    return { error: "Choose a colour from the picker." };
+  }
+
+  const saved = { primary, secondary: primary ? secondary : null };
+  await db
+    .update(teams)
+    .set({ primaryColour: saved.primary, secondaryColour: saved.secondary })
+    .where(eq(teams.clubId, admin.clubId));
+  revalidatePath("/drills", "layout");
+  revalidatePath("/admin");
+  return saved;
 }
 
 /* ------------------------------------------------------------------- game */

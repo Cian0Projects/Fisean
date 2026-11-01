@@ -125,8 +125,8 @@ export async function closeClub(clubId: string): Promise<{ files: number }> {
 /**
  * Another team in an existing club, made by one of its admins. It starts
  * with nobody on it: the admin sends its own join code to its own panel, or
- * moves people across from the team they are on. The badge is the club's,
- * so it is copied from a team that has one.
+ * moves people across from the team they are on. The badge and the colours
+ * are the club's, so they are copied from a team that has them.
  */
 export async function createTeam(input: {
   clubId: string;
@@ -137,7 +137,12 @@ export async function createTeam(input: {
   if (!name) throw new ClubSetupError("Enter the team's name.");
 
   const [badged] = await db
-    .select({ badge: teams.badge, badgeUpdatedAt: teams.badgeUpdatedAt })
+    .select({
+      badge: teams.badge,
+      badgeUpdatedAt: teams.badgeUpdatedAt,
+      primaryColour: teams.primaryColour,
+      secondaryColour: teams.secondaryColour,
+    })
     .from(teams)
     .where(eq(teams.clubId, input.clubId))
     .limit(1);
@@ -151,6 +156,8 @@ export async function createTeam(input: {
       joinCode,
       badge: badged?.badge ?? null,
       badgeUpdatedAt: badged?.badgeUpdatedAt ?? null,
+      primaryColour: badged?.primaryColour ?? null,
+      secondaryColour: badged?.secondaryColour ?? null,
     })
     .returning();
   return { id: team.id, name: team.name, code: team.code, joinCode };

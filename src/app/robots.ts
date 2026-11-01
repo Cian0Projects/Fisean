@@ -19,6 +19,7 @@ export default function robots(): MetadataRoute.Robots {
         "/review/",
         "/matches/",
         "/playlists",
+        "/opposition",
         "/drills",
         "/stats",
         "/account",

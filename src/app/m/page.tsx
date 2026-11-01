@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { isOurMatch } from "@/lib/queries/matches";
 import { visibleStat } from "@/lib/queries/stats";
 import { db } from "@/lib/db/client";
 import {
@@ -41,7 +42,7 @@ export default async function PhoneHome() {
   const matchRows = await db
     .select()
     .from(matches)
-    .where(eq(matches.teamId, user.teamId))
+    .where(and(eq(matches.teamId, user.teamId), isOurMatch))
     .orderBy(desc(matches.playedOn))
     .limit(30);
 

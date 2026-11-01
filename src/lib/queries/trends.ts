@@ -13,6 +13,7 @@
  */
 import "server-only";
 import { and, asc, eq, isNotNull } from "drizzle-orm";
+import { isOurMatch } from "@/lib/queries/matches";
 import { db } from "@/lib/db/client";
 import { matchLineups, matchStats, matches, users, videoMarkers, videos } from "@/lib/db/schema";
 import { markersFromRows, type Markers } from "@/lib/hurling/notation";
@@ -77,14 +78,14 @@ export async function loadSeason(teamId: string): Promise<SeasonData> {
     db
       .select()
       .from(matches)
-      .where(and(eq(matches.teamId, teamId), isNotNull(matches.statsSubmittedAt)))
+      .where(and(eq(matches.teamId, teamId), isOurMatch, isNotNull(matches.statsSubmittedAt)))
       .orderBy(asc(matches.playedOn), asc(matches.createdAt)),
     db
       .select({ ...statColumns, matchId: matchStats.matchId })
       .from(matchStats)
       .innerJoin(matches, eq(matches.id, matchStats.matchId))
       .where(
-        and(eq(matchStats.teamId, teamId), eq(matchStats.draft, false), isNotNull(matches.statsSubmittedAt)),
+        and(eq(matchStats.teamId, teamId), eq(matchStats.draft, false), isOurMatch, isNotNull(matches.statsSubmittedAt)),
       )
       .orderBy(asc(matchStats.createdAt)),
     db

@@ -40,6 +40,7 @@ some of these are not worth opening whole — `Grep` for the symbol instead.
 | Footage upload, club sign-up | `src/lib/media/upload.ts` (part plan); `src/app/api/upload/`; `src/components/admin/FootageUpload.tsx`; `src/lib/db/clubs.ts` (create a club, shared by `/start` and `create-admin`) |
 | Storage (R2, local stand-in) | `src/lib/storage/index.ts` (interface, S3-shaped); `r2.ts`; `local.ts` (signed links served by `/api/media`); `sigv4.ts` (presigning, no SDK) |
 | Training drills (coaches) | `src/lib/hurling/drill.ts` (model, playback, video timing); `src/components/drills/DrillEditor.tsx` (board); `recordDrill.ts` beside it (video export via MediaRecorder, no ffmpeg) |
+| Opposition analysis (clubs we play or study, their games, clips about them) | `docs/OPPOSITION-ANALYSIS.md` first: the agreed design and which stage is built. Never list or total matches without `isOurMatch` (`src/lib/queries/matches.ts`) |
 | Phone screens (watch, clip) | `src/components/mobile/PhoneWatch.tsx`; routes under `src/app/m/` |
 | Android / iOS apps | `mobile/` — thin Capacitor shells onto `/m`; its own `package.json`, excluded from `npm run check`. Build and test steps in `mobile/README.md` |
 

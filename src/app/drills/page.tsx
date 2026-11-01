@@ -6,6 +6,7 @@ import { drills, users } from "@/lib/db/schema";
 import { isCoach, requireUser } from "@/lib/auth/guard";
 import { createDrill } from "@/lib/actions/drills";
 import { drillSummary, parseDrill } from "@/lib/hurling/drill";
+import { homeKit } from "@/lib/hurling/kit";
 import { Nav } from "@/components/ui/Nav";
 import { DrillDiagram } from "@/components/drills/DrillArt";
 
@@ -33,6 +34,7 @@ export default async function DrillsPage() {
     .orderBy(desc(drills.updatedAt));
 
   const entries = rows.map((r) => ({ ...r, drill: parseDrill(JSON.parse(r.data)) }));
+  const kit = homeKit({ primary: user.primaryColour, secondary: user.secondaryColour });
 
   return (
     <>
@@ -74,7 +76,7 @@ export default async function DrillsPage() {
                 {entries.map((e) => (
                   <article key={e.id}>
                     <Link href={`/drills/${e.id}`} className="block" aria-label={`Open ${e.title}`}>
-                      <DrillDiagram data={e.drill} uid={`d${e.id.slice(0, 8)}`} code={user.teamCode} badgeVersion={user.badgeVersion} />
+                      <DrillDiagram data={e.drill} uid={`d${e.id.slice(0, 8)}`} code={user.teamCode} badgeVersion={user.badgeVersion} kit={kit} />
                     </Link>
                     <Link
                       href={`/drills/${e.id}`}

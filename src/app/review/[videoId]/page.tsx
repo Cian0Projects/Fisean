@@ -4,6 +4,7 @@ import { isPhoneRequest } from "@/lib/device";
 import { asc, eq, isNull, or } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { eventTypes, matches, users, videoMarkers, videos } from "@/lib/db/schema";
+import { sidesOf } from "@/lib/queries/matches";
 import { loadNumberSheet, loadStatRows } from "@/lib/queries/stats";
 import { whistlesOf } from "@/lib/hurling/stats";
 import { isCoach, requireUser } from "@/lib/auth/guard";
@@ -43,6 +44,8 @@ export default async function ReviewPage({
   const [match] = video.matchId
     ? await db.select().from(matches).where(eq(matches.id, video.matchId)).limit(1)
     : [null];
+
+  const sides = await sidesOf(match, user.teamName);
 
   const allEvents = await db
     .select()
@@ -101,6 +104,8 @@ export default async function ReviewPage({
       }}
       match={{
         id: match?.id ?? null,
+        kind: match?.kind ?? "ours",
+        sides,
         opponent: match?.opponent ?? "Training",
         competition: match?.competition ?? null,
         playedOn: match?.playedOn ?? "",

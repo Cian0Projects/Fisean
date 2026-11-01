@@ -70,7 +70,21 @@ import {
   type NotePlace,
   type Point,
 } from "@/lib/hurling/drill";
-import { DrillMarkers, H, KitHitArea, KitMark, Movement, NoteCard, Piece, PitchBadge, SIDE_COLOUR, badgeUrl } from "./DrillArt";
+import {
+  DrillMarkers,
+  H,
+  KitHitArea,
+  KitMark,
+  Movement,
+  NoteCard,
+  Piece,
+  PitchBadge,
+  SIDE_A_TRIM,
+  SIDE_COLOUR,
+  badgeUrl,
+  kitStyle,
+} from "./DrillArt";
+import type { HomeKit } from "@/lib/hurling/kit";
 import { recordDrill } from "./recordDrill";
 
 type Status = "saved" | "unsaved" | "saving" | "error";
@@ -83,6 +97,7 @@ export function DrillEditor({
   teamName,
   code,
   badgeVersion,
+  kit,
   footageTitle,
   initial,
 }: {
@@ -93,6 +108,8 @@ export function DrillEditor({
   code: GameCode;
   /** `badgeVersion` from the session; null draws no badge. */
   badgeVersion: number | null;
+  /** The home side's colours from the club; null keeps the board's own. */
+  kit: HomeKit | null;
   /** The name of the attached playlist, if the drill has one this coach can still open. */
   footageTitle: string | null;
   initial: { title: string; notes: string; data: DrillData };
@@ -438,6 +455,7 @@ export function DrillEditor({
               borderRadius: 4,
               printColorAdjust: "exact",
               WebkitPrintColorAdjust: "exact",
+              ...kitStyle(kit),
             }}
             onPointerDown={() => setSelected(null)}
             onPointerMove={drag}
@@ -801,7 +819,7 @@ export function DrillEditor({
                 const count = playersOf(data, s).length;
                 return (
                   <div key={s} className="flex items-center gap-2.5">
-                    <SideSwatch side={s} />
+                    <SideSwatch side={s} kit={kit} />
                     <input
                       className="field flex-1 py-1.5"
                       value={data.sides[s].name}
@@ -1099,11 +1117,14 @@ function SaveState({ status, onRetry }: { status: Status; onRetry: () => void })
 }
 
 /** A filled disc for side A, a ring for side B — the same marks as the board. */
-function SideSwatch({ side }: { side: DrillSide }) {
+function SideSwatch({ side, kit }: { side: DrillSide; kit: HomeKit | null }) {
   return (
-    <svg viewBox="0 0 20 20" className="h-5 w-5 shrink-0" aria-hidden>
+    <svg viewBox="0 0 20 20" className="h-5 w-5 shrink-0" style={kitStyle(kit)} aria-hidden>
       {side === "a" ? (
-        <circle cx={10} cy={10} r={9} fill={SIDE_COLOUR.a} />
+        <>
+          <circle cx={10} cy={10} r={9} fill={SIDE_COLOUR.a} />
+          <circle cx={10} cy={10} r={7} fill="none" stroke={SIDE_A_TRIM} strokeWidth={1.6} />
+        </>
       ) : (
         <circle cx={10} cy={10} r={7.5} fill="none" stroke={SIDE_COLOUR.b} strokeWidth={3} />
       )}

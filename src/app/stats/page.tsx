@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { and, count, desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { isOurMatch } from "@/lib/queries/matches";
 import { visibleStat } from "@/lib/queries/stats";
 import { db } from "@/lib/db/client";
 import { matchGps, matchLineups, matchStats, matches, videos } from "@/lib/db/schema";
@@ -38,7 +39,7 @@ export default async function StatsPage() {
         statsSubmittedAt: matches.statsSubmittedAt,
       })
       .from(matches)
-      .where(eq(matches.teamId, user.teamId))
+      .where(and(eq(matches.teamId, user.teamId), isOurMatch))
       .orderBy(desc(matches.playedOn), desc(matches.createdAt)),
     db
       .select({ matchId: matchStats.matchId, n: count() })
@@ -138,7 +139,7 @@ async function PlayerStats({ user }: { user: SessionUser }) {
   const rows = await db
     .select({ id: matches.id, opponent: matches.opponent, playedOn: matches.playedOn, competition: matches.competition })
     .from(matches)
-    .where(and(eq(matches.teamId, user.teamId), isNotNull(matches.statsSubmittedAt)))
+    .where(and(eq(matches.teamId, user.teamId), isOurMatch, isNotNull(matches.statsSubmittedAt)))
     .orderBy(desc(matches.playedOn), desc(matches.createdAt));
   const ids = rows.map((m) => m.id);
 

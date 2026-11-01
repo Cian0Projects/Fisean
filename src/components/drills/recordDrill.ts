@@ -98,6 +98,10 @@ export async function recordDrill({
   await document.fonts.ready;
   const style = getComputedStyle(board);
   const token = (name: string) => style.getPropertyValue(name).trim() || "#000";
+  // The home side's trim and number are only set on the board once the club
+  // has picked colours; unset they are the disc itself and the stage colour,
+  // as in DrillArt.
+  const optional = (name: string, fallback: string) => style.getPropertyValue(name).trim() || fallback;
   const ink = {
     stage: token("--color-stage"),
     ink: token("--color-ink"),
@@ -110,8 +114,12 @@ export async function recordDrill({
     lineStrong: token("--color-line-strong"),
     ball: token("--color-ball"),
     a: token("--color-side-a"),
+    aTrim: "",
+    aLabel: "",
     b: token("--color-side-b"),
   };
+  ink.aTrim = optional("--color-side-a-trim", ink.a);
+  ink.aLabel = optional("--color-side-a-label", ink.stage);
   const font = getComputedStyle(document.body).fontFamily;
 
   // The pitch, as large as the bands above and below allow.
@@ -457,7 +465,10 @@ async function loadBadge(url: string): Promise<HTMLImageElement | null> {
   }
 }
 
-type Ink = Record<"stage" | "ink" | "pitch" | "ball" | "a" | "b" | "ash" | "onSpot" | "lineStrong", string>;
+type Ink = Record<
+  "stage" | "ink" | "pitch" | "ball" | "a" | "aTrim" | "aLabel" | "b" | "ash" | "onSpot" | "lineStrong",
+  string
+>;
 
 /** A step's note, the canvas twin of DrillArt's `NoteCard`. */
 function drawNoteCard(
@@ -525,6 +536,11 @@ function drawPiece(ctx: CanvasRenderingContext2D, p: DrillPiece, c: Point, k: nu
       circle(r);
       ctx.fillStyle = ink.a;
       ctx.fill();
+      // The home side's trim, as in DrillArt.
+      circle(r - 1.6 * k);
+      ctx.strokeStyle = ink.aTrim;
+      ctx.lineWidth = 1.2 * k;
+      ctx.stroke();
     } else {
       circle(r - 1.25 * k);
       ctx.fillStyle = ink.pitch;
@@ -537,7 +553,7 @@ function drawPiece(ctx: CanvasRenderingContext2D, p: DrillPiece, c: Point, k: nu
     ctx.font = `700 ${size}px ${font}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillStyle = p.side === "a" ? ink.stage : ink.ink;
+    ctx.fillStyle = p.side === "a" ? ink.aLabel : ink.ink;
     ctx.fillText(p.label, c.x, c.y + 0.5 * k);
     ctx.textBaseline = "alphabetic";
     return;

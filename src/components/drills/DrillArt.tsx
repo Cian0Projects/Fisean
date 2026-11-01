@@ -10,7 +10,9 @@
  * maps carry shape as well as colour: the board has to survive a
  * colour-blind reader and the dressing-room photocopier.
  */
+import type { CSSProperties } from "react";
 import { PITCH_FILL, PitchMarkings, VIEW_W, pitchViewHeight } from "@/components/pitch/PitchMarkings";
+import type { HomeKit } from "@/lib/hurling/kit";
 import type { GameCode } from "@/lib/hurling/codes";
 import { DEFAULT_PITCH } from "@/lib/hurling/pitch";
 import { GOAL_WIDTHS_M, NOTE_CARD, type NoteCardLayout, type BallKind, type DrillData, type DrillKit, type DrillPiece, type DrillSide, type Point } from "@/lib/hurling/drill";
@@ -31,6 +33,30 @@ export const SIDE_COLOUR: Record<DrillSide, string> = {
   a: "var(--color-side-a)",
   b: "var(--color-side-b)",
 };
+
+/**
+ * Side A's trim and number. Unset they fall back to the board's own look (no
+ * visible trim, the stage colour for the number), so a club that has not
+ * chosen colours sees nothing change.
+ */
+export const SIDE_A_TRIM = "var(--color-side-a-trim, var(--color-side-a))";
+export const SIDE_A_LABEL = "var(--color-side-a-label, var(--color-stage))";
+
+/**
+ * The club's colours as the three tokens side A is drawn with, to put on the
+ * board's <svg> (or any element above the pieces). Done with custom
+ * properties because everything already reads the side's colour from a
+ * token: the discs, the runs and arrowheads, the swatch beside the side's
+ * name, and the exported video, which resolves the tokens from the board.
+ */
+export function kitStyle(kit: HomeKit | null): CSSProperties | undefined {
+  if (!kit) return undefined;
+  return {
+    "--color-side-a": kit.fill,
+    "--color-side-a-trim": kit.trim,
+    "--color-side-a-label": kit.label,
+  } as CSSProperties;
+}
 
 export function pieceColour(p: DrillPiece): string {
   return p.kind === "player" ? SIDE_COLOUR[p.side] : "var(--color-ink)";
@@ -166,6 +192,11 @@ export function Piece({
             stroke={colour}
             strokeWidth={piece.side === "a" ? 0 : 2.5}
           />
+          {/* The home side's trim, a thin ring at the hem of the disc. The
+              same colour as the disc until the club picks a secondary. */}
+          {piece.side === "a" && (
+            <circle cx={cx} cy={cy} r={r - 1.6} fill="none" stroke={SIDE_A_TRIM} strokeWidth={1.2} />
+          )}
           <text
             x={cx}
             y={cy + 3.6}
@@ -173,7 +204,7 @@ export function Piece({
             fontSize={piece.label.length > 2 ? 7.5 : piece.label.length > 1 ? 9 : 10.5}
             fontWeight="700"
             fontFamily="var(--font-sans)"
-            fill={piece.side === "a" ? "var(--color-stage)" : "var(--color-ink)"}
+            fill={piece.side === "a" ? SIDE_A_LABEL : "var(--color-ink)"}
             pointerEvents="none"
           >
             {piece.label}
@@ -386,6 +417,7 @@ export function DrillDiagram({
   uid,
   code,
   badgeVersion,
+  kit,
   className,
 }: {
   data: DrillData;
@@ -394,6 +426,8 @@ export function DrillDiagram({
   code: GameCode;
   /** `badgeVersion` from the session; null draws no badge. */
   badgeVersion: number | null;
+  /** The home side's colours from the club; null keeps the board's own. */
+  kit: HomeKit | null;
   className?: string;
 }) {
   const first = data.steps[0].at;
@@ -407,6 +441,7 @@ export function DrillDiagram({
         borderRadius: 4,
         printColorAdjust: "exact",
         WebkitPrintColorAdjust: "exact",
+        ...kitStyle(kit),
       }}
       role="img"
       aria-label="Drill diagram"

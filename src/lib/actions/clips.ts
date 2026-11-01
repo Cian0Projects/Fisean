@@ -3,10 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { clipPlayers, clipShares, clipTags, clips, users, videos } from "@/lib/db/schema";
+import { clipPlayers, clipShares, clipTags, clips, matches, users, videos } from "@/lib/db/schema";
 import { assertCanEditOwned, assertSameTeam, Forbidden, requireUserOrThrow } from "@/lib/auth/guard";
 import { canShare, normaliseAudience, type Audience } from "@/lib/auth/visibility";
 import { MIN_CLIP_MS, MAX_CLIP_MS } from "@/lib/hurling/clip-rules";
+import { SIDES, type Side } from "@/lib/hurling/stats";
 import { notifyNewlyReached, notifyUsers } from "@/lib/notify/queue";
 
 export type ClipInput = {
@@ -20,6 +21,8 @@ export type ClipInput = {
   audience?: Audience;
   pitchX?: number | null;
   pitchY?: number | null;
+  /** Which side it is about; when not given, whoever the match is mostly about. */
+  aboutSide?: Side;
 };
 
 export type SavedClip = {
@@ -30,6 +33,7 @@ export type SavedClip = {
   eventTypeIds: string[];
   playerIds: string[];
   audience: Audience;
+  aboutSide: Side;
   createdBy: string | null;
   authorName: string;
 };
@@ -46,8 +50,9 @@ export async function createClip(input: ClipInput): Promise<SavedClip> {
   const user = await requireUserOrThrow();
 
   const [video] = await db
-    .select({ id: videos.id, teamId: videos.teamId, durationMs: videos.durationMs })
+    .select({ id: videos.id, teamId: videos.teamId, durationMs: videos.durationMs, kind: matches.kind })
     .from(videos)
+    .leftJoin(matches, eq(matches.id, videos.matchId))
     .where(eq(videos.id, input.videoId))
     .limit(1);
   if (!video) throw new Error("That video no longer exists.");
@@ -59,6 +64,12 @@ export async function createClip(input: ClipInput): Promise<SavedClip> {
   if (endMs - startMs > MAX_CLIP_MS) throw new Error("Clips are capped at ten minutes.");
 
   const audience = normaliseAudience(input.audience ?? { visibility: "private", roles: [], userIds: [] }, user.id);
+  const aboutSide: Side =
+    input.aboutSide && SIDES.includes(input.aboutSide)
+      ? input.aboutSide
+      : video.kind === "opposition"
+        ? "opposition"
+        : "us";
 
   const [clip] = await db
     .insert(clips)
@@ -71,6 +82,7 @@ export async function createClip(input: ClipInput): Promise<SavedClip> {
       endMs,
       visibility: audience.visibility,
       shareRoles: audience.roles.length ? audience.roles : null,
+      aboutSide,
       pitchX: input.pitchX ?? null,
       pitchY: input.pitchY ?? null,
     })
@@ -120,6 +132,7 @@ export async function createClip(input: ClipInput): Promise<SavedClip> {
     eventTypeIds: input.eventTypeIds ?? [],
     playerIds: input.playerIds ?? [],
     audience: { ...audience, userIds: named },
+    aboutSide: clip.aboutSide,
     createdBy: clip.createdBy,
     authorName: user.displayName,
   };
@@ -166,6 +179,25 @@ export async function setClipAudience(clipId: string, input: Audience): Promise<
 
   revalidatePath(`/review/${clip.videoId}`);
   return { ...audience, userIds: named };
+}
+
+/**
+ * Which side of the match a clip is about. One about the opposition side goes
+ * on that team's opposition page, so a coach clipping how Glen Rovers pressed
+ * our puck-out in the league game files it with everything else on them.
+ * Who sees it is unchanged: a private clip about them is still private.
+ */
+export async function setClipAbout(clipId: string, side: Side): Promise<void> {
+  const user = await requireUserOrThrow();
+  if (!SIDES.includes(side)) throw new Error("That is not a side of the match.");
+  const [clip] = await db.select().from(clips).where(eq(clips.id, clipId)).limit(1);
+  if (!clip) throw new Error("That clip no longer exists.");
+  assertSameTeam(user, clip);
+  assertCanEditOwned(user, clip);
+
+  await db.update(clips).set({ aboutSide: side, updatedAt: Date.now() }).where(eq(clips.id, clipId));
+  revalidatePath(`/review/${clip.videoId}`);
+  revalidatePath("/opposition", "layout");
 }
 
 /** Record who a clip is shared with by name: people on its team only, since the ids came from a client. */
