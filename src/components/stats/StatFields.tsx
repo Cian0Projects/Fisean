@@ -484,10 +484,11 @@ export function StatFields({
 }
 
 /**
- * A jersey number, typed, with whoever wore it said beside it. The list under
- * the box offers the numbers already on the sheet for anyone who would rather
- * pick, but typing is the point: a number the sheet does not have yet is
- * still logged, and gets its name when the sheet does.
+ * A jersey number, typed or spoken, with whoever wore it said beside it. There
+ * is no pick-list under the box: the browser's drop-down covered the pitch and
+ * the stat buttons mid-entry, and a logger who knows the number does not need
+ * it. A number the sheet does not have yet is still logged, and gets its name
+ * when the sheet does.
  */
 export function NumberField({
   id,
@@ -532,7 +533,6 @@ export function NumberField({
           inputMode="numeric"
           autoComplete="off"
           placeholder="No."
-          list={`${id}-numbers`}
           aria-describedby={`${id}-who`}
           className="field tabular w-16 text-center font-bold"
         />
@@ -544,13 +544,6 @@ export function NumberField({
           {note}
         </span>
       </div>
-      <datalist id={`${id}-numbers`}>
-        {[...sheet.values()].map((e) => (
-          <option key={e.number} value={e.number}>
-            {e.displayName}
-          </option>
-        ))}
-      </datalist>
     </div>
   );
 }

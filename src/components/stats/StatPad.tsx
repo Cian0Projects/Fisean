@@ -49,6 +49,7 @@ import {
   stepToStat,
   type StatType,
 } from "@/lib/hurling/stats";
+import { restartAfter } from "@/lib/hurling/follow-on";
 import {
   ARC_NOTE,
   EMPTY_DETAIL,
@@ -352,6 +353,13 @@ export function StatPad({
           setRows((prev) => [...prev, saved]);
         }
         resetEntry();
+        // A new shot or free is followed by the restart: have it ready, for
+        // the team it belongs to. Fixing an old entry stays where it is.
+        const next = editingId ? null : restartAfter(statType, detail.side);
+        if (next && vocabulary.statTypes.includes(next.statType)) {
+          setStatType(next.statType);
+          setDetail((d) => ({ ...d, puckoutTakenBy: next.takenBy }));
+        }
         voice.reset();
         setSavedAt(Date.now());
       } catch (err) {

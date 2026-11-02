@@ -45,6 +45,7 @@ import {
   statTiming,
   type StatType,
 } from "@/lib/hurling/stats";
+import { restartAfter } from "@/lib/hurling/follow-on";
 import {
   ARC_NOTE,
   EMPTY_DETAIL,
@@ -328,6 +329,13 @@ export function StatLogger({
           setRows((prev) => [...prev, saved]);
         }
         resetEntry();
+        // A new shot or free is followed by the restart: have it ready, for
+        // the team it belongs to. Fixing an old entry stays where it is.
+        const next = editingId ? null : restartAfter(statType, detail.side);
+        if (next && vocabulary.statTypes.includes(next.statType)) {
+          setStatType(next.statType);
+          setDetail((d) => ({ ...d, puckoutTakenBy: next.takenBy }));
+        }
         voice.reset();
       } catch (err) {
         setError((err as Error).message || "That entry could not be saved.");
