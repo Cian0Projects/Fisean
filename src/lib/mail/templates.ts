@@ -203,9 +203,9 @@ ${lines
 
 /**
  * The host's account of the nightly storage sweep (scripts/reconcile-storage.ts).
- * Sent every run, and straight away when a run stops, so a quiet inbox means
- * the sweep is not running rather than that nothing is wrong. Only the host
- * reads it, so keys appear in full.
+ * Sent only when a run stops on a safety limit or a removal fails
+ * (sweepNeedsHost in src/lib/media/orphans.ts), so an email means something
+ * needs a look. Only the host reads it, so keys appear in full.
  */
 export function storageSweepMail(input: {
   /** Why the run stopped, or null when it ran. */

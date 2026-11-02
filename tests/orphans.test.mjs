@@ -8,6 +8,7 @@ import {
   isManagedKey,
   planReconcile,
   reconcileDeleteEnabled,
+  sweepNeedsHost,
 } from "../src/lib/media/orphans.ts";
 import { parseObjects, parseUploads } from "../src/lib/storage/r2.ts";
 
@@ -323,4 +324,10 @@ test("the sweep email states what happened, and uses no dashes", async () => {
   assert.match(stopped.text, /Reason: The database has no video rows/);
 
   for (const mail of [ran, stopped]) assert.doesNotMatch(mail.subject + mail.text, /[–—]| - /);
+});
+
+test("the host is emailed about a stopped run or a failed removal, not a normal night", () => {
+  assert.equal(sweepNeedsHost({ abort: null, failures: [] }), false);
+  assert.equal(sweepNeedsHost({ abort: "The videos table has no rows.", failures: [] }), true);
+  assert.equal(sweepNeedsHost({ abort: null, failures: ["a/b.mp4"] }), true);
 });

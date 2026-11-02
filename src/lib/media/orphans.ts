@@ -98,6 +98,16 @@ export function reconcileDeleteEnabled(value: string | undefined): boolean {
   return value === "1";
 }
 
+/**
+ * Whether the host is emailed about a run. Only when it stopped on a safety
+ * limit or a removal failed. Unused files cost a little in storage and touch
+ * no one, so a normal night, with or without leftovers, is only in the log.
+ * (It used to email every night, and again on every deploy, which was noise.)
+ */
+export function sweepNeedsHost(o: { abort: string | null; failures: readonly string[] }): boolean {
+  return o.abort !== null || o.failures.length > 0;
+}
+
 /** A row of `storage_orphans`. */
 export type LedgerEntry = { key: string; nights: number; lastSeenDay: string };
 

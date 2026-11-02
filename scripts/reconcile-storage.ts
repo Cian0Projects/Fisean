@@ -22,6 +22,7 @@ import "./_env";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { inArray, sql } from "drizzle-orm";
+import { sweepNeedsHost } from "../src/lib/media/orphans";
 import { sendMail } from "../src/lib/mail";
 import { storageSweepMail } from "../src/lib/mail/templates";
 import {
@@ -265,7 +266,7 @@ async function main() {
   print(outcome);
   let ok = !outcome.plan.abort && outcome.failures.length === 0;
   for (const f of outcome.failures) console.error(`    could not remove ${f}`);
-  if (!dryRun && !(await tell(outcome))) ok = false;
+  if (!dryRun && sweepNeedsHost({ abort: outcome.plan.abort, failures: outcome.failures }) && !(await tell(outcome))) ok = false;
   if (!ok) process.exitCode = 1;
 }
 

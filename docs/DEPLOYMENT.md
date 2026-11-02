@@ -407,15 +407,17 @@ straight away if:
 
 **Switching deletion on.** Set `RECONCILE_DELETE=1` in `.env.local`. Anything
 else, including leaving it unset, means report only: the nightly job still
-records unused files and emails you, but removes nothing. Run it that way for
-at least four nights and read the emails first. The list should be files you
-recognise as leftovers.
+records unused files, but removes nothing. Run it that way for at least four
+nights, then read what it would remove with `npm run reconcile -- --dry-run`
+(below). The list should be files you recognise as leftovers.
 
-**The email.** Every run emails `ALERT_EMAIL` a summary: objects in the
-bucket, unused files with how many nights each has been seen, how many were
-due, how many were removed, and any failures. A run that stops sends its
-reason at once. If `ALERT_EMAIL` is unset it prints a warning and sends
-nothing. If the nightly emails stop arriving, the sweep is not running.
+**The email.** A normal night sends nothing: unused files cost a little
+storage and touch no one, so the result is only in the output of the nightly
+job. It emails `ALERT_EMAIL` only when a run stops on one of the safety limits
+above, or when removing something fails, with the reason, the counts and the
+keys. If `ALERT_EMAIL` is unset it prints a warning and sends nothing. Since a
+quiet inbox is now normal, it cannot tell you the sweep stopped running; the
+output of `/etc/cron.daily/fisean-backup` is where to look.
 
 It runs nightly straight after the backup, from `deploy/backup-cron.sh`. It
 also runs when `update.sh` takes its pre-update backup (the same file), so a
