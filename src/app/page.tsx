@@ -193,6 +193,10 @@ function PublicHomepage() {
               <Question q="Do players need to install anything?">
                 No. It works in the browser on any phone or laptop.
               </Question>
+              <Question q="Do players pay?">
+                No. Players and coaches join with your team&apos;s code at no charge. The price is
+                for the teams, and you can see it under Prices at the foot of this page.
+              </Question>
               <Question q="How do we get started?">
                 Press Set up your club or county, upload a match, and send the panel your
                 team&apos;s code. We check each new club or county before it opens, usually within a day. Questions? Email{" "}
@@ -202,6 +206,89 @@ function PublicHomepage() {
                 .
               </Question>
             </div>
+          </div>
+        </section>
+
+        {/* Prices sit at the foot of the page and stay folded until asked for:
+            nobody should have to get past a price to find out what the app is.
+            A plain disclosure, like the questions, so it works without script
+            and the prices are still in the page for search engines. The plans
+            differ only in how many teams they cover, never in what they do,
+            and nothing is charged per person. The two published prices are
+            the ones quoted to clubs; the third is arranged by email. */}
+        <section id="pricing" className="scroll-mt-4 border-t border-line">
+          <div className="sheet py-12 sm:py-16">
+            <details className="group">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-6 border-t-[3px] border-rule py-6 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink [&::-webkit-details-marker]:hidden">
+                <span>
+                  <span className="headline block text-[clamp(2.7rem,5vw,4.4rem)]">Prices</span>
+                  <span className="mt-3 block text-[16px] text-ink-dim sm:text-[17px]">
+                    From €250 a year for a team, paid once a year.
+                  </span>
+                </span>
+                <span
+                  className="grid h-11 w-11 shrink-0 place-items-center border border-line-strong text-[26px] font-normal leading-none text-ink-dim transition-transform group-open:rotate-45"
+                  aria-hidden
+                >
+                  +
+                </span>
+              </summary>
+
+              <p className="measure pb-8 pt-2 text-[16px] leading-relaxed text-ink-dim sm:text-[17px]">
+                Every plan has everything above. Players and coaches are never charged one by one:
+                you pay for the teams you bring in.
+              </p>
+
+              <div className="grid divide-y divide-line border-t border-line lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+                <Plan
+                  name="One team"
+                  scope="A single panel"
+                  price="€250"
+                  per="a year"
+                  action={
+                    <a href="/start" className="btn-outline px-5 py-3 text-[14px]">
+                      Start with one team
+                    </a>
+                  }
+                >
+                  Your seniors, your minors or any one panel, with every feature.
+                </Plan>
+
+                <Plan
+                  name="Club"
+                  scope="Up to four teams"
+                  price="€700"
+                  per="a year"
+                  featured
+                  action={
+                    <a href="/start" className="btn-brand px-5 py-3 text-[14px]">
+                      Set up your club
+                    </a>
+                  }
+                >
+                  All your teams under one club, from seniors to juveniles. That is €175 a team,
+                  where four single teams would be €1,000.
+                </Plan>
+
+                <Plan
+                  name="County or large club"
+                  scope="More than four teams"
+                  price="Let's talk"
+                  per="agreed by email"
+                  action={
+                    <a
+                      href="mailto:hello@ardawnsport.ie?subject=Ardawn%20for%20a%20county%20or%20large%20club"
+                      className="btn-outline px-5 py-3 text-[14px]"
+                    >
+                      Email us
+                    </a>
+                  }
+                >
+                  County squads and clubs with more than four teams. Tell us how many and we will
+                  agree a price.
+                </Plan>
+              </div>
+            </details>
           </div>
         </section>
 
@@ -292,6 +379,43 @@ function Feature({ name, children }: { name: string; children: React.ReactNode }
     <div className="border-b border-line py-5 sm:pr-8 lg:border-b-0">
       <dt className="headline text-[27px]">{name}</dt>
       <dd className="mt-1.5 text-[15px] leading-relaxed text-ink-dim">{children}</dd>
+    </div>
+  );
+}
+
+/*
+ * One column of the price ledger. The figure is set in the headline face at
+ * poster size because it is the one thing a visitor opens the panel for; the
+ * plan's name and what it covers sit above it, the button at the foot so the
+ * three buttons line up however long the words above are. The middle plan
+ * takes the surface and the green button because it is the one to start with;
+ * the others are outlined.
+ */
+function Plan({
+  name,
+  scope,
+  price,
+  per,
+  featured = false,
+  action,
+  children,
+}: {
+  name: string;
+  scope: string;
+  price: string;
+  per: string;
+  featured?: boolean;
+  action: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`flex flex-col px-5 py-8 sm:px-8 sm:py-10 ${featured ? "bg-surface" : ""}`}>
+      <h3 className="headline text-[27px]">{name}</h3>
+      <p className="mt-1.5 text-[14px] text-ink-faint">{scope}</p>
+      <p className="headline mt-8 text-[clamp(3.8rem,6.5vw,5.8rem)]">{price}</p>
+      <p className="mt-2 text-[15px] text-ink-dim">{per}</p>
+      <p className="mt-6 max-w-sm text-[15px] leading-relaxed text-ink-dim">{children}</p>
+      <div className="mt-auto pt-8">{action}</div>
     </div>
   );
 }

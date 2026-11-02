@@ -101,6 +101,9 @@ export function CodeHero() {
             <a href="#questions" className="hidden text-[13px] font-semibold text-ink-dim hover:text-ink sm:inline">
               Questions
             </a>
+            <a href="#pricing" className="hidden text-[13px] font-semibold text-ink-dim hover:text-ink sm:inline">
+              Prices
+            </a>
             <a href="/login" className="btn-outline">
               Sign in
             </a>
