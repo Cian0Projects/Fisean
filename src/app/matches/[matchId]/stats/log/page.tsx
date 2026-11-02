@@ -9,6 +9,7 @@ import { Nav } from "@/components/ui/Nav";
 import { StatLogger } from "@/components/stats/StatLogger";
 import { formatClock } from "@/lib/hurling/notation";
 import { loadNumberSheet, loadOwnStatRows, loadStatClock } from "@/lib/queries/stats";
+import { loadCustomStats, loadHiddenStats, loadOwnCustomEntries } from "@/lib/queries/custom-stats";
 
 /**
  * Logging the stat sheet.
@@ -47,10 +48,13 @@ export default async function LogMatchStatsPage({
 
   // Only this coach's own entries and their own clock: on the line, each
   // logger keeps to their own sheet until they submit it.
-  const [rows, numbers, clock] = await Promise.all([
+  const [rows, numbers, clock, customDefs, customRows, removed] = await Promise.all([
     loadOwnStatRows(matchId, user.teamId, user.id),
     loadNumberSheet(matchId, user.teamId),
     loadStatClock(matchId, user.id),
+    loadCustomStats(user.teamId),
+    loadOwnCustomEntries(matchId, user.teamId, user.id),
+    loadHiddenStats(user.teamId),
   ]);
 
   // A stat may point at a clip that already covers the moment. Optional, and
@@ -88,6 +92,9 @@ export default async function LogMatchStatsPage({
         halfLengthMin={match.halfLengthMin}
         numbers={numbers}
         initialRows={rows}
+        customDefs={customDefs}
+        initialCustomRows={customRows}
+        removed={removed}
         clips={clipRows.map((c) => ({
           id: c.id,
           label: `${formatClock(c.startMs)}, ${c.title || "Untitled clip"}`,

@@ -73,6 +73,8 @@ import { clockOf } from "@/lib/hurling/live-clock";
 import { MatchClock, useMatchClock, type LoggerClock } from "./MatchClock";
 import { HalfLength } from "./HalfLength";
 import { VoiceBar, useVoiceEntry } from "./VoiceEntry";
+import { CustomStatLogger } from "./CustomStatLogger";
+import { withoutStats, type CustomEntryRow, type CustomStatDef } from "@/lib/hurling/custom-stats";
 
 type ClipOption = { id: string; label: string };
 
@@ -81,6 +83,9 @@ export function StatLogger({
   code,
   numbers,
   initialRows,
+  customDefs,
+  initialCustomRows,
+  removed,
   clips,
   clock: initialClock,
   halfLengthMin: initialHalfLengthMin,
@@ -95,12 +100,24 @@ export function StatLogger({
   numbers: SheetEntry[];
   /** This logger's own entries: nobody else's are shown or touched here. */
   initialRows: StatRow[];
+  /** The squad's own active stats. With none, the sheet is just the built-in stats. */
+  customDefs: CustomStatDef[];
+  /** This logger's own entries of those. */
+  initialCustomRows: CustomEntryRow[];
+  /** Standard stats the squad has removed from logging. */
+  removed: StatType[];
   clips: ClipOption[];
 }) {
   const [rows, setRows] = useState<StatRow[]>(initialRows);
+  // The built-in sheet, or the squad's own stats: two sets of questions that
+  // share the clock above and the way entries are timed and submitted.
+  const [tab, setTab] = useState<"match" | "own">("match");
+  const [customRows, setCustomRows] = useState<CustomEntryRow[]>(initialCustomRows);
   // Changeable here, for the challenge game made on 30 that plays fifteens.
   const [halfLengthMin, setHalfLengthMinState] = useState(initialHalfLengthMin);
-  const [statType, setStatType] = useState<StatType>("tackle");
+  // What this squad logs: the code's stats less any it has removed.
+  const vocabulary = useMemo(() => withoutStats(statVocabulary(code), removed), [code, removed]);
+  const [statType, setStatType] = useState<StatType>(vocabulary.statTypes[0]);
   const [detail, setDetail] = useState<StatDetail>(EMPTY_DETAIL);
   const [clipId, setClipId] = useState("");
   // A timestamp set by the live logging pad in the review workspace. This
@@ -133,7 +150,6 @@ export function StatLogger({
   // logged can happen any time.
   const locked = !editingId && !clock.open;
 
-  const vocabulary = statVocabulary(code);
   const meta = vocabulary.meta[statType];
   const sheet = useMemo(() => numberSheet(numbers), [numbers]);
   const named = playerAllowed(statType, detail);
@@ -376,7 +392,10 @@ export function StatLogger({
         <MatchClock
           matchId={match.id}
           clock={clock}
-          onSubmitted={() => setRows((prev) => prev.map((r) => ({ ...r, draft: false })))}
+          onSubmitted={() => {
+            setRows((prev) => prev.map((r) => ({ ...r, draft: false })));
+            setCustomRows((prev) => prev.map((r) => ({ ...r, draft: false })));
+          }}
         />
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="text-[12px]" style={{ color: "var(--color-ink-dim)" }}>
@@ -397,6 +416,48 @@ export function StatLogger({
         </div>
       </div>
 
+      {customDefs.length > 0 && (
+        <div className="mt-4 flex gap-1.5" role="group" aria-label="Which stats to log">
+          {(
+            [
+              ["match", "Match stats"],
+              ["own", "Our own stats"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              aria-pressed={tab === key}
+              className="rounded px-3 py-1.5 text-[14px] transition-colors"
+              style={{
+                border: `1px solid ${tab === key ? "var(--color-ink)" : "var(--color-line-strong)"}`,
+                background: tab === key ? "var(--color-surface-2)" : "transparent",
+                color: tab === key ? "var(--color-ink)" : "var(--color-ink-dim)",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {tab === "own" && customDefs.length > 0 && (
+        <CustomStatLogger
+          matchId={match.id}
+          code={code}
+          defs={customDefs}
+          sheet={sheet}
+          rows={customRows}
+          setRows={setCustomRows}
+          stamp={() => (clock.open ? clock.momentNow() : null)}
+          locked={!clock.open}
+          turned={turned}
+          idPrefix="own"
+        />
+      )}
+
+      {(tab === "match" || customDefs.length === 0) && (
+        <>
       {/* The pitch is as wide as the screen's height allows, so its bottom
           edge stays in sight, and it sits hard left. On a narrower screen
           (a tablet on its side) it also gives way to the panel, which keeps
@@ -669,6 +730,8 @@ export function StatLogger({
           </ul>
         )}
       </section>
+        </>
+      )}
     </main>
   );
 }

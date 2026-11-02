@@ -62,6 +62,7 @@ import {
   typedNumber,
   type StatDetail,
 } from "./StatFields";
+import { withoutStats } from "@/lib/hurling/custom-stats";
 import { statMarks, whoLabel, type NumberSheet, type StatRow } from "./types";
 import { VoiceBar, useVoiceEntry } from "./VoiceEntry";
 import { HalvesBar, type HalfKind } from "./HalvesBar";
@@ -71,6 +72,7 @@ export function StatPad({
   matchId,
   videoId,
   code,
+  removed,
   sheet,
   rows,
   setRows,
@@ -89,6 +91,8 @@ export function StatPad({
   videoId: string;
   /** The club's code, for its words and its scores. */
   code: GameCode;
+  /** Standard stats the squad has removed from logging. */
+  removed: StatType[];
   /** Who wore what in this match, so far. */
   sheet: NumberSheet;
   /** Held by the workspace, because the timeline draws them too. */
@@ -142,7 +146,7 @@ export function StatPad({
     [engine, markers, halfLengthMin],
   );
 
-  const vocabulary = statVocabulary(code);
+  const vocabulary = useMemo(() => withoutStats(statVocabulary(code), removed), [code, removed]);
   const meta = vocabulary.meta[statType];
   const named = playerAllowed(statType, detail);
   const ready = detailReady(statType, detail);

@@ -6,6 +6,7 @@ import { db } from "@/lib/db/client";
 import { eventTypes, matches, users, videoMarkers, videos } from "@/lib/db/schema";
 import { sidesOf } from "@/lib/queries/matches";
 import { loadNumberSheet, loadStatRows } from "@/lib/queries/stats";
+import { loadCustomEntries, loadCustomStats, loadHiddenStats } from "@/lib/queries/custom-stats";
 import { whistlesOf } from "@/lib/hurling/stats";
 import { isCoach, requireUser } from "@/lib/auth/guard";
 import { store } from "@/lib/storage";
@@ -83,9 +84,15 @@ export default async function ReviewPage({
   // against, since a training clip with no match cannot carry a stat sheet.
   // Coaches only: nobody else sees the pad, and a draft sheet sent to a
   // player's browser is a draft they can read.
-  const [statRows, statNumbers] = match && isCoach(user)
-    ? await Promise.all([loadStatRows(match.id, user.teamId, user.id), loadNumberSheet(match.id, user.teamId)])
-    : [[], []];
+  const [statRows, statNumbers, customDefs, customRows, removedStats] = match && isCoach(user)
+    ? await Promise.all([
+        loadStatRows(match.id, user.teamId, user.id),
+        loadNumberSheet(match.id, user.teamId),
+        loadCustomStats(user.teamId),
+        loadCustomEntries(match.id, user.teamId, user.id),
+        loadHiddenStats(user.teamId),
+      ])
+    : [[], [], [], [], []];
 
   const media = await store();
 
@@ -122,6 +129,9 @@ export default async function ReviewPage({
       viewer={{ id: user.id, displayName: user.displayName, role: user.role }}
       statNumbers={statNumbers}
       initialStatRows={statRows}
+      customDefs={customDefs}
+      initialCustomRows={customRows}
+      removedStats={removedStats}
     />
   );
 }

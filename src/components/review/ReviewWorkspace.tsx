@@ -42,17 +42,19 @@ import { CheatSheet } from "@/components/player/CheatSheet";
 import { TOOLS, COLOURS, type Tool } from "@/components/player/AnnotationLayer";
 import { useHotkeys } from "@/lib/keyboard/useHotkeys";
 import type { Command, Mode } from "@/lib/keyboard/keymap";
-import { formatClock, markersFromRows } from "@/lib/hurling/notation";
+import { formatClock, markersFromRows, toGameTime } from "@/lib/hurling/notation";
 import { createClip, deleteClip, updateClip } from "@/lib/actions/clips";
 import { setFirstHalfEnd, setHalfLength, setVideoMarker } from "@/lib/actions/admin";
-import type { End } from "@/lib/hurling/pitch";
+import { ourEndIn, type End } from "@/lib/hurling/pitch";
 import { listComments } from "@/lib/actions/reads";
 import { StopCard } from "@/components/player/StopCard";
 import { shapesOf, useCommentStops } from "@/components/player/useCommentStops";
 import { StatPad } from "@/components/stats/StatPad";
 import { StatLanes } from "@/components/stats/StatLanes";
 import { numberSheet, type SheetEntry, type StatRow } from "@/components/stats/types";
-import { STAT_LEAD_IN_MS, lineEntryMoment, type StatType } from "@/lib/hurling/stats";
+import { STAT_LEAD_IN_MS, lineEntryMoment, statVocabulary, type StatType } from "@/lib/hurling/stats";
+import { CustomStatLogger } from "@/components/stats/CustomStatLogger";
+import { withoutStats, type CustomEntryRow, type CustomStatDef } from "@/lib/hurling/custom-stats";
 import type { GameCode } from "@/lib/hurling/codes";
 import { ClipList } from "./ClipList";
 import { ClipInspector, type DrawingDraft } from "./ClipInspector";
@@ -102,6 +104,11 @@ type Props = {
   /** Only present when the match has a stat sheet to log against: who wore what. */
   statNumbers?: SheetEntry[];
   initialStatRows?: StatRow[];
+  /** The squad's own stats, and what is already logged against them in this match. */
+  customDefs?: CustomStatDef[];
+  initialCustomRows?: CustomEntryRow[];
+  /** Standard stats the squad has removed from logging. */
+  removedStats?: StatType[];
 };
 
 export function ReviewWorkspace({
@@ -116,6 +123,9 @@ export function ReviewWorkspace({
   viewer,
   statNumbers,
   initialStatRows,
+  customDefs = [],
+  initialCustomRows,
+  removedStats = [],
 }: Props) {
   const engine = useMemo(() => new PlayerEngine(), []);
   // Held here rather than read once from the page: the stat pad sets the
@@ -141,7 +151,11 @@ export function ReviewWorkspace({
   // The sheet lives here rather than inside the pad: the timeline draws the
   // same entries as ticks, so both have to read from one list.
   const [statRows, setStatRows] = useState<StatRow[]>(initialStatRows ?? []);
-  const [statType, setStatType] = useState<StatType>("tackle");
+  // Opens on the first standard stat the squad still logs.
+  const [statType, setStatType] = useState<StatType>(() => withoutStats(statVocabulary(code), removedStats).statTypes[0]);
+  // The squad's own stats share the pad's panel, as a second tab.
+  const [padTab, setPadTab] = useState<"match" | "own">("match");
+  const [customRows, setCustomRows] = useState<CustomEntryRow[]>(initialCustomRows ?? []);
   // Stats logged on the line, before this video existed, carry their half
   // and how far into it rather than a place in the file. Once the video's
   // halves are marked, that puts them on it, so they tick on
@@ -836,11 +850,57 @@ export function ReviewWorkspace({
           )}
 
           {viewMode === "stats" && canLogStats && match.id ? (
+            <>
+            {customDefs.length > 0 && (
+              <div className="flex shrink-0 gap-1 border-b p-2" style={{ borderColor: "var(--color-line)" }}>
+                {(
+                  [
+                    ["match", "Match stats"],
+                    ["own", "Our own stats"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setPadTab(key)}
+                    aria-pressed={padTab === key}
+                    className="flex-1 rounded px-3 py-1.5 text-[13px] transition-colors"
+                    style={{
+                      background: padTab === key ? "var(--color-surface-3)" : "transparent",
+                      color: padTab === key ? "var(--color-ink)" : "var(--color-ink-dim)",
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {padTab === "own" && customDefs.length > 0 ? (
+              <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                <CustomStatLogger
+                  matchId={match.id}
+                  code={code}
+                  defs={customDefs}
+                  sheet={statSheet}
+                  rows={customRows}
+                  setRows={setCustomRows}
+                  // Timed off the playhead, the way the pad times everything.
+                  stamp={() => {
+                    const atMs = engine.snapshot.positionMs;
+                    return { half: toGameTime(atMs, markers, halfLengthMin).half, videoId: video.id, atMs };
+                  }}
+                  compact
+                  turned={ourEndIn(null, firstHalfEnd) === "right"}
+                  onWatch={jumpToStat}
+                  idPrefix="ownpad"
+                />
+              </div>
+            ) : (
             <StatPad
               engine={engine}
               matchId={match.id}
               videoId={video.id}
               code={code}
+              removed={removedStats}
               sheet={statSheet}
               rows={placedStatRows}
               setRows={setStatRows}
@@ -871,6 +931,8 @@ export function ReviewWorkspace({
                 });
               }}
             />
+            )}
+            </>
           ) : (
             <>
               <ClipList

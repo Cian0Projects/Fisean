@@ -29,6 +29,9 @@ import { ClubColours } from "./ClubColours";
 import { AddPlayer } from "./AddPlayer";
 import { UploadArea, UploadProvider, useUploads } from "./FootageUpload";
 import { FootageImport } from "./FootageImport";
+import { CustomStatsEditor } from "./CustomStatsEditor";
+import type { CustomStatDef } from "@/lib/hurling/custom-stats";
+import type { StatType } from "@/lib/hurling/stats";
 import type { Role } from "@/lib/db/schema";
 import type { ImportView } from "@/lib/queries/imports";
 import type { ClubStorage } from "@/lib/queries/storage";
@@ -98,6 +101,8 @@ export function AdminPanels({
   imports,
   storage,
   deleted,
+  customStats,
+  removedStats,
 }: {
   viewer: { id: string; role: Role };
   /** Club or county, so every label that names the organisation uses its word. */
@@ -117,6 +122,10 @@ export function AdminPanels({
   storage: ClubStorage;
   /** Admins only; null for a coach, who cannot delete. */
   deleted: DeletedForTeam | null;
+  /** The squad's own stats, retired ones included. */
+  customStats: CustomStatDef[];
+  /** Standard stats the squad has removed from logging. */
+  removedStats: StatType[];
 }) {
   const isAdmin = viewer.role === "admin";
   const { noun } = orgTerms(orgKind);
@@ -172,6 +181,8 @@ export function AdminPanels({
             ) : (
               <Matches matches={matches} videos={videos} canDelete={false} />
             )}
+            {/* Coaches define these as well as admins: they are the ones logging. */}
+            <CustomStatsEditor key={teamId} initial={customStats} hidden={removedStats} code={code} />
           </div>
 
           <aside className="space-y-14">

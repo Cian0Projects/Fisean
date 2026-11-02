@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { clips, matchStats, matches, statClocks, videos } from "@/lib/db/schema";
+import { clips, customStatEntries, matchStats, matches, statClocks, videos } from "@/lib/db/schema";
 import { assertSameTeam, requireCoach } from "@/lib/auth/guard";
 import { normaliseEntry, type StatDraft } from "@/lib/hurling/stats";
 import { LAST_WHISTLE, NEXT_WHISTLE, canLog, livePhase, resumeClock, type Whistle } from "@/lib/hurling/live-clock";
@@ -364,6 +364,17 @@ export async function submitMyStats(matchId: string): Promise<SavedClock> {
     tx.update(matchStats)
       .set({ draft: false })
       .where(and(eq(matchStats.matchId, match.id), eq(matchStats.createdBy, user.id), eq(matchStats.draft, true)))
+      .run();
+    // The squad's own stats are drafted and submitted with the rest.
+    tx.update(customStatEntries)
+      .set({ draft: false })
+      .where(
+        and(
+          eq(customStatEntries.matchId, match.id),
+          eq(customStatEntries.createdBy, user.id),
+          eq(customStatEntries.draft, true),
+        ),
+      )
       .run();
     return saveClock(tx, user, match.id, { submittedAt: Date.now() });
   });

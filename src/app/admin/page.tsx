@@ -8,6 +8,7 @@ import { Nav } from "@/components/ui/Nav";
 import { AdminPanels } from "@/components/admin/AdminPanels";
 import { importsForTeam } from "@/lib/queries/imports";
 import { clubStorage } from "@/lib/queries/storage";
+import { loadCustomStats, loadHiddenStats } from "@/lib/queries/custom-stats";
 import { orgTerms } from "@/lib/hurling/org";
 
 export default async function AdminPage() {
@@ -112,6 +113,8 @@ export default async function AdminPage() {
         imports={await importsForTeam(user.teamId)}
         storage={await clubStorage(user.clubId)}
         deleted={user.role === "admin" ? await deletedForTeam(user.teamId) : null}
+        customStats={await loadCustomStats(user.teamId, { withRetired: true })}
+        removedStats={await loadHiddenStats(user.teamId)}
       />
     </>
   );

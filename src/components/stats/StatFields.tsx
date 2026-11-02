@@ -489,7 +489,7 @@ export function StatFields({
  * pick, but typing is the point: a number the sheet does not have yet is
  * still logged, and gets its name when the sheet does.
  */
-function NumberField({
+export function NumberField({
   id,
   label,
   value,
@@ -555,7 +555,7 @@ function NumberField({
   );
 }
 
-function Check({
+export function Check({
   checked,
   onChange,
   label,

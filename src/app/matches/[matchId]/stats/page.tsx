@@ -11,6 +11,9 @@ import { StatReport } from "@/components/stats/StatReport";
 import { StatMoments } from "@/components/stats/StatMoments";
 import { SubmitStats } from "@/components/stats/SubmitStats";
 import { loadMatchMarkers, loadNumberSheet, loadStatRows } from "@/lib/queries/stats";
+import { loadCustomEntries, loadCustomStats, loadHiddenStats } from "@/lib/queries/custom-stats";
+import { CustomStatsReport } from "@/components/stats/CustomStatsReport";
+import { numberSheet } from "@/components/stats/types";
 import { statTiming, whistlesOf } from "@/lib/hurling/stats";
 import { matchDateLong } from "@/lib/format";
 
@@ -103,6 +106,18 @@ export default async function MatchStatsPage({
     ...statTiming(r, r.videoId ? markers.get(r.videoId) : undefined, match.halfLengthMin, whistles),
   }));
 
+  // The squad's own stats, placed in a half the same way: from the footage's
+  // markers where they were logged against it, else the half they carry.
+  const [customDefs, customStored, removed] = await Promise.all([
+    loadCustomStats(user.teamId, { withRetired: true }),
+    loadCustomEntries(matchId, user.teamId, user.id),
+    loadHiddenStats(user.teamId),
+  ]);
+  const customRows = customStored.map((r) => ({
+    ...r,
+    half: statTiming(r, r.videoId ? markers.get(r.videoId) : undefined, match.halfLengthMin, whistles).half ?? r.half,
+  }));
+
   const media = await store();
 
   return (
@@ -121,6 +136,9 @@ export default async function MatchStatsPage({
         rows={rows}
         numbers={numbers}
         canLog={coach}
+        removed={removed}
+        customCount={customRows.length}
+        custom={<CustomStatsReport defs={customDefs} rows={customRows} sheet={numberSheet(numbers)} code={user.teamCode} />}
         banner={
           coach && (
             <SubmitStats

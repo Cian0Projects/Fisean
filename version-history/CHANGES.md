@@ -6,6 +6,11 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## A squad's own stats
+*2026-11-02*
+
+A coach or admin can now define stats the standard sheet has no heading for, on the squad page under "Our own stats". Each has a name and a short menu of what logging it asks: whose it is (ours, theirs, or either asked each time), our player's number, their player's number, how it went (good for us, against us, unclear), whether a score is involved (none, did it lead to a score, or which score), and a place on the pitch (none, one place, or from here to there). The builder shows the form being made as it goes. They are logged beside the match stats in both places stats are taken, as a second tab: the logging page on the line, and the stat pad beside the footage. They are drafted, timed and submitted exactly like the built-in sheet, and each gets its own section on the report with a sentence of totals, a map per half and who it was credited to. A score recorded on a custom stat never adds to the match score, so a shot is still logged as a shot. Retiring a stat takes it off the logging screens but keeps its history; deleting one removes its entries. They live in two new tables (`custom_stats`, `custom_stat_entries`, migration 0039) rather than as more built-in stat types, which keeps the fixed vocabulary and its voice parsing, trends and colours untouched. The same settings section lists the standard stats, and a squad can remove the ones it never logs (a `hidden_stats` table, migration 0040). Removing only hides: the logging screens stop offering it and the report drops its section once nothing is logged under it, so nothing already logged is lost, and one standard stat always has to stay. Custom stats do not yet appear on the season or per player pages.
+
 ## Counties can sign up, not only clubs
 *2026-11-01*
 

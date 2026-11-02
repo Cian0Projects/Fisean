@@ -33,6 +33,7 @@ import {
   STAT_TYPES,
   type Half,
 } from "../hurling/stats";
+import { CUSTOM_SCORES, CUSTOM_SCORE_MODES, CUSTOM_SIDE_MODES } from "../hurling/custom-stats";
 import { GAME_CODES } from "../hurling/codes";
 import { ORG_KINDS } from "../hurling/org";
 import { SOURCE_KINDS } from "../media/import";
@@ -1005,6 +1006,103 @@ export const matchLineups = sqliteTable(
     primaryKey({ columns: [t.matchId, t.number] }),
     // One number each: a player is not two people in the same match.
     uniqueIndex("match_lineups_player").on(t.matchId, t.userId),
+  ],
+);
+
+/* ------------------------------------------------------------ custom stats */
+
+/**
+ * A stat a squad defined for itself, kept per team because a team's code and
+ * habits are its own. The options say what logging it asks (see
+ * src/lib/hurling/custom-stats.ts, which the enums import). Retiring one
+ * sets `archivedAt` so it leaves the logging screens but its history stays
+ * on every report; deleting one takes its entries with it.
+ */
+export const customStats = sqliteTable(
+  "custom_stats",
+  {
+    id: id(),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    name: text("name").notNull(),
+    sideMode: text("side_mode", { enum: CUSTOM_SIDE_MODES }).notNull().default("us"),
+    askPlayer: integer("ask_player", { mode: "boolean" }).notNull().default(true),
+    askOpposition: integer("ask_opposition", { mode: "boolean" }).notNull().default(false),
+    askOutcome: integer("ask_outcome", { mode: "boolean" }).notNull().default(false),
+    scoreMode: text("score_mode", { enum: CUSTOM_SCORE_MODES }).notNull().default("none"),
+    /** Points put on the pitch map: 0, 1, or 2 for a from-and-to. */
+    points: integer("points").$type<0 | 1 | 2>().notNull().default(0),
+    archivedAt: integer("archived_at"),
+    createdAt: integer("created_at").notNull().default(now),
+    updatedAt: integer("updated_at").notNull().default(now),
+  },
+  (t) => [index("custom_stats_team").on(t.teamId, t.createdAt)],
+);
+
+/**
+ * Standard stats a squad has removed from its logging screens and report.
+ *
+ * A row means "this team does not log this". Removing only hides: anything
+ * already logged under it is kept and still counts, so bringing the stat
+ * back loses nothing. Kept as rows of their own rather than a column on
+ * `teams`, which would mean rebuilding that table.
+ */
+export const hiddenStats = sqliteTable(
+  "hidden_stats",
+  {
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    statType: text("stat_type", { enum: STAT_TYPES }).notNull(),
+    createdAt: integer("created_at").notNull().default(now),
+  },
+  (t) => [primaryKey({ columns: [t.teamId, t.statType] })],
+);
+
+/**
+ * One logged moment of a custom stat. The same spine as `match_stats` where
+ * it matters (a jersey number rather than a player, a half and how far into
+ * it, a video and a position in it, a draft until its logger submits), so it
+ * is timed, drafted and submitted exactly as the built-in sheet is. Every
+ * column the stat did not ask for is null.
+ */
+export const customStatEntries = sqliteTable(
+  "custom_stat_entries",
+  {
+    id: id(),
+    statId: text("stat_id")
+      .notNull()
+      .references(() => customStats.id, { onDelete: "cascade" }),
+    matchId: text("match_id")
+      .notNull()
+      .references(() => matches.id, { onDelete: "cascade" }),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    side: text("side", { enum: SIDES }).notNull().default("us"),
+    playerNumber: integer("player_number"),
+    oppositionNumber: integer("opposition_number"),
+    outcome: text("outcome", { enum: STAT_OUTCOMES }),
+    ledToScore: integer("led_to_score", { mode: "boolean" }),
+    score: text("score", { enum: CUSTOM_SCORES }),
+    originX: real("origin_x"),
+    originY: real("origin_y"),
+    destX: real("dest_x"),
+    destY: real("dest_y"),
+    half: integer("half").$type<Half>(),
+    halfMs: integer("half_ms"),
+    videoId: text("video_id").references(() => videos.id, { onDelete: "set null" }),
+    atMs: integer("at_ms"),
+    draft: integer("draft", { mode: "boolean" }).notNull().default(false),
+    createdAt: integer("created_at").notNull().default(now),
+    updatedAt: integer("updated_at").notNull().default(now),
+  },
+  (t) => [
+    index("custom_stat_entries_match").on(t.matchId, t.createdAt),
+    index("custom_stat_entries_stat").on(t.statId),
   ],
 );
 

@@ -74,6 +74,9 @@ export function StatReport({
   canLog,
   banner,
   moments,
+  custom,
+  customCount = 0,
+  removed = [],
 }: {
   teamName: string;
   /** The club's code: every heading and label is said its way. */
@@ -87,6 +90,12 @@ export function StatReport({
   banner?: React.ReactNode;
   /** The sheet watched back on the footage. Screen only: it does not print. */
   moments?: React.ReactNode;
+  /** The squad's own stats, as a section of their own (see CustomStatsReport). */
+  custom?: React.ReactNode;
+  /** How many of them are logged: a sheet with only those is not an empty one. */
+  customCount?: number;
+  /** Standard stats the squad has removed from logging. */
+  removed?: StatRow["statType"][];
 }) {
   const vocabulary = statVocabulary(code);
   const { terms } = vocabulary;
@@ -100,6 +109,10 @@ export function StatReport({
   const theirShots = shots.filter((r) => r.side === "opposition");
   const theirsLogged = theirShots.length > 0;
   const result = matchResult(rows);
+  // A stat the squad has removed drops out of the report once nothing is logged
+  // under it. Anything logged before it was removed still shows.
+  const off = (...types: StatRow["statType"][]) =>
+    types.every((t) => removed.includes(t)) && of(...types).length === 0;
 
   return (
     <main className="sheet pt-10 pb-16 print:pt-0">
@@ -141,7 +154,9 @@ export function StatReport({
 
       {banner}
 
-      {rows.length === 0 ? (
+      {rows.length === 0 && customCount > 0 ? (
+        <>{custom}</>
+      ) : rows.length === 0 ? (
         <section className="py-16">
           <h2 className="title text-xl">Nothing logged for this match yet</h2>
           <p className="measure mt-2 text-[15px]" style={{ color: "var(--color-ink-dim)" }}>
@@ -157,6 +172,8 @@ export function StatReport({
         </section>
       ) : (
         <>
+          {!off("shot") && (
+            <>
           {/* The result as a match report opens: the scores panel from the
               cover, the half-time score, and who got them. */}
           <section className="mt-8 grid gap-8 lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start">
@@ -210,6 +227,11 @@ export function StatReport({
             <OppositionRuns rows={rows} theirsLogged={theirsLogged} vocabulary={vocabulary} />
           </Section>
 
+            </>
+          )}
+
+          {!off("puckout") && (
+            <>
           {/* -------------------------------------------- poc amach or kick-outs */}
           <Section
             title={terms.restarts}
@@ -237,6 +259,11 @@ export function StatReport({
             </div>
           </Section>
 
+            </>
+          )}
+
+          {!off("delivery") && (
+            <>
           {/* --------------------------------------------------------- delivery */}
           <Section
             title="Delivery"
@@ -260,6 +287,11 @@ export function StatReport({
             />
           </Section>
 
+            </>
+          )}
+
+          {!off("tackle", "turnover") && (
+            <>
           {/* ---------------------------------------------- turnovers and tackles */}
           <Section
             title="Turnovers and tackles"
@@ -278,6 +310,11 @@ export function StatReport({
             <PivotTable tally={possessionTally(rows)} players={players} />
           </Section>
 
+            </>
+          )}
+
+          {!off("free_conceded", "free_won") && (
+            <>
           {/* ------------------------------------------------------- discipline */}
           <Section
             title="Discipline"
@@ -288,8 +325,11 @@ export function StatReport({
             <HalfMaps rows={of("free_conceded", "free_won")} players={players} code={code} />
           </Section>
 
+            </>
+          )}
+
           {/* ------------------------------------------------- marks, football */}
-          {terms.marks && (
+          {terms.marks && !off("mark") && (
             <Section
               title="Marks"
               note={`Clean catches that earn a free, both ways: off a ${terms.restart.toLowerCase()}, or an advanced mark inside the 45. Filled green for ours, ringed red for theirs.`}
@@ -306,6 +346,8 @@ export function StatReport({
               <HalfMaps rows={of("mark")} players={players} code={code} />
             </Section>
           )}
+
+          {custom}
 
           {/* -------------------------------------------------- player by player */}
           <Section
