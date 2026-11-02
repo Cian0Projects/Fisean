@@ -27,7 +27,7 @@ import { ClubBadge } from "@/components/ui/ClubBadge";
 import { BadgeEditor } from "./BadgeEditor";
 import { ClubColours } from "./ClubColours";
 import { AddPlayer } from "./AddPlayer";
-import { UploadArea, UploadProvider, useUploads } from "./FootageUpload";
+import { UploadArea, UploadButton, UploadProvider, useUploads } from "./FootageUpload";
 import { FootageImport } from "./FootageImport";
 import { CustomStatsEditor } from "./CustomStatsEditor";
 import type { CustomStatDef } from "@/lib/hurling/custom-stats";
@@ -132,7 +132,14 @@ export function AdminPanels({
   const otherTeams = clubTeams.filter((t) => t.id !== teamId);
 
   return (
-    <UploadProvider>
+    <UploadProvider
+      matches={matches.map((m) => ({
+        id: m.id,
+        opponent: m.opponent,
+        playedOn: m.playedOn,
+        hasFootage: videos.some((v) => v.matchId === m.id),
+      }))}
+    >
       <main className="sheet pt-10 pb-20 lg:pt-14">
         {/* On a wide screen the team code holds the top right whatever the
             name's length: the row never wraps there, and a long name breaks
@@ -740,9 +747,9 @@ function AddEmail({ member }: { member: Member }) {
 /* ------------------------------------------------------- matches, footage */
 
 /**
- * The matches already made. There is no way to add one here: a match is made
- * by uploading its footage (the Footage panel asks for a title and a date),
- * so there is one place to start and no empty match to wonder about.
+ * The matches already made. A match is made by uploading its footage (the
+ * Footage panel asks for a title and a date) or by logging its stats live. One
+ * of the second kind has no video until "Add video" attaches one to it.
  */
 function Matches({
   matches,
@@ -755,7 +762,7 @@ function Matches({
 }) {
   return (
     <section className="@container">
-      <SectionHead title="Matches" note="Each match appears here once its footage is uploaded." />
+      <SectionHead title="Matches" note="Each match appears here once its footage is uploaded or its stats are logged." />
 
       {matches.length === 0 ? (
         <Empty>None yet. Upload a match file under Footage to add the first one.</Empty>
@@ -815,6 +822,13 @@ function MatchRow({
           <Link href={`/review/${ready.id}`} className="btn-ghost text-xs">
             Watch
           </Link>
+        )}
+        {/* A game logged live has no video yet: this adds it to this very
+            match, rather than naming a second one beside it. */}
+        {footage.length === 0 && (
+          <UploadButton matchId={match.id} className="btn-ghost text-xs">
+            Add video
+          </UploadButton>
         )}
         <Link href={`/matches/${match.id}/stats/log`} className="btn-ghost text-xs">
           Log stats

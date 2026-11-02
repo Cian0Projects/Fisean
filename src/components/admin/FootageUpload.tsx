@@ -174,12 +174,26 @@ async function sendParts(
 /** Where a file should go, as far as the browser knows when it starts. */
 type Target = { matchId?: string; newMatch?: { title: string; playedOn: string } };
 
+/** A match already listed that a file could be added to. */
+export type UploadMatch = { id: string; opponent: string; playedOn: string; hasFootage: boolean };
+
 /**
  * `pageDrop` off is for a page where every upload is to a match already
  * listed (an opposition game): a file dropped anywhere there would ask to
  * name a new match of ours, which is not what anyone dropping it meant.
+ *
+ * `matches` are the ones the dialog offers besides "a new match", so footage
+ * can join a game whose stats were logged live instead of making a second.
  */
-export function UploadProvider({ children, pageDrop = true }: { children: React.ReactNode; pageDrop?: boolean }) {
+export function UploadProvider({
+  children,
+  pageDrop = true,
+  matches = [],
+}: {
+  children: React.ReactNode;
+  pageDrop?: boolean;
+  matches?: UploadMatch[];
+}) {
   const router = useRouter();
   const [uploads, setUploads] = useState<Upload[]>([]);
   /** Files waiting for the coach to name the match they are of. */
@@ -335,8 +349,9 @@ export function UploadProvider({ children, pageDrop = true }: { children: React.
           // A fresh form per file, so each starts from its own date.
           key={`${waiting.length}-${waiting[0].name}-${waiting[0].lastModified}`}
           file={waiting[0]}
-          onSubmit={(newMatch) => {
-            void send(waiting[0], { newMatch });
+          matches={matches}
+          onSubmit={(target) => {
+            void send(waiting[0], target);
             setWaiting((w) => w.slice(1));
           }}
           onCancel={() => setWaiting((w) => w.slice(1))}
@@ -416,21 +431,31 @@ function PageDropTarget() {
 }
 
 /**
- * Name the match this file is of. The match is made with the upload, so this
- * asks for what it needs — a title and a date — rather than offering a list
- * of matches the file could not yet belong to. The date starts at the day
+ * Say which match this file is of. Usually it is a new one, made with the
+ * upload, so the form asks for a title and a date. The date starts at the day
  * the file was last changed, which is usually the day it was recorded.
+ *
+ * But a game may already be listed because its stats were logged live, before
+ * anyone had the video. Naming it again would make a second match beside it,
+ * so the matches already listed are offered, those still without footage
+ * first, and choosing one adds the file to it: the stats and the video are
+ * then one match.
  */
 function NameMatch({
   file,
+  matches,
   onSubmit,
   onCancel,
 }: {
   file: File;
-  onSubmit: (match: { title: string; playedOn: string }) => void;
+  matches: UploadMatch[];
+  onSubmit: (target: Target) => void;
   onCancel: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const [existingId, setExistingId] = useState("");
+  const withoutFootage = matches.filter((m) => !m.hasFootage);
+  const withFootage = matches.filter((m) => m.hasFootage);
   const [title, setTitle] = useState("");
   const [playedOn, setPlayedOn] = useState(() => localDay(new Date(file.lastModified || Date.now())));
   const [error, setError] = useState<string | null>(null);
@@ -455,7 +480,7 @@ function NameMatch({
         borderRadius: 4,
       }}
     >
-      <h2 className="title text-xl">Name this match</h2>
+      <h2 className="title text-xl">{matches.length ? "Which match is this?" : "Name this match"}</h2>
       <p className="caption mt-1 truncate">
         {file.name}, {fileSize(file.size)}
       </p>
@@ -470,50 +495,98 @@ function NameMatch({
         noValidate
         onSubmit={(e) => {
           e.preventDefault();
+          if (existingId) {
+            onSubmit({ matchId: existingId });
+            return;
+          }
           const read = readNewMatch({ title, playedOn });
           if ("error" in read) {
             setError(read.error);
             return;
           }
-          onSubmit({ title, playedOn });
+          onSubmit({ newMatch: { title, playedOn } });
         }}
       >
-        <div>
-          <label htmlFor="upload-title" className="label mb-1.5 block">
-            Match title
-          </label>
-          <input
-            id="upload-title"
-            value={title}
-            onChange={(e) => {
-              setTitle(e.target.value);
-              setError(null);
-            }}
-            placeholder="Sarsfields"
-            autoComplete="off"
-            autoFocus
-            className="field"
-          />
-          <p className="mt-1.5 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-            Usually who you played. It is how the match is listed for the panel.
-          </p>
-        </div>
+        {matches.length > 0 && (
+          <div>
+            <label htmlFor="upload-match" className="label mb-1.5 block">
+              Add this video to
+            </label>
+            <select
+              id="upload-match"
+              value={existingId}
+              onChange={(e) => {
+                setExistingId(e.target.value);
+                setError(null);
+              }}
+              className="field"
+            >
+              <option value="">A new match</option>
+              {withoutFootage.length > 0 && (
+                <optgroup label="Listed, no video yet">
+                  {withoutFootage.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {matchLabel(m)}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {withFootage.length > 0 && (
+                <optgroup label="Already has video">
+                  {withFootage.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {matchLabel(m)}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+            <p className="mt-1.5 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+              Pick the game you logged stats for and the video joins it, with its stats.
+            </p>
+          </div>
+        )}
 
-        <div>
-          <label htmlFor="upload-date" className="label mb-1.5 block">
-            Date played
-          </label>
-          <input
-            id="upload-date"
-            type="date"
-            value={playedOn}
-            onChange={(e) => {
-              setPlayedOn(e.target.value);
-              setError(null);
-            }}
-            className="field"
-          />
-        </div>
+        {!existingId && (
+          <>
+            <div>
+              <label htmlFor="upload-title" className="label mb-1.5 block">
+                Match title
+              </label>
+              <input
+                id="upload-title"
+                value={title}
+                onChange={(e) => {
+                  setTitle(e.target.value);
+                  setError(null);
+                }}
+                placeholder="Sarsfields"
+                autoComplete="off"
+                autoFocus={matches.length === 0}
+                className="field"
+              />
+              <p className="mt-1.5 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+                Usually who you played. It is how the match is listed for the panel.
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="upload-date" className="label mb-1.5 block">
+                Date played
+              </label>
+              <input
+                id="upload-date"
+                type="date"
+                value={playedOn}
+                onChange={(e) => {
+                  setPlayedOn(e.target.value);
+                  setError(null);
+                }}
+                className="field"
+              />
+            </div>
+          </>
+        )}
 
         {error && (
           <p className="text-[13px]" style={{ color: "var(--color-danger-ink)" }}>
