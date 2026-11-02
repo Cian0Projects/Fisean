@@ -30,7 +30,7 @@ export async function emailServerError(
       routePath: context.routePath,
       now,
     });
-    if (!throttle.allow(alert.key, now)) return;
+    if (!throttle.allow(alert.key, now, alert.severe)) return;
 
     await sendMail({ to, ...serverErrorMail(alert) });
   } catch (failed) {

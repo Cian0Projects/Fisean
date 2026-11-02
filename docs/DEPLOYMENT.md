@@ -169,7 +169,8 @@ TEAM_STORAGE_GB=100
 # Optional: where new clubs waiting to be checked are emailed. Default hello@ardawnsport.ie.
 # HOST_EMAIL=hello@ardawnsport.ie
 # Optional: where to email when the server throws an error. Unset means no alerts.
-# The same error on the same route is sent once an hour, and no more than 20 a day.
+# Only severe errors (database, disk, storage keys) and errors that repeat (3 times
+# in 15 minutes) are sent, each at most once an hour, and no more than 20 a day.
 # ALERT_EMAIL=you@example.com
 NODE_ENV=production
 EOF

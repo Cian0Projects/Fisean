@@ -4,6 +4,10 @@ Do not commit or push anything in this repo unless I specifically request you an
 
 To deploy: ssh root@193.203.15.232 "bash /srv/fisean/app/deploy/update.sh"
 
+Host alert email: cian@ardawnsport.ie. It is the `ALERT_EMAIL` in the server's
+`/srv/fisean/app/.env.local` (server errors, `src/lib/notify/error-mail.ts`; the
+nightly storage sweep). After changing `.env.local`, run `systemctl restart fisean`.
+
 # Físeán — working notes
 
 Match video review for GAA clubs in all four codes (hurling, camogie, Gaelic

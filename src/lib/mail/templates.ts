@@ -277,6 +277,7 @@ export function serverErrorMail(input: {
   message: string;
   stack: string;
   at: string;
+  severe?: boolean;
 }): Rendered {
   const facts = [
     `Route: ${input.route}`,
@@ -284,7 +285,10 @@ export function serverErrorMail(input: {
     `Error: ${input.message}`,
     `Time: ${input.at}`,
   ];
-  const note = "The same error on the same route is emailed at most once an hour.";
+  const why = input.severe
+    ? "Sent straight away: this kind of error means the app itself is failing."
+    : "Sent because this error has now happened at least 3 times in 15 minutes.";
+  const note = `${why} The same error on the same route is emailed at most once an hour.`;
 
   const text = ["The Ardawn server threw an error.", "", ...facts, "", input.stack || "No stack was recorded.", "", note].join("\n");
 
