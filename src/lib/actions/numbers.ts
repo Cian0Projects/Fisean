@@ -14,6 +14,8 @@ import { db } from "@/lib/db/client";
 import { matchLineups, matches, users } from "@/lib/db/schema";
 import { assertSameTeam, requireCoach } from "@/lib/auth/guard";
 import { jerseyNumber } from "@/lib/hurling/stats";
+import { suggestPlayer } from "@/lib/hurling/gps";
+import { parseLineupCsv } from "@/lib/hurling/lineup-csv";
 import { loadNumberSheet } from "@/lib/queries/stats";
 import type { SheetEntry } from "@/components/stats/types";
 
@@ -68,4 +70,88 @@ export async function setMatchNumber(
   revalidatePath(`/matches/${match.id}/stats`);
   revalidatePath(`/matches/${match.id}/stats/log`);
   return loadNumberSheet(match.id, user.teamId);
+}
+
+/**
+ * Put names to numbers from a CSV of the match day panel.
+ *
+ * Each name is matched to the panel the way the GPS import does it (same name
+ * with fadas and case ignored, or a lone surname with the same initial). A
+ * name that matches nobody is added to the panel as a member with no account,
+ * as `addPlayer` does, so a squad's first sheet needs no typing at all. The
+ * names that were added are returned, because a typo shows up there first.
+ *
+ * It sets the numbers the file names and leaves every other number as it was,
+ * so uploading a corrected file over an earlier one just moves people. A
+ * player in the file who already wears another number is moved, as in
+ * `setMatchNumber`. All of it lands together or not at all.
+ */
+export async function importMatchLineup(
+  matchId: string,
+  csvText: string,
+): Promise<{
+  sheet: SheetEntry[];
+  added: { id: string; displayName: string }[];
+  assigned: number;
+  problems: string[];
+}> {
+  const user = await requireCoach();
+
+  const [match] = await db
+    .select({ id: matches.id, teamId: matches.teamId, deletedAt: matches.deletedAt })
+    .from(matches)
+    .where(eq(matches.id, matchId))
+    .limit(1);
+  if (!match || match.deletedAt !== null) throw new Error("That match no longer exists.");
+  assertSameTeam(user, match);
+
+  if (typeof csvText !== "string" || csvText.length > 50_000) throw new Error("That file is too big to be a panel.");
+  const read = parseLineupCsv(csvText);
+  if (read.error) throw new Error(read.error);
+
+  const panel = await db
+    .select({ id: users.id, displayName: users.displayName })
+    .from(users)
+    .where(eq(users.teamId, user.teamId));
+
+  const problems = [...read.problems];
+  const added: { id: string; displayName: string }[] = [];
+  let assigned = 0;
+
+  db.transaction((tx) => {
+    const placed = new Set<string>();
+    for (const row of read.rows) {
+      let player = suggestPlayer(row.name, panel);
+      if (!player) {
+        const created = tx
+          .insert(users)
+          .values({ teamId: user.teamId, displayName: row.name, role: "player" })
+          .returning({ id: users.id, displayName: users.displayName })
+          .get();
+        panel.push(created);
+        added.push(created);
+        player = created;
+      }
+      if (placed.has(player.id)) {
+        problems.push(`${player.displayName} is on the sheet twice, so ${row.name} was left out.`);
+        continue;
+      }
+      placed.add(player.id);
+
+      tx.delete(matchLineups)
+        .where(and(eq(matchLineups.matchId, match.id), eq(matchLineups.number, row.number)))
+        .run();
+      tx.delete(matchLineups)
+        .where(and(eq(matchLineups.matchId, match.id), eq(matchLineups.userId, player.id)))
+        .run();
+      tx.insert(matchLineups).values({ matchId: match.id, number: row.number, userId: player.id }).run();
+      assigned++;
+    }
+  });
+
+  revalidatePath("/admin");
+  revalidatePath(`/matches/${match.id}/numbers`);
+  revalidatePath(`/matches/${match.id}/stats`);
+  revalidatePath(`/matches/${match.id}/stats/log`);
+  return { sheet: await loadNumberSheet(match.id, user.teamId), added, assigned, problems };
 }

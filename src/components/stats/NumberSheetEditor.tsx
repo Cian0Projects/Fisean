@@ -11,9 +11,10 @@
  * Each pick saves on its own. Picking someone already wearing another number
  * moves them, because one player wears one jersey in a match.
  */
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { setMatchNumber } from "@/lib/actions/numbers";
+import { importMatchLineup, setMatchNumber } from "@/lib/actions/numbers";
+import { decodeCsvBytes } from "@/lib/hurling/gps";
 import { positionByNumber } from "@/lib/hurling/positions";
 import { MAX_JERSEY } from "@/lib/hurling/stats";
 import { matchDateLong } from "@/lib/format";
@@ -43,6 +44,9 @@ export function NumberSheetEditor({
   const [added, setAdded] = useState<number[]>([]);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<{ summary: string; added: string[]; problems: string[] } | null>(null);
+  const [importing, setImporting] = useState(false);
+  const picker = useRef<HTMLInputElement>(null);
   const [, startTransition] = useTransition();
 
   const sheet = useMemo(() => numberSheet(numbers), [numbers]);
@@ -84,6 +88,40 @@ export function NumberSheetEditor({
     });
   };
 
+  const importFile = (file: File | undefined) => {
+    if (!file || importing) return;
+    setError(null);
+    setNote(null);
+    setImporting(true);
+    startTransition(async () => {
+      try {
+        const text = decodeCsvBytes(new Uint8Array(await file.arrayBuffer()));
+        const result = await importMatchLineup(match.id, text);
+        setNumbers(result.sheet);
+        // Anyone the file named is pickable in the dropdowns straight away,
+        // whether just added or already on the panel as a coach.
+        setPlayers((prev) => {
+          const known = new Set(prev.map((p) => p.id));
+          const fresh = [
+            ...result.added,
+            ...result.sheet.map((e) => ({ id: e.userId, displayName: e.displayName })),
+          ].filter((p, i, all) => !known.has(p.id) && all.findIndex((q) => q.id === p.id) === i);
+          return [...prev, ...fresh].sort((a, b) => a.displayName.localeCompare(b.displayName));
+        });
+        setNote({
+          summary: `${result.assigned} ${result.assigned === 1 ? "name" : "names"} put to numbers.`,
+          added: result.added.map((p) => p.displayName),
+          problems: result.problems,
+        });
+      } catch (err) {
+        setError((err as Error).message || "That file could not be read.");
+      } finally {
+        setImporting(false);
+        if (picker.current) picker.current.value = "";
+      }
+    });
+  };
+
   const addNumber = () => {
     const n = typedNumber(draft);
     if (n == null) {
@@ -121,6 +159,39 @@ export function NumberSheetEditor({
         Stats are logged by the number on the jersey. Put a name to each number and every entry
         against it follows, whether you do it before the game, after it, or halfway through the notebook.
       </p>
+
+      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <button type="button" onClick={() => picker.current?.click()} disabled={importing} className="btn-outline text-xs">
+          {importing ? "Reading the file" : "Upload the panel as a CSV"}
+        </button>
+        <input
+          ref={picker}
+          type="file"
+          accept=".csv,text/csv"
+          className="sr-only"
+          aria-label="Choose a CSV of numbers and names"
+          onChange={(e) => importFile(e.target.files?.[0])}
+        />
+        <span className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+          One player to a row: the jersey number and the name. A heading row is fine.
+        </span>
+      </div>
+
+      {note && (
+        <div role="status" className="mt-3 text-[14px]" style={{ color: "var(--color-ink-dim)" }}>
+          <p>{note.summary}</p>
+          {note.added.length > 0 && (
+            <p className="mt-1">
+              Not on the panel yet, so added: {note.added.join(", ")}. Check the spelling.
+            </p>
+          )}
+          {note.problems.map((p) => (
+            <p key={p} className="mt-1" style={{ color: "var(--color-danger-ink)" }}>
+              {p}
+            </p>
+          ))}
+        </div>
+      )}
 
       {error && (
         <p role="alert" className="mt-4 text-[14px]" style={{ color: "var(--color-danger-ink)" }}>
