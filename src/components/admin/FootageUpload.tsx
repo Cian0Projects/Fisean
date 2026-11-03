@@ -36,6 +36,8 @@ import {
   readNewMatch,
 } from "@/lib/media/upload";
 import { fileSize, matchDate } from "@/lib/format";
+import { DEFAULT_MATCH_TYPE } from "@/lib/hurling/match-type";
+import { MatchTypeSelect } from "./MatchTypeSelect";
 
 type Upload = {
   id: string;
@@ -172,7 +174,7 @@ async function sendParts(
 }
 
 /** Where a file should go, as far as the browser knows when it starts. */
-type Target = { matchId?: string; newMatch?: { title: string; playedOn: string } };
+type Target = { matchId?: string; newMatch?: { title: string; playedOn: string; matchType: string } };
 
 /** A match already listed that a file could be added to. */
 export type UploadMatch = { id: string; opponent: string; playedOn: string; hasFootage: boolean };
@@ -458,6 +460,7 @@ function NameMatch({
   const withFootage = matches.filter((m) => m.hasFootage);
   const [title, setTitle] = useState("");
   const [playedOn, setPlayedOn] = useState(() => localDay(new Date(file.lastModified || Date.now())));
+  const [matchType, setMatchType] = useState<string>(DEFAULT_MATCH_TYPE);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -504,7 +507,7 @@ function NameMatch({
             setError(read.error);
             return;
           }
-          onSubmit({ newMatch: { title, playedOn } });
+          onSubmit({ newMatch: { title, playedOn, matchType } });
         }}
       >
         {matches.length > 0 && (
@@ -584,6 +587,16 @@ function NameMatch({
                 }}
                 className="field"
               />
+            </div>
+
+            <div>
+              <label htmlFor="upload-type" className="label mb-1.5 block">
+                Type of match
+              </label>
+              <MatchTypeSelect id="upload-type" value={matchType} onChange={setMatchType} />
+              <p className="mt-1.5 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+                Championship, league and the rest can be told apart on the stats pages. You can change it later from Matches.
+              </p>
             </div>
           </>
         )}

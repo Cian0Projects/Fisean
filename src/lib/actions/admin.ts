@@ -24,6 +24,7 @@ import { parseColour } from "@/lib/hurling/kit";
 import { orgTerms } from "@/lib/hurling/org";
 import type { End } from "@/lib/hurling/pitch";
 import { halfLengthProblem } from "@/lib/hurling/notation";
+import { readMatchType } from "@/lib/hurling/match-type";
 import { playerNameProblem, sameName, tidyName } from "@/lib/hurling/squad";
 import { looksLikeEmail, normaliseEmail } from "@/lib/auth/email-code";
 import {
@@ -70,6 +71,34 @@ export async function createMatch(input: {
   revalidatePath("/");
   revalidatePath("/stats");
   return { id: match.id };
+}
+
+/**
+ * Change what kind of match it was, for a match uploaded or started as the
+ * wrong one. Returns the refusal as a message, because a production build
+ * hides a thrown error's text. Nothing else about the match moves: the type is
+ * only a label, read by the season pages' competition filter and the headings.
+ */
+export async function setMatchType(
+  matchId: string,
+  matchType: string,
+): Promise<{ competition: string | null } | { error: string }> {
+  const user = await requireCoach();
+  const [match] = await db.select().from(matches).where(eq(matches.id, matchId)).limit(1);
+  if (!match || match.deletedAt !== null) return { error: "That match no longer exists." };
+  assertSameTeam(user, match);
+
+  const read = readMatchType(matchType, match.competition);
+  if ("error" in read) return { error: read.error };
+
+  await db.update(matches).set({ competition: read.type }).where(eq(matches.id, matchId));
+  revalidatePath("/");
+  revalidatePath("/admin");
+  revalidatePath("/stats", "layout");
+  revalidatePath("/m");
+  revalidatePath("/review/[videoId]", "page");
+  revalidatePath("/m/watch/[videoId]", "page");
+  return { competition: read.type };
 }
 
 /**

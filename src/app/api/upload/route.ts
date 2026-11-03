@@ -1,7 +1,7 @@
 /**
  * Start (or resume) a browser upload of a match file.
  *
- *   POST /api/upload  { filename, size, matchId? , newMatch?: { title, playedOn } }
+ *   POST /api/upload  { filename, size, matchId? , newMatch?: { title, playedOn, matchType? } }
  *     →  { videoId, partSize, partCount, done, match: { opponent, playedOn } }
  *     or { needsMatch: true }
  *
@@ -31,6 +31,7 @@ import { oppositionFor } from "@/lib/db/oppositions";
 import { contentTypeFor, store } from "@/lib/storage";
 import { clubStorage } from "@/lib/queries/storage";
 import { orgTerms } from "@/lib/hurling/org";
+import { readMatchType } from "@/lib/hurling/match-type";
 import {
   fileSizeProblem,
   isAcceptedVideo,
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
     filename?: unknown;
     size?: unknown;
     matchId?: unknown;
-    newMatch?: { title?: unknown; playedOn?: unknown };
+    newMatch?: { title?: unknown; playedOn?: unknown; matchType?: unknown };
   } | null;
   const filename = typeof body?.filename === "string" ? body.filename.slice(0, 255) : "";
   const size = typeof body?.size === "number" ? body.size : NaN;
@@ -113,12 +114,16 @@ export async function POST(req: NextRequest) {
   // Where the file goes: a match already listed, or a new one named now.
   let existing: { id: string; opponent: string; playedOn: string } | null = null;
   let named: NewMatch | null = null;
+  let competition: string | null = null;
   const fallbackMatchId = matchId ?? partial?.video.matchId ?? null;
 
   if (body?.newMatch) {
     const read = readNewMatch(body.newMatch);
     if ("error" in read) return problem(read.error, 400);
     named = read;
+    const kind = readMatchType(body.newMatch.matchType);
+    if ("error" in kind) return problem(kind.error, 400);
+    competition = kind.type;
   } else if (fallbackMatchId) {
     const [match] = await db.select().from(matches).where(eq(matches.id, fallbackMatchId)).limit(1);
     // Not found and not yours read the same, so ids from other clubs reveal nothing.
@@ -159,6 +164,7 @@ export async function POST(req: NextRequest) {
             opponent: opp!.name,
             oppositionId: opp!.id,
             playedOn: named!.playedOn,
+            competition,
             // The club's usual half length; 35 at senior inter-county, 30 at
             // most club grades.
             halfLengthMin: team?.halfLengthMin ?? 30,

@@ -33,6 +33,7 @@ import {
 } from "@/lib/media/upload";
 import { clubStorage } from "@/lib/queries/storage";
 import { orgTerms } from "@/lib/hurling/org";
+import { readMatchType } from "@/lib/hurling/match-type";
 import { importsForTeam, type ImportView } from "@/lib/queries/imports";
 
 export type LinkCheck =
@@ -92,11 +93,14 @@ export async function importFootage(input: {
   link: string;
   title: string;
   playedOn: string;
+  matchType?: string;
 }): Promise<{ ok: true; import: ImportView } | { ok: false; error: string }> {
   const user = await requireCoach();
 
   const named = readNewMatch({ title: input.title, playedOn: input.playedOn });
   if ("error" in named) return { ok: false, error: named.error };
+  const kind = readMatchType(input.matchType);
+  if ("error" in kind) return { ok: false, error: kind.error };
 
   const found = await inspect(input.link);
   if ("error" in found) return { ok: false, error: found.error };
@@ -139,6 +143,7 @@ export async function importFootage(input: {
           opponent: opp.name,
           oppositionId: opp.id,
           playedOn: named.playedOn,
+          competition: kind.type,
           halfLengthMin: team?.halfLengthMin ?? 30,
           createdBy: user.id,
         })

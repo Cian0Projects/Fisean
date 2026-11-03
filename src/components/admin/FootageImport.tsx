@@ -23,6 +23,8 @@ import {
   retryImport,
 } from "@/lib/actions/imports";
 import { readNewMatch } from "@/lib/media/upload";
+import { DEFAULT_MATCH_TYPE } from "@/lib/hurling/match-type";
+import { MatchTypeSelect } from "./MatchTypeSelect";
 import type { ImportView } from "@/lib/queries/imports";
 import { fileSize, matchDate } from "@/lib/format";
 
@@ -37,6 +39,7 @@ type Draft = {
   warning?: string | null;
   title: string;
   playedOn: string;
+  matchType: string;
 };
 
 /** How often the page asks how the transfers are getting on. */
@@ -76,6 +79,7 @@ export function FootageImport({ initial }: { initial: ImportView[] }) {
         state: "checking",
         title: "",
         playedOn: "",
+        matchType: DEFAULT_MATCH_TYPE,
       }));
       setDrafts((all) => [...all, ...fresh]);
       for (const d of fresh) {
@@ -115,7 +119,12 @@ export function FootageImport({ initial }: { initial: ImportView[] }) {
       }
       patch(d.key, { state: "sending", error: undefined });
       try {
-        const res = await importFootage({ link: d.link, title: d.title, playedOn: d.playedOn });
+        const res = await importFootage({
+          link: d.link,
+          title: d.title,
+          playedOn: d.playedOn,
+          matchType: d.matchType,
+        });
         if (res.ok) {
           setDrafts((all) => all.filter((x) => x.key !== d.key));
           setImports((all) => [...all, res.import]);
@@ -295,7 +304,7 @@ function DraftRow({
       </div>
 
       {(draft.state === "ready" || draft.state === "sending") && (
-        <div className="mt-2 grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem]">
+        <div className="mt-2 grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_10rem]">
           <div>
             <label htmlFor={`title-${draft.key}`} className="label mb-1 block">
               Match title
@@ -321,6 +330,17 @@ function DraftRow({
               disabled={busy}
               onChange={(e) => onChange({ playedOn: e.target.value })}
               className="field"
+            />
+          </div>
+          <div>
+            <label htmlFor={`type-${draft.key}`} className="label mb-1 block">
+              Type of match
+            </label>
+            <MatchTypeSelect
+              id={`type-${draft.key}`}
+              value={draft.matchType}
+              disabled={busy}
+              onChange={(matchType) => onChange({ matchType })}
             />
           </div>
         </div>

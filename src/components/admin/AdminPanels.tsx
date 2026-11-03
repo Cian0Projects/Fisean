@@ -14,9 +14,11 @@ import {
   restoreVideo,
   rotateJoinCode,
   setClubCode,
+  setMatchType,
   setMemberEmail,
   setMemberRole,
 } from "@/lib/actions/admin";
+import { readMatchType } from "@/lib/hurling/match-type";
 import { GAME_CODES, GAME_LABELS, isGameCode, type GameCode } from "@/lib/hurling/codes";
 import { formatClock } from "@/lib/hurling/notation";
 import { orgTerms, type OrgKind } from "@/lib/hurling/org";
@@ -25,6 +27,7 @@ import { matchDate, fileSize } from "@/lib/format";
 import { storageLevel } from "@/lib/media/upload";
 import { ClubBadge } from "@/components/ui/ClubBadge";
 import { BadgeEditor } from "./BadgeEditor";
+import { MatchTypeSelect } from "./MatchTypeSelect";
 import { ClubColours } from "./ClubColours";
 import { AddPlayer } from "./AddPlayer";
 import { UploadArea, UploadButton, UploadProvider, useUploads } from "./FootageUpload";
@@ -205,6 +208,24 @@ export function AdminPanels({
       </main>
     </UploadProvider>
   );
+}
+
+/** How many rows a list shows before it scrolls instead of stretching the page. */
+const LIST_ROWS_SHOWN = 3;
+
+/**
+ * Props for a list that holds three rows and scrolls past them. A row is about
+ * four rem tall, so 13.5rem shows three whole ones and the top of the fourth,
+ * which tells the eye there is more. Focusable, so a keyboard can scroll it.
+ */
+function scrollAfter(rows: number, label: string) {
+  if (rows <= LIST_ROWS_SHOWN) return {};
+  return {
+    className: "max-h-[13.5rem] overflow-y-auto overscroll-contain pr-2",
+    tabIndex: 0,
+    role: "region" as const,
+    "aria-label": `${label}, scrolls`,
+  };
 }
 
 /** "1 match", "3 matches" — never "1 matches". */
@@ -767,7 +788,7 @@ function Matches({
       {matches.length === 0 ? (
         <Empty>None yet. Upload a match file under Footage to add the first one.</Empty>
       ) : (
-        <ul>
+        <ul {...scrollAfter(matches.length, "Matches")}>
           {matches.map((m) => (
             <MatchRow
               key={m.id}
@@ -799,9 +820,34 @@ function MatchRow({
   canDelete: boolean;
 }) {
   const [pending, startTransition] = useTransition();
+  const [editing, setEditing] = useState(false);
+  const [saving, startSaving] = useTransition();
+  // A match with no type reads as a friendly, so Edit starts there too.
+  const held = readMatchType(match.competition, match.competition);
+  const [type, setType] = useState("Friendly");
+  const [error, setError] = useState<string | null>(null);
   const ready = footage.find((v) => v.status === "ready");
   const arriving = !ready && footage.some((v) => v.status === "uploading");
   const where = [match.competition, match.venue].filter(Boolean).join(" at ") || "Friendly";
+
+  function startEditing() {
+    setType(("type" in held && held.type) || "Friendly");
+    setError(null);
+    setEditing(true);
+  }
+
+  function save() {
+    setError(null);
+    startSaving(async () => {
+      try {
+        const res = await setMatchType(match.id, type);
+        if ("error" in res) setError(res.error);
+        else setEditing(false);
+      } catch {
+        setError("Could not reach Ardawn. Check the connection and try again.");
+      }
+    });
+  }
 
   return (
     <li className="fixture flex flex-wrap items-center gap-x-4 gap-y-1 py-3">
@@ -833,6 +879,9 @@ function MatchRow({
         <Link href={`/matches/${match.id}/stats/log`} className="btn-ghost text-xs">
           Log stats
         </Link>
+        <button onClick={editing ? () => setEditing(false) : startEditing} className="btn-ghost text-xs">
+          {editing ? "Close" : "Edit"}
+        </button>
         {canDelete && (
           <button
             disabled={pending}
@@ -851,6 +900,34 @@ function MatchRow({
           </button>
         )}
       </div>
+
+      {editing && (
+        <div className="flex w-full flex-wrap items-end gap-2 pt-1">
+          <div className="min-w-[10rem] flex-1">
+            <label htmlFor={`type-${match.id}`} className="label mb-1 block">
+              Type of match
+            </label>
+            <MatchTypeSelect
+              id={`type-${match.id}`}
+              value={type}
+              current={match.competition}
+              disabled={saving}
+              onChange={(v) => {
+                setType(v);
+                setError(null);
+              }}
+            />
+          </div>
+          <button onClick={save} disabled={saving} className="btn-primary text-xs">
+            {saving ? "Saving…" : "Save"}
+          </button>
+          {error && (
+            <p className="w-full text-[13px]" style={{ color: "var(--color-danger-ink)" }}>
+              {error}
+            </p>
+          )}
+        </div>
+      )}
     </li>
   );
 }
@@ -1051,7 +1128,7 @@ function Footage({
       {listed.length === 0 ? (
         <Empty>No footage yet.</Empty>
       ) : (
-        <ul>
+        <ul {...scrollAfter(listed.length, "Footage")}>
           {listed.map((v) => {
             const warning = codecWarning(v.codec);
             return (

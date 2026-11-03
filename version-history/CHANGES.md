@@ -6,6 +6,11 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## Choosing the type of match, and changing it later
+*2026-11-03*
+
+Uploading footage, or bringing it across from a link, now asks what kind of match it was: Championship, League, Friendly, Challenge or Tournament, defaulting to Friendly (what an unset match already read as). Before, a match made from an upload had no competition at all, so it could never be told apart on the season pages' competition filter. Every match row under Matches on the Squad page also has an Edit button to correct the type, for coaches and admins alike; a competition typed in elsewhere (the stat sheet's own form is still free text) is kept as the first choice rather than lost. No schema change: the type is the existing `matches.competition`, and the list and its rules are in `src/lib/hurling/match-type.ts`. The Matches and Footage lists on that page now hold three rows and scroll past them instead of lengthening the page.
+
 ## A How to page, and the videos on the landing page
 *2026-11-03*
 
