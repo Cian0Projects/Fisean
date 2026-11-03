@@ -205,7 +205,7 @@ export function StatReport({
             note="Every attempt at the posts, both ways. Their shots are coloured from our side of them: a red ring is one they scored."
             legend={<Legend />}
           >
-            <div className="grid gap-10 lg:grid-cols-2">
+            <div className={SIDE_BY_SIDE}>
               <ShootingColumn name={teamName} s={ours} ours rows={ourShots} players={players} vocabulary={vocabulary} />
               <ShootingColumn
                 name={match.opponent}
@@ -238,7 +238,7 @@ export function StatReport({
             note={`Each side's own restarts, read from the side taking them. A short one of ours only counts as retained once it is worked out past our ${terms.line}.`}
             legend={<Legend />}
           >
-            <div className="grid gap-10 lg:grid-cols-2">
+            <div className={SIDE_BY_SIDE}>
               <PuckoutColumn
                 name={teamName}
                 b={puckoutBreakdown(rows, "us")}
@@ -580,22 +580,28 @@ function ShootingColumn({
     : null;
 
   return (
-    <div>
-      <h3 className="title text-[16px]">{name}</h3>
+    <div className={SIDE_COLUMN}>
+      <div>
+        <h3 className="title text-[16px]">{name}</h3>
 
-      {/* Overall scoring efficiency — the number that settles the argument. */}
-      <div className="mt-3">
-        <ShootingFigure s={s} ours={ours} />
+        {/* Overall scoring efficiency — the number that settles the argument. */}
+        <div className="mt-3">
+          <ShootingFigure s={s} ours={ours} />
+        </div>
       </div>
 
-      {/* Four panels sit two by two; hurling's three stay in a row. */}
-      <div
-        className={`mt-6 grid gap-5 lg:grid-cols-1 ${arcRows ? "sm:grid-cols-2 xl:grid-cols-2" : "sm:grid-cols-3 xl:grid-cols-3"}`}
-      >
-        <Counts title={vocabulary.shotKindLabels.play} rows={resultRows(s.playResults)} />
-        <Counts title={`Scorable free or ${vocabulary.terms.endLineFree}`} rows={resultRows(s.placedResults)} />
-        <Counts title="Attempt came from" rows={sourceRows} />
-        {arcRows && <Counts title="Inside or outside the arc" rows={arcRows} />}
+      {/* Four panels sit two by two; hurling's three stay in a row. Laid out by
+          the width of the column, not the screen, so they fill whatever room
+          the half of the page gives them. */}
+      <div className="@container mt-6">
+        <div
+          className={`grid gap-x-5 gap-y-5 ${arcRows ? "@[22rem]:grid-cols-2" : "@[22rem]:grid-cols-2 @[36rem]:grid-cols-3"}`}
+        >
+          <Counts title={vocabulary.shotKindLabels.play} rows={resultRows(s.playResults)} />
+          <Counts title={`Scorable free or ${vocabulary.terms.endLineFree}`} rows={resultRows(s.placedResults)} />
+          <Counts title="Attempt came from" rows={sourceRows} />
+          {arcRows && <Counts title="Inside or outside the arc" rows={arcRows} />}
+        </div>
       </div>
 
       <div className="mt-6">
@@ -715,29 +721,37 @@ function PuckoutColumn({
   const kept: Tone = ours ? "positive" : "negative";
   const lost: Tone = ours ? "negative" : "positive";
 
-  const lengthRows = PUCKOUT_LENGTHS.flatMap((length) => {
-    const line = b.byLength[length];
-    const label = PUCKOUT_LENGTH_LABELS[length];
-    const out: CountRow[] = [{ label: `${label} won`, value: line.kept, tone: kept }];
-    // The short ones we won, split by whether they did their job.
-    if (ours && length === "short" && (b.shortPastSixtyFive > 0 || b.shortHeldInside > 0)) {
-      out.push({ label: `Past our ${ourLine}`, value: b.shortPastSixtyFive, tone: "positive", indent: true });
-      out.push({ label: `Held inside our ${ourLine}`, value: b.shortHeldInside, tone: "negative", indent: true });
-    }
-    // A short one is rarely lost outright, so that row only appears when it was.
-    if (line.lost > 0 || length !== "short") out.push({ label: `${label} lost`, value: line.lost, tone: lost });
-    return out;
-  });
+  // The lengths run across the panel and won over lost runs down it, so three
+  // columns read as a small table: short, mid and long on top, what we got
+  // from each below. A short one is rarely lost outright; its cell stays empty
+  // so the rows underneath keep their columns. On a narrow screen the same
+  // cells just read one after another.
+  const lengthCells = (pick: "kept" | "lost"): CountRow[] =>
+    PUCKOUT_LENGTHS.map((length) => {
+      const line = b.byLength[length];
+      const label = PUCKOUT_LENGTH_LABELS[length];
+      if (pick === "kept") return { label: `${label} won`, value: line.kept, tone: kept };
+      if (line.lost === 0 && length === "short") return { label: "", value: 0, blank: true };
+      return { label: `${label} lost`, value: line.lost, tone: lost };
+    });
+  const unclear = Object.values(b.byLength).reduce((n, l) => n + l.unclear, 0);
+  const lengthRows: CountRow[] = [...lengthCells("kept"), ...lengthCells("lost")];
+  // The short ones we won, split by whether they did their job.
+  if (ours && (b.shortPastSixtyFive > 0 || b.shortHeldInside > 0)) {
+    lengthRows.push({ label: `Short, past our ${ourLine}`, value: b.shortPastSixtyFive, tone: "positive" });
+    lengthRows.push({ label: `Short, held inside our ${ourLine}`, value: b.shortHeldInside, tone: "negative" });
+  }
   const unrecorded = b.byLength.unrecorded;
-  if (unrecorded.kept + unrecorded.lost > 0) {
+  const unrecordedLogged = unrecorded.kept + unrecorded.lost > 0;
+  if (unrecordedLogged) {
     lengthRows.push({ label: "Length not logged, won", value: unrecorded.kept, tone: kept });
     lengthRows.push({ label: "Length not logged, lost", value: unrecorded.lost, tone: lost });
   }
-  const unclear = Object.values(b.byLength).reduce((n, l) => n + l.unclear, 0);
   if (unclear > 0) lengthRows.push({ label: "Broke unclear", value: unclear, tone: "unclear" });
 
   return (
-    <div>
+    <div className={SIDE_COLUMN}>
+      <div>
       <h3 className="title text-[16px]">{name}</h3>
       <div className="mt-3">
         {ours ? (
@@ -768,9 +782,10 @@ function PuckoutColumn({
           </>
         )}
       </div>
+      </div>
 
-      <div className="mt-6 sm:w-2/3 lg:w-full xl:w-2/3">
-        <Counts title={`${name} ${restarts.toLowerCase()}`} rows={lengthRows} />
+      <div className="mt-6">
+        <Counts title={`${name} ${restarts.toLowerCase()}`} rows={lengthRows} columns={3} />
       </div>
 
       <div className="mt-6">
@@ -979,36 +994,81 @@ function HalfMaps({
   );
 }
 
-type CountRow = { label: string; value: number; tone?: Tone; indent?: boolean; detail?: string };
+type CountRow = {
+  label: string;
+  value: number;
+  tone?: Tone;
+  indent?: boolean;
+  detail?: string;
+  /** An empty cell that holds its place in a multi-column list. */
+  blank?: boolean;
+};
 
-/** A short labelled list of counts, like the panels on the analyst's slides. */
-function Counts({ title, rows }: { title: string; rows: CountRow[] }) {
+/**
+ * Two grids for the two halves of a comparison. Side by side, the head, the
+ * list and the maps of each column share rows (a subgrid), so the pitches start
+ * at the same height however many rows one side has. Stacked on a phone they
+ * are just two blocks, one after the other.
+ */
+const SIDE_BY_SIDE = "grid gap-10 lg:grid-cols-2 lg:gap-x-10 lg:gap-y-0";
+const SIDE_COLUMN = "min-w-0 lg:row-span-3 lg:grid lg:grid-rows-subgrid";
+
+/**
+ * A short labelled list of counts, like the panels on the analyst's slides.
+ * With `columns` it runs that many across once the panel is wide enough, and
+ * reads as one list below that; the width is the panel's own, not the screen's.
+ */
+function Counts({ title, rows, columns = 1 }: { title: string; rows: CountRow[]; columns?: 1 | 3 }) {
+  // Pad to a whole last row so its rules run to the edge.
+  const padding: CountRow[] =
+    columns === 1 || rows.length % columns === 0
+      ? []
+      : Array.from({ length: columns - (rows.length % columns) }, () => ({ label: "", value: 0, blank: true }));
+  const cells = [...rows, ...padding];
   return (
-    <div>
+    <div className="@container">
       <h4 className="label mb-1.5">{title}</h4>
-      <ul className="border-t" style={{ borderColor: "var(--color-line-strong)" }}>
-        {rows.map((r) => (
-          <li
-            key={r.label}
-            className="flex items-baseline justify-between gap-3 border-b py-1.5 text-[14px]"
-            style={{ borderColor: "var(--color-line)", paddingLeft: r.indent ? "1rem" : undefined }}
-          >
-            <span style={{ color: r.indent ? "var(--color-ink-dim)" : undefined }}>
-              {r.label}
-              {r.detail && (
-                <span className="ml-1.5 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-                  {r.detail}
-                </span>
-              )}
-            </span>
-            <span
-              className="tabular"
-              style={{ color: r.value === 0 ? "var(--color-ink-faint)" : toneInk(r.tone ?? "neutral") }}
+      <ul
+        className={`border-t ${columns === 3 ? "grid @[36rem]:grid-cols-3" : ""}`}
+        style={{ borderColor: "var(--color-line-strong)" }}
+      >
+        {cells.map((r, i) => {
+          // Vertical rules and padding between the columns, only once they exist.
+          const col = columns === 3 ? i % 3 : 0;
+          const across = columns === 3 ? `${col > 0 ? "@[36rem]:border-l @[36rem]:pl-4 " : ""}${col < 2 ? "@[36rem]:pr-4" : ""}` : "";
+          return (
+            <li
+              key={`${i}-${r.label}`}
+              aria-hidden={r.blank || undefined}
+              className={`${r.blank ? "hidden @[36rem]:flex" : "flex"} items-baseline justify-between gap-3 border-b py-1.5 text-[14px] ${across}`}
+              style={{
+                borderColor: "var(--color-line)",
+                paddingLeft: r.indent ? "1rem" : undefined,
+              }}
             >
-              {r.value}
-            </span>
-          </li>
-        ))}
+              {r.blank ? (
+                <span>&nbsp;</span>
+              ) : (
+                <>
+                  <span style={{ color: r.indent ? "var(--color-ink-dim)" : undefined }}>
+                    {r.label}
+                    {r.detail && (
+                      <span className="ml-1.5 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+                        {r.detail}
+                      </span>
+                    )}
+                  </span>
+                  <span
+                    className="tabular"
+                    style={{ color: r.value === 0 ? "var(--color-ink-faint)" : toneInk(r.tone ?? "neutral") }}
+                  >
+                    {r.value}
+                  </span>
+                </>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
