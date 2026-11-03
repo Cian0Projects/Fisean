@@ -457,12 +457,12 @@ async function Dashboard() {
   const user = await requireUser();
 
   /**
-   * The match whose footage arrived last leads, because a new video is what
-   * everyone came to look at — even when it is of a game played a fortnight
-   * ago. Only finished uploads count, so a file stopped part-way never takes
-   * the cover. With no footage at all, the last match played leads instead.
-   * Below it the season runs as a fixture list in date order, and beside that
-   * a rail of ways back into moments already picked out.
+   * The match most recently played leads, whatever order the footage was
+   * uploaded in: a late upload of an old game must not take the cover from
+   * the latest one. The last finished upload is still looked up, so the cover
+   * can say when its video arrived. Below it the season runs as a fixture
+   * list in date order, and beside that a rail of ways back into moments
+   * already picked out.
    */
   const [lastUpload] = await db
     .select({ matchId: videos.matchId, videoId: videos.id, createdAt: videos.createdAt })
@@ -476,17 +476,11 @@ async function Dashboard() {
     .select()
     .from(matches)
     .where(and(eq(matches.teamId, user.teamId), isOurMatch))
-    .orderBy(desc(matches.playedOn))
+    .orderBy(desc(matches.playedOn), desc(matches.createdAt))
     .limit(20);
 
-  // The lead may be older than the twenty listed; fetch it so it still leads.
-  const leadRow =
-    season.find((m) => m.id === lastUpload?.matchId) ??
-    (lastUpload?.matchId
-      ? (await db.select().from(matches).where(eq(matches.id, lastUpload.matchId)).limit(1))[0]
-      : undefined) ??
-    season[0];
-  const matchRows = leadRow ? [leadRow, ...season.filter((m) => m.id !== leadRow.id)] : season;
+  // The season is already newest played first, so its head leads.
+  const matchRows = season;
 
   const ids = matchRows.map((m) => m.id);
 
