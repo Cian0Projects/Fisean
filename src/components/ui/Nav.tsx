@@ -96,6 +96,16 @@ export function Nav({ user }: { user: SessionUser }) {
           <Link href="/m" className="whitespace-nowrap text-[13px] sm:hidden" style={{ color: "var(--color-ink-dim)" }}>
             Phone view
           </Link>
+          {/* The how-to videos. Off the sections bar, which is for the work itself, and
+              out of a phone's masthead, which has no room. */}
+          <Link
+            href="/help"
+            aria-current={pathname.startsWith("/help") ? "page" : undefined}
+            className="hidden text-[13px] transition-colors hover:text-[var(--color-ink)] sm:block"
+            style={{ color: pathname.startsWith("/help") ? "var(--color-ink)" : "var(--color-ink-dim)" }}
+          >
+            How to
+          </Link>
           {/* The name opens your account: your email and what gets emailed to you. */}
           <Link href="/account" className="hidden leading-tight sm:block" title="Your account">
             <div className="text-[13px] font-semibold">{user.displayName}</div>

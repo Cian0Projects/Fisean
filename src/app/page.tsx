@@ -42,6 +42,8 @@ import { ResultBox, verdict, verdictColour } from "@/components/matches/ResultBo
 import { RevealOnScroll } from "@/components/home/RevealOnScroll";
 import { CodeHero } from "@/components/home/CodeHero";
 import { homeJsonLd, jsonLdScript } from "@/lib/seo";
+import { openGuides } from "@/lib/guides";
+import { GuideCard } from "@/components/help/GuideCard";
 
 /* Title and description come from the root layout; only the canonical is the
    home page's own, so a link carrying ?utm_source= still counts for "/". */
@@ -172,6 +174,19 @@ function PublicHomepage() {
                 A spoken stat and the four fields it fills in: shot, ours, score, player 12.
               </figcaption>
             </figure>
+          </div>
+        </section>
+
+        {/* The two videos a stranger can watch: getting a club on, and getting
+            a player in. The rest are for members, on /help. */}
+        <section id="getting-started" className="border-t border-line" aria-label="Getting started">
+          <div className="sheet py-16 sm:py-20">
+            <h2 className="headline max-w-xl text-[clamp(2.7rem,5vw,4.4rem)]">Up and running in a minute.</h2>
+            <div className="mt-10 grid gap-x-8 gap-y-10 sm:grid-cols-2">
+              {openGuides().map((g) => (
+                <GuideCard key={g.slug} guide={g} />
+              ))}
+            </div>
           </div>
         </section>
 

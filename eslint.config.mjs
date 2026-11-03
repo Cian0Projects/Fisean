@@ -12,6 +12,7 @@ const config = [
       "node_modules/**",
       "data/**",
       "mobile/**",
+      "tutorials/**",
       "next-env.d.ts",
       // Agent tooling and its working files, not app source.
       ".claude/**",

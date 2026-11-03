@@ -23,6 +23,7 @@ export default function robots(): MetadataRoute.Robots {
         "/drills",
         "/stats",
         "/account",
+        "/help",
         "/login",
         "/join",
         "/unsubscribe",

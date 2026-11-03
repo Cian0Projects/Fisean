@@ -1,0 +1,9 @@
+{
+  "name": "fisean-tutorials",
+  "private": true,
+  "type": "module",
+  "description": "Scripts that record the how-to videos with Playwright. Kept out of the app's own dependencies.",
+  "devDependencies": {
+    "playwright": "^1.64.1"
+  }
+}

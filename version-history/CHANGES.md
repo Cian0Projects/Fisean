@@ -6,10 +6,20 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## A How to page, and the videos on the landing page
+*2026-11-03*
+
+The how-to videos are now in the app. A signed in member has a How to link in the masthead (beside their name) that opens `/help`, showing the videos that suit their role: everyone gets joining and clipping, coaches add stat logging, sharing the stat sheet and drawing a drill, and only an admin is shown club set up. The two a stranger needs, setting up a club and joining one, are also on the landing page under "Up and running in a minute". Those two are plain files in `public/guides/`. The other four moved to `content/guides/`, outside `public/`, and are served by `/api/guides/[file]` to a signed in request only (401 otherwise, with Range so they seek). Nothing bills against a plan yet, so "behind the paywall" is the sign-in; when billing arrives, that route is where the plan check goes. Which video is for whom, and which is open, is one list in `src/lib/guides.ts`, and the recorder writes a video marked `members: true` to `content/guides/` so a re-record cannot put one back in public.
+
 ## A squad's own stats
 *2026-11-02*
 
 A coach or admin can now define stats the standard sheet has no heading for, on the squad page under "Our own stats". Each has a name and a short menu of what logging it asks: whose it is (ours, theirs, or either asked each time), our player's number, their player's number, how it went (good for us, against us, unclear), whether a score is involved (none, did it lead to a score, or which score), and a place on the pitch (none, one place, or from here to there). The builder shows the form being made as it goes. They are logged beside the match stats in both places stats are taken, as a second tab: the logging page on the line, and the stat pad beside the footage. They are drafted, timed and submitted exactly like the built-in sheet, and each gets its own section on the report with a sentence of totals, a map per half and who it was credited to. A score recorded on a custom stat never adds to the match score, so a shot is still logged as a shot. Retiring a stat takes it off the logging screens but keeps its history; deleting one removes its entries. They live in two new tables (`custom_stats`, `custom_stat_entries`, migration 0039) rather than as more built-in stat types, which keeps the fixed vocabulary and its voice parsing, trends and colours untouched. The same settings section lists the standard stats, and a squad can remove the ones it never logs (a `hidden_stats` table, migration 0040). Removing only hides: the logging screens stop offering it and the report drops its section once nothing is logged under it, so nothing already logged is lost, and one standard stat always has to stay. Custom stats do not yet appear on the season or per player pages.
+
+## How-to videos, recorded with Playwright
+*2026-11-02*
+
+Six short videos show the tool being used: setting up a club, joining as a player, logging stats during a match, sharing the stat sheet afterwards, drawing a drill, and clipping a moment. They are real recordings of the app, made by scripts in `tutorials/` (its own `package.json`, outside `npm run check`) and written to `public/guides/` as 1080p mp4 files with a poster each, so they can be re-recorded whenever the screens change. Frames come from Chrome's screencast rather than Playwright's built in video, which smears small type, and the cursor, captions and title cards are drawn into the page. They record against a throwaway database with a made up squad. Nothing in the app links to them yet.
 
 ## Prices on the landing page
 *2026-11-02*
