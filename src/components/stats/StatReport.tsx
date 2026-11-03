@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PitchMap } from "@/components/pitch/PitchMap";
+import { MapGroups, MapViewProvider, MapViewToggle, type MapGroup } from "./MapView";
 import { PrintButton } from "./PrintButton";
 import {
   numberSheet,
@@ -202,6 +202,7 @@ export function StatReport({
           <Section
             id="shooting"
             title="Score opportunities"
+            maps={hasHalves(shots)}
             note="Every attempt at the posts, both ways. Their shots are coloured from our side of them: a red ring is one they scored."
             legend={<Legend />}
           >
@@ -235,6 +236,7 @@ export function StatReport({
           {/* -------------------------------------------- poc amach or kick-outs */}
           <Section
             title={terms.restarts}
+            maps={hasHalves(of("puckout"))}
             note={`Each side's own restarts, read from the side taking them. A short one of ours only counts as retained once it is worked out past our ${terms.line}.`}
             legend={<Legend />}
           >
@@ -267,6 +269,7 @@ export function StatReport({
           {/* --------------------------------------------------------- delivery */}
           <Section
             title="Delivery"
+            maps={hasHalves(of("delivery"))}
             note={`From inside our ${terms.line} to beyond theirs. Each arrow runs from where it was struck to where it landed; a lost one is dashed.`}
             legend={<Legend />}
           >
@@ -295,6 +298,7 @@ export function StatReport({
           {/* ---------------------------------------------- turnovers and tackles */}
           <Section
             title="Turnovers and tackles"
+            maps={hasHalves(of("tackle", "turnover"))}
             note="Possessions won and lost, and the tackles that won them."
             legend={<Legend tackle />}
           >
@@ -318,6 +322,7 @@ export function StatReport({
           {/* ------------------------------------------------------- discipline */}
           <Section
             title="Discipline"
+            maps={hasHalves(of("free_conceded", "free_won"))}
             note="Where frees were given, both ways. Ringed in red against us, filled green for us."
             legend={<Legend />}
           >
@@ -332,6 +337,7 @@ export function StatReport({
           {terms.marks && !off("mark") && (
             <Section
               title="Marks"
+              maps={hasHalves(of("mark"))}
               note={`Clean catches that earn a free, both ways: off a ${terms.restart.toLowerCase()}, or an advanced mark inside the 45. Filled green for ours, ringed red for theirs.`}
               legend={<Legend />}
             >
@@ -890,6 +896,7 @@ function Section({
   title,
   note,
   legend,
+  maps = false,
   children,
 }: {
   /** An anchor other pages can link to — the matches cover links to #shooting. */
@@ -897,9 +904,11 @@ function Section({
   title: string;
   note?: string;
   legend?: React.ReactNode;
+  /** Its maps have halves to switch between: adds the "Full game" button. */
+  maps?: boolean;
   children: React.ReactNode;
 }) {
-  return (
+  const section = (
     <section id={id} className="mt-14 scroll-mt-6 print:mt-0 print:break-before-page">
       <div className="section-head mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -910,11 +919,15 @@ function Section({
             </p>
           )}
         </div>
-        {legend}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          {legend}
+          {maps && <MapViewToggle />}
+        </div>
       </div>
       <div className="space-y-8">{children}</div>
     </section>
   );
+  return maps ? <MapViewProvider>{section}</MapViewProvider> : section;
 }
 
 /**
@@ -938,8 +951,10 @@ function Lead({
 }
 
 /**
- * A section's maps, one per half. The pitch is normalised so we always attack
- * to the right, whichever end we played in, so the two halves line up.
+ * A section's maps, one per half, drawn the way the game went: the pitch is
+ * stored with us attacking to the right in both halves, and the 2nd is turned
+ * to match the swap of ends. The section's "Full game" button puts the lot on
+ * one pitch in the stored direction (see MapView).
  * Entries typed up without a half get a third map rather than being guessed
  * into one — and a sheet with no halves at all gets a single map of the lot.
  */
@@ -963,35 +978,39 @@ function HalfMaps({
   }
 
   const unhalved = rows.filter((r) => r.half == null);
-  const groups =
-    unhalved.length === rows.length
-      ? [{ title: "Whole match", rows }]
-      : [
-          { title: "1st half", rows: rows.filter((r) => r.half === 1) },
-          { title: "2nd half", rows: rows.filter((r) => r.half === 2) },
-          ...(unhalved.length ? [{ title: "Half not logged", rows: unhalved }] : []),
-        ];
+  const halved = unhalved.length !== rows.length;
+  const group = (title: string, of: StatRow[], turned: boolean): MapGroup => {
+    const marks = statMarks(of, players, code);
+    return {
+      title,
+      count: marks.length === of.length ? `${of.length} logged` : `${marks.length} of ${of.length} placed`,
+      marks,
+      turned,
+    };
+  };
+  // The teams swap ends at the break, so the 2nd half is drawn turned. Entries
+  // with no half cannot be placed in the game, so they stay as stored.
+  const halves = halved
+    ? [
+        group("1st half", rows.filter((r) => r.half === 1), false),
+        group("2nd half", rows.filter((r) => r.half === 2), true),
+        ...(unhalved.length ? [group("Half not logged", unhalved, false)] : []),
+      ]
+    : [group("Whole match", rows, false)];
 
   return (
-    <div className={`grid gap-6 ${stacked ? "" : "md:grid-cols-2"}`}>
-      {groups.map((g) => {
-        const marks = statMarks(g.rows, players, code);
-        return (
-          <figure key={g.title} className="m-0">
-            <figcaption className="mb-2 flex items-baseline justify-between gap-2">
-              <h3 className="title text-[14px]">{g.title}</h3>
-              <span className="tabular text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-                {marks.length === g.rows.length
-                  ? `${g.rows.length} logged`
-                  : `${marks.length} of ${g.rows.length} placed`}
-              </span>
-            </figcaption>
-            <PitchMap marks={marks} code={code} />
-          </figure>
-        );
-      })}
-    </div>
+    <MapGroups
+      halves={halves}
+      full={halved ? group("Full game", rows, false) : null}
+      code={code}
+      stacked={stacked}
+    />
   );
+}
+
+/** Whether a section's entries carry halves, so there is something to switch between. */
+function hasHalves(rows: StatRow[]): boolean {
+  return rows.some((r) => r.half != null);
 }
 
 type CountRow = {

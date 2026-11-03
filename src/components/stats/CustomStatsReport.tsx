@@ -11,7 +11,8 @@
  * Kept apart from StatReport, which is already long and is organised around
  * the built-in stat types. It prints with the rest: a block per page.
  */
-import { PitchMap, type PitchMark } from "@/components/pitch/PitchMap";
+import type { PitchMark } from "@/components/pitch/PitchMap";
+import { MapGroups, MapViewProvider, MapViewToggle, type MapGroup } from "./MapView";
 import {
   customColour,
   customSentence,
@@ -104,49 +105,55 @@ function StatBlock({
   );
 }
 
-/** The pitch is normalised so we always attack to the right, so the halves line up. */
+/**
+ * The maps by half, the 2nd turned for the swap of ends, with a "Full game"
+ * button for all of it on one pitch in the stored direction (see MapView).
+ */
 function Maps({ def, rows, code }: { def: CustomStatDef; rows: CustomEntryRow[]; code: GameCode }) {
   const unhalved = rows.filter((r) => r.half == null);
-  const groups =
-    unhalved.length === rows.length
-      ? [{ title: "Whole match", rows }]
-      : [
-          { title: "1st half", rows: rows.filter((r) => r.half === 1) },
-          { title: "2nd half", rows: rows.filter((r) => r.half === 2) },
-          ...(unhalved.length ? [{ title: "Half not logged", rows: unhalved }] : []),
-        ];
+  const halved = unhalved.length !== rows.length;
+  const group = (title: string, of: CustomEntryRow[], turned: boolean): MapGroup => {
+    const marks = of
+      .filter((r) => r.originX != null && r.originY != null)
+      .map(
+        (r): PitchMark => ({
+          id: r.id,
+          x: r.originX!,
+          y: r.originY!,
+          toX: r.destX,
+          toY: r.destY,
+          colour: customColour(r),
+          shape: customShape(r),
+          label: r.playerNumber != null ? String(r.playerNumber) : null,
+          title: describeCustom(def, r),
+        }),
+      );
+    return {
+      title,
+      count: marks.length === of.length ? `${of.length} logged` : `${marks.length} of ${of.length} placed`,
+      marks,
+      turned,
+    };
+  };
+  const halves = halved
+    ? [
+        group("1st half", rows.filter((r) => r.half === 1), false),
+        group("2nd half", rows.filter((r) => r.half === 2), true),
+        ...(unhalved.length ? [group("Half not logged", unhalved, false)] : []),
+      ]
+    : [group("Whole match", rows, false)];
 
   return (
-    <div className="mt-6 grid gap-6 md:grid-cols-2">
-      {groups.map((g) => {
-        const marks = g.rows
-          .filter((r) => r.originX != null && r.originY != null)
-          .map(
-            (r): PitchMark => ({
-              id: r.id,
-              x: r.originX!,
-              y: r.originY!,
-              toX: r.destX,
-              toY: r.destY,
-              colour: customColour(r),
-              shape: customShape(r),
-              label: r.playerNumber != null ? String(r.playerNumber) : null,
-              title: describeCustom(def, r),
-            }),
-          );
-        return (
-          <figure key={g.title} className="m-0">
-            <figcaption className="mb-2 flex items-baseline justify-between gap-2">
-              <h4 className="title text-[14px]">{g.title}</h4>
-              <span className="tabular text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-                {marks.length === g.rows.length ? `${g.rows.length} logged` : `${marks.length} of ${g.rows.length} placed`}
-              </span>
-            </figcaption>
-            <PitchMap marks={marks} code={code} />
-          </figure>
-        );
-      })}
-    </div>
+    <MapViewProvider>
+      <div className="mt-6">
+        {halved && (
+          <div className="mb-3 flex justify-end">
+            <MapViewToggle />
+          </div>
+        )}
+        <MapGroups halves={halves} full={halved ? group("Full game", rows, false) : null} code={code} level={4} />
+      </div>
+    </MapViewProvider>
   );
 }
 
