@@ -8,6 +8,7 @@ import { Mark } from "@/components/ui/Mark";
 import { ClubBadge } from "@/components/ui/ClubBadge";
 import { orgTerms } from "@/lib/hurling/org";
 import { InstallHint } from "@/components/ui/InstallHint";
+import { PlayIcon } from "@/components/ui/Icon";
 
 /**
  * The masthead.
@@ -96,18 +97,37 @@ export function Nav({ user }: { user: SessionUser }) {
           <Link href="/m" className="whitespace-nowrap text-[13px] sm:hidden" style={{ color: "var(--color-ink-dim)" }}>
             Phone view
           </Link>
-          {/* The how-to videos. Off the sections bar, which is for the work itself, and
-              out of a phone's masthead, which has no room. */}
+          {/* The help videos, as a button rather than a tab: the sections bar is the
+              work, and this is a thing to press. A play mark and a plain name say what
+              is behind it, and a rule keeps it apart from who you are signed in as.
+              Out of a phone or small tablet masthead, which has no room. */}
           <Link
             href="/help"
             aria-current={pathname.startsWith("/help") ? "page" : undefined}
-            className="hidden text-[13px] transition-colors hover:text-[var(--color-ink)] sm:block"
-            style={{ color: pathname.startsWith("/help") ? "var(--color-ink)" : "var(--color-ink-dim)" }}
+            title="Short videos on how to use Ardawn"
+            aria-label="Help videos"
+            className="hidden shrink-0 items-center gap-2 whitespace-nowrap border px-2 py-1.5 xl:px-3 text-[13px] font-semibold transition-colors hover:border-[var(--color-ink)] hover:text-[var(--color-ink)] lg:inline-flex"
+            style={{
+              borderColor: pathname.startsWith("/help") ? "var(--color-ink)" : "var(--color-line-strong)",
+              color: pathname.startsWith("/help") ? "var(--color-ink)" : "var(--color-ink-dim)",
+              borderRadius: 2,
+            }}
           >
-            How to
+            <span
+              aria-hidden
+              className="grid h-[18px] w-[18px] place-items-center rounded-full border border-current"
+            >
+              <PlayIcon size={8} />
+            </span>
+            <span className="hidden xl:inline">Help videos</span>
           </Link>
+          <span
+            aria-hidden
+            className="mx-1 hidden h-7 w-px lg:block"
+            style={{ background: "var(--color-line-strong)" }}
+          />
           {/* The name opens your account: your email and what gets emailed to you. */}
-          <Link href="/account" className="hidden leading-tight sm:block" title="Your account">
+          <Link href="/account" className="hidden shrink-0 whitespace-nowrap leading-tight sm:block" title="Your account">
             <div className="text-[13px] font-semibold">{user.displayName}</div>
             {user.role !== "player" && (
               <div className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
@@ -116,7 +136,7 @@ export function Nav({ user }: { user: SessionUser }) {
             )}
           </Link>
           {/* The phone view has its own sign-out, and a narrow masthead needs the room. */}
-          <form action={signOut} className="hidden sm:block">
+          <form action={signOut} className="hidden shrink-0 whitespace-nowrap sm:block">
             <button
               type="submit"
               className="text-[13px] transition-colors hover:text-[var(--color-ink)]"

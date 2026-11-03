@@ -4,7 +4,7 @@ import { guidesFor } from "@/lib/guides";
 import { Nav } from "@/components/ui/Nav";
 import { GuideCard } from "@/components/help/GuideCard";
 
-export const metadata: Metadata = { title: "How to" };
+export const metadata: Metadata = { title: "Help videos" };
 
 /**
  * Short videos of the app being used, for the signed in. Each member sees the
@@ -20,7 +20,7 @@ export default async function HelpPage() {
     <>
       <Nav user={user} />
       <main className="sheet py-12">
-        <h1 className="display text-5xl">How to</h1>
+        <h1 className="display text-5xl">Help videos</h1>
         <p className="measure mt-4 text-[16px] leading-relaxed text-ink-dim">
           Short videos of the app in use, each under a minute.
         </p>
