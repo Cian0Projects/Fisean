@@ -99,6 +99,24 @@ export async function addClipToPlaylist(playlistId: string, clipId: string): Pro
   revalidatePath(`/playlists/${playlistId}`);
 }
 
+/** The clip's side of the picker: take this clip out of one playlist, by clip not by row. */
+export async function removeClipFromPlaylist(playlistId: string, clipId: string): Promise<void> {
+  const user = await requireUserOrThrow();
+  const [playlist] = await db
+    .select()
+    .from(playlists)
+    .where(eq(playlists.id, playlistId))
+    .limit(1);
+  if (!playlist) return;
+  assertSameTeam(user, playlist);
+  assertCanEditOwned(user, playlist);
+
+  await db
+    .delete(playlistItems)
+    .where(and(eq(playlistItems.playlistId, playlistId), eq(playlistItems.clipId, clipId)));
+  revalidatePath(`/playlists/${playlistId}`);
+}
+
 export async function removePlaylistItem(itemId: string): Promise<void> {
   const user = await requireUserOrThrow();
   const [item] = await db

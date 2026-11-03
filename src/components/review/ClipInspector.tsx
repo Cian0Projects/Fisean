@@ -27,8 +27,9 @@ import { setClipAbout, setClipAudience, updateClip } from "@/lib/actions/clips";
 import { canShare, describeAudience, type Audience } from "@/lib/auth/visibility";
 import { AudiencePicker } from "@/components/ui/AudiencePicker";
 import { addComment } from "@/lib/actions/review";
-import { listEditablePlaylists } from "@/lib/actions/reads";
-import { addClipToPlaylist, createPlaylist } from "@/lib/actions/playlists";
+import { listPlaylistsForClip } from "@/lib/actions/reads";
+import { addClipToPlaylist, createPlaylist, removeClipFromPlaylist } from "@/lib/actions/playlists";
+import { CheckDropdown } from "@/components/ui/CheckDropdown";
 import type { Shape } from "@/lib/db/schema";
 import { SIDES, type Side } from "@/lib/hurling/stats";
 import type { ClipRow, CommentRow, SquadMember, Viewer } from "./types";
@@ -76,7 +77,9 @@ export function ClipInspector({
   const [draft, setDraft] = useState("");
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [playlists, setPlaylists] = useState<{ id: string; title: string }[]>([]);
+  const [playlists, setPlaylists] = useState<{ id: string; title: string; hasClip: boolean }[]>([]);
+  const [naming, setNaming] = useState(false);
+  const [newName, setNewName] = useState("");
   const [pending, startTransition] = useTransition();
 
   // No effect is needed to reset state when the clip changes: ReviewWorkspace
@@ -85,8 +88,43 @@ export function ClipInspector({
   const drawn = drawingDraft?.shapes.length ?? 0;
 
   useEffect(() => {
-    void listEditablePlaylists().then(setPlaylists);
-  }, []);
+    void listPlaylistsForClip(clip.id).then(setPlaylists);
+  }, [clip.id]);
+
+  // One tap adds or removes, shown at once and put back if the server says no.
+  const togglePlaylist = (playlistId: string) => {
+    const was = playlists.find((p) => p.id === playlistId)?.hasClip ?? false;
+    const mark = (hasClip: boolean) =>
+      setPlaylists((prev) => prev.map((p) => (p.id === playlistId ? { ...p, hasClip } : p)));
+    mark(!was);
+    startTransition(async () => {
+      try {
+        if (was) await removeClipFromPlaylist(playlistId, clip.id);
+        else await addClipToPlaylist(playlistId, clip.id);
+      } catch {
+        mark(was);
+      }
+    });
+  };
+
+  const makePlaylist = () => {
+    const title = newName.trim();
+    if (!title) return;
+    setNewName("");
+    setNaming(false);
+    startTransition(async () => {
+      try {
+        const { id } = await createPlaylist({
+          title,
+          clipIds: [clip.id],
+          isOfficial: viewer.role !== "player",
+        });
+        setPlaylists((prev) => [...prev, { id, title, hasClip: true }]);
+      } catch {
+        // The name is gone from the box; typing it again is quick.
+      }
+    });
+  };
 
   const saveTitle = () => {
     onTextFocus(false);
@@ -308,35 +346,51 @@ export function ClipInspector({
         </section>
 
         <section>
-          <span className="label mb-1.5 block">Add to playlist</span>
-          <div className="flex flex-wrap gap-1">
-            {playlists.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => startTransition(() => void addClipToPlaylist(p.id, clip.id))}
-                className="btn-outline px-2 py-1 text-[12px]"
-              >
-                {p.title}
-              </button>
-            ))}
-            <button
-              onClick={() => {
-                const name = window.prompt("New playlist name");
-                if (!name?.trim()) return;
-                startTransition(async () => {
-                  const { id } = await createPlaylist({
-                    title: name.trim(),
-                    clipIds: [clip.id],
-                    isOfficial: viewer.role !== "player",
-                  });
-                  setPlaylists((prev) => [...prev, { id, title: name.trim() }]);
-                });
-              }}
-              className="btn-ghost px-2 py-1 text-[12px]"
-            >
-              + New
-            </button>
-          </div>
+          <span className="label mb-1.5 block">Playlists</span>
+          {/* Tick a playlist to put the clip in it, untick to take it out: as
+              many as you like. The list is a dropdown so a long run of
+              playlists does not stretch the panel. */}
+          <CheckDropdown
+            label="Add to playlists"
+            compact
+            onToggle={togglePlaylist}
+            empty="No playlists yet. Make the first one below."
+            options={playlists.map((p) => ({ id: p.id, label: p.title, checked: p.hasClip }))}
+            footer={
+              naming ? (
+                <form
+                  className="flex gap-1"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    makePlaylist();
+                  }}
+                >
+                  <input
+                    autoFocus
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    onFocus={() => onTextFocus(true)}
+                    onBlur={() => onTextFocus(false)}
+                    placeholder="Playlist name"
+                    maxLength={120}
+                    className="field min-w-0 flex-1 text-[12px]"
+                  />
+                  <button type="submit" disabled={!newName.trim()} className="btn-outline px-2 py-1 text-[12px]">
+                    Add
+                  </button>
+                </form>
+              ) : (
+                <button type="button" onClick={() => setNaming(true)} className="btn-ghost px-1 py-0.5 text-[12px]">
+                  + New playlist
+                </button>
+              )
+            }
+          />
+          {playlists.some((p) => p.hasClip) && (
+            <p className="mt-1.5 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+              In {playlists.filter((p) => p.hasClip).map((p) => p.title).join(", ")}
+            </p>
+          )}
         </section>
 
         {pending && (

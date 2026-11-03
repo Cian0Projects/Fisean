@@ -20,6 +20,7 @@ import {
   type Audience,
   type Role,
 } from "@/lib/auth/visibility";
+import { CheckDropdown } from "./CheckDropdown";
 
 export type AudiencePerson = { id: string; displayName: string; role: Role };
 
@@ -82,21 +83,21 @@ export function AudiencePicker({
       </div>
 
       {others.length > 0 && (
-        <>
-          <span className="mt-2.5 mb-1 block text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-            Or pick people
-          </span>
-          <div className="flex flex-wrap gap-1">
-            {others.map((p) => (
-              <Choice key={p.id} on={base.userIds.includes(p.id)} onClick={() => togglePerson(p.id)} size={size}>
-                {p.displayName}
-                {p.role !== "player" && (
-                  <span style={{ color: "var(--color-ink-faint)" }}>{p.role === "coach" ? ", coach" : ", admin"}</span>
-                )}
-              </Choice>
-            ))}
-          </div>
-        </>
+        <div className="mt-2.5">
+          {/* A dropdown, not a chip per person: a panel of thirty names ran
+              the full height of the screen. Only the people ticked count. */}
+          <CheckDropdown
+            label="Or pick people"
+            compact={compact}
+            onToggle={togglePerson}
+            options={others.map((p) => ({
+              id: p.id,
+              label: p.displayName,
+              hint: p.role === "coach" ? ", coach" : p.role === "player" ? undefined : ", admin",
+              checked: base.userIds.includes(p.id),
+            }))}
+          />
+        </div>
       )}
 
       <p className="mt-2 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
