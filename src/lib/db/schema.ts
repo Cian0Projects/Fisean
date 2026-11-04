@@ -1177,6 +1177,26 @@ export const gpsNames = sqliteTable(
 /* ----------------------------------------------------------------- drills */
 
 /**
+ * A coach's folder for drills. Flat on purpose: a club has a dozen drills, not
+ * a thousand, and one level of names is what a whiteboard has. The ready-made
+ * drills every club can copy are not rows; they live in code
+ * (src/lib/hurling/drill-library.ts) and become a normal drill, in a group of
+ * the coach's choosing, only when copied.
+ */
+export const drillGroups = sqliteTable(
+  "drill_groups",
+  {
+    id: id(),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    createdAt: integer("created_at").notNull().default(now),
+  },
+  (t) => [index("drill_groups_team").on(t.teamId)],
+);
+
+/**
  * A training drill, animated on a pitch; see src/lib/hurling/drill.ts.
  *
  * The pieces and steps are one JSON column rather than tables of their own.
@@ -1191,6 +1211,11 @@ export const drills = sqliteTable(
     teamId: text("team_id")
       .notNull()
       .references(() => teams.id, { onDelete: "cascade" }),
+    /**
+     * The coach's own folder for it ("Attacking", "Restarts"). Null is simply
+     * not filed. Deleting a group never deletes drills: they fall back to null.
+     */
+    groupId: text("group_id").references(() => drillGroups.id, { onDelete: "set null" }),
     createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
     title: text("title").notNull(),
     /** The coaching points: what the drill is for, and what to look for. */

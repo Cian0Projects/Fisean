@@ -6,6 +6,11 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## Drill groups and a ready-made library
+*2026-11-04*
+
+The drill book is now sorted rather than one long list. Coaches make their own groups (attacking, defending, restarts), file a drill from the Group picker at the top of its page, and the Drills page shows each group as a section, or one group at a time from the side list, where it can be renamed or deleted (the drills in it are kept, just unfiled). A second tab, Ready-made, holds thirteen light drills in five categories (attacking, defending, skills, games, warm up) that every club has: "Add to our drills" copies one into the club's own book, optionally straight into a group, drawn with the team's own ball. They are code in `src/lib/hurling/drill-library.ts`, not rows, so a new club has them at once and an improvement ships with a deploy. Schema change: a `drill_groups` table and a nullable `drills.group_id` (migration 0041).
+
 ## Choosing the type of match, and changing it later
 *2026-11-03*
 

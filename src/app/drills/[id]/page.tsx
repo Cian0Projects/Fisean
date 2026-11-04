@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { drills } from "@/lib/db/schema";
+import { drillGroups, drills } from "@/lib/db/schema";
 import { isCoach, requireUser } from "@/lib/auth/guard";
 import { parseDrill } from "@/lib/hurling/drill";
 import { homeKit } from "@/lib/hurling/kit";
@@ -16,6 +16,12 @@ export default async function DrillPage({ params }: { params: Promise<{ id: stri
 
   const [drill] = await db.select().from(drills).where(eq(drills.id, id)).limit(1);
   if (!drill || drill.teamId !== user.teamId) notFound();
+
+  const groups = await db
+    .select({ id: drillGroups.id, name: drillGroups.name })
+    .from(drillGroups)
+    .where(eq(drillGroups.teamId, user.teamId))
+    .orderBy(asc(drillGroups.name));
 
   // The attached playlist's name, if this coach can still open it.
   const data = parseDrill(JSON.parse(drill.data));
@@ -36,6 +42,8 @@ export default async function DrillPage({ params }: { params: Promise<{ id: stri
         badgeVersion={user.badgeVersion}
         kit={homeKit({ primary: user.primaryColour, secondary: user.secondaryColour })}
         footageTitle={footageTitle}
+        groups={groups.map((g) => ({ id: g.id, name: g.name }))}
+        groupId={drill.groupId}
         initial={{ title: drill.title, notes: drill.notes, data }}
       />
     </>

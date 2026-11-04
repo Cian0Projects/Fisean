@@ -26,6 +26,7 @@ import {
   duplicateDrill,
   listFootagePlaylists,
   loadDrillFootage,
+  moveDrill,
   saveDrill,
   type FootagePlaylist,
 } from "@/lib/actions/drills";
@@ -99,6 +100,8 @@ export function DrillEditor({
   badgeVersion,
   kit,
   footageTitle,
+  groups,
+  groupId,
   initial,
 }: {
   id: string;
@@ -112,9 +115,16 @@ export function DrillEditor({
   kit: HomeKit | null;
   /** The name of the attached playlist, if the drill has one this coach can still open. */
   footageTitle: string | null;
+  /** The club's groups, and the one this drill is filed in (null for none). */
+  groups: { id: string; name: string }[];
+  groupId: string | null;
   initial: { title: string; notes: string; data: DrillData };
 }) {
   const uid = useId().replace(/:/g, "");
+  // Filing is its own action, not part of the autosave: it is one pick, and a
+  // coach moving a drill should not have to wait on the drawing to save.
+  const [group, setGroup] = useState(groupId);
+  const [groupError, setGroupError] = useState<string | null>(null);
   const [data, setData] = useState(initial.data);
   const [title, setTitle] = useState(initial.title);
   const [notes, setNotes] = useState(initial.notes);
@@ -404,6 +414,37 @@ export function DrillEditor({
           All drills
         </Link>
         <SaveState status={status} onRetry={() => void persist()} />
+        <label className="flex items-center gap-2">
+          <span style={{ color: "var(--color-ink-dim)" }}>Group</span>
+          <select
+            value={group ?? "none"}
+            disabled={pending}
+            aria-label="Group"
+            className="field w-auto max-w-[12rem]"
+            onChange={(e) => {
+              const next = e.target.value === "none" ? null : e.target.value;
+              const before = group;
+              setGroup(next);
+              setGroupError(null);
+              startTransition(async () => {
+                try {
+                  await moveDrill(id, next);
+                } catch (err) {
+                  setGroup(before);
+                  setGroupError(err instanceof Error ? err.message : "Could not move that drill.");
+                }
+              });
+            }}
+          >
+            <option value="none">No group</option>
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {groupError && <span role="alert">{groupError}</span>}
         <div className="flex-1" />
         <button
           type="button"
