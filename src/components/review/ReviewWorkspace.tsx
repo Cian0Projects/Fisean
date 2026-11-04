@@ -50,6 +50,7 @@ import { listComments } from "@/lib/actions/reads";
 import { StopCard } from "@/components/player/StopCard";
 import { shapesOf, useCommentStops } from "@/components/player/useCommentStops";
 import { StatPad } from "@/components/stats/StatPad";
+import { HalvesBar } from "@/components/stats/HalvesBar";
 import { StatLanes } from "@/components/stats/StatLanes";
 import { numberSheet, type SheetEntry, type StatRow } from "@/components/stats/types";
 import { STAT_LEAD_IN_MS, lineEntryMoment, statVocabulary, type StatType } from "@/lib/hurling/stats";
@@ -242,6 +243,30 @@ export function ReviewWorkspace({
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2200);
   }, []);
+
+  /* ---------------------------------------------------------------- halves */
+
+  // Shown at once, saved behind: the halves strip under the video sets these.
+  const setHalf = (kind: "throw_in" | "second_half", atMs: number | null) => {
+    setMarkerList((prev) => [
+      ...prev.filter((m) => m.kind !== kind),
+      ...(atMs == null ? [] : [{ kind, atMs: Math.round(atMs) }]),
+    ]);
+    setVideoMarker(video.id, kind, atMs).catch((err) => flash((err as Error).message));
+  };
+  const changeFirstHalfEnd = (end: End) => {
+    setFirstHalfEndState(end);
+    setFirstHalfEnd(video.id, end).catch((err) => flash((err as Error).message));
+  };
+  const changeHalfLength = (minutes: number) => {
+    if (!match.id) return;
+    const before = halfLengthMin;
+    setHalfLengthMinState(minutes);
+    setHalfLength(match.id, minutes).catch((err) => {
+      setHalfLengthMinState(before);
+      flash((err as Error).message);
+    });
+  };
 
   /* -------------------------------------------------------- clip playback */
 
@@ -754,6 +779,23 @@ export function ReviewWorkspace({
             <PlayToggle engine={engine} />
             <Timecode engine={engine} markers={markers} halfLengthMin={halfLengthMin} precise />
             <RateBadge engine={engine} />
+            {/* The halves sit here in stats mode: both of their buttons mean
+                "where the video is now", and the pad's height is for the
+                entry being logged. */}
+            {statsOpen && match.id && (
+              <>
+                <div className="flex-1" />
+                <HalvesBar
+                  engine={engine}
+                  markers={markers}
+                  halfLengthMin={halfLengthMin}
+                  onSetHalf={setHalf}
+                  firstHalfEnd={firstHalfEnd}
+                  onFirstHalfEnd={changeFirstHalfEnd}
+                  onHalfLength={changeHalfLength}
+                />
+              </>
+            )}
           </div>
 
           <Timeline
@@ -909,27 +951,7 @@ export function ReviewWorkspace({
               onJump={jumpToStat}
               markers={markers}
               halfLengthMin={halfLengthMin}
-              onSetHalf={(kind, atMs) => {
-                setMarkerList((prev) => [
-                  ...prev.filter((m) => m.kind !== kind),
-                  ...(atMs == null ? [] : [{ kind, atMs: Math.round(atMs) }]),
-                ]);
-                setVideoMarker(video.id, kind, atMs).catch((err) => flash((err as Error).message));
-              }}
               firstHalfEnd={firstHalfEnd}
-              onFirstHalfEnd={(end) => {
-                setFirstHalfEndState(end);
-                setFirstHalfEnd(video.id, end).catch((err) => flash((err as Error).message));
-              }}
-              onHalfLength={(minutes) => {
-                if (!match.id) return;
-                const before = halfLengthMin;
-                setHalfLengthMinState(minutes);
-                setHalfLength(match.id, minutes).catch((err) => {
-                  setHalfLengthMinState(before);
-                  flash((err as Error).message);
-                });
-              }}
             />
             )}
             </>

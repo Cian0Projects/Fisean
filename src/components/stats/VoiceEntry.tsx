@@ -33,7 +33,15 @@
  * anything heard afterwards, so a correction by hand is never undone by the
  * engine revising an older word.
  */
-import { useEffect, useRef, useState, useSyncExternalStore, type Dispatch, type SetStateAction } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 import { MicIcon } from "@/components/ui/Icon";
 import { parseSpokenStat, speechScore } from "@/lib/hurling/voice";
 import type { StatType } from "@/lib/hurling/stats";
@@ -282,8 +290,23 @@ export function useVoiceEntry({
  * The mic button, what it heard, and a way out. Not shown at all where the
  * browser has no speech recognition, rather than shown and broken.
  */
-export function VoiceBar({ voice, onDiscard }: { voice: VoiceEntry; onDiscard: () => void }) {
-  if (!voice.supported) return null;
+export function VoiceBar({
+  voice,
+  onDiscard,
+  compact = false,
+  trailing,
+}: {
+  voice: VoiceEntry;
+  onDiscard: () => void;
+  /** A smaller button, for the stat pad. */
+  compact?: boolean;
+  /**
+   * Shown at the end of the button's row, mic or no mic: the stat pad puts
+   * its count and Watch arrows here so the pair share one pinned line.
+   */
+  trailing?: ReactNode;
+}) {
+  if (!voice.supported) return trailing ? <div className="flex items-center gap-1">{trailing}</div> : null;
   const { listening, hearing, heard, caught, error } = voice;
   const waiting = listening && !hearing;
 
@@ -294,7 +317,7 @@ export function VoiceBar({ voice, onDiscard }: { voice: VoiceEntry; onDiscard: (
           type="button"
           onClick={listening ? voice.stop : voice.start}
           aria-pressed={listening}
-          className="btn-outline inline-flex items-center gap-2 text-sm"
+          className={`btn-outline inline-flex shrink-0 items-center gap-2 ${compact ? "px-2.5 py-1 text-[13px]" : "text-sm"}`}
           style={listening ? { borderColor: "var(--color-ink)", color: "var(--color-ink)" } : undefined}
         >
           {waiting ? (
@@ -323,6 +346,7 @@ export function VoiceBar({ voice, onDiscard }: { voice: VoiceEntry; onDiscard: (
             Discard
           </button>
         )}
+        {trailing && <div className="flex min-w-0 flex-1 items-center gap-1">{trailing}</div>}
       </div>
 
       {error ? (

@@ -6,6 +6,11 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## A stat pad that fits one screen
+*2026-11-04*
+
+Logging stats off footage meant scrolling the side panel all game: the halves box took a fifth of it at the top, and the Log button sat below the map. The halves now live on the transport strip under the video, beside the play button and the clock, since both of their buttons mean "here, where the video is": the strip shows a Set here for whichever start is missing, then the two times and the half the playhead is in, and a Halves button opens moving, clearing, minutes a half and our end over the video. The pad itself is three bands. The stat buttons, the mic and the Watch arrows are pinned at the top; the entry scrolls in the middle, with tighter buttons, short questions labelled beside their answers and a lone number box on one line; and the Log button is pinned at the bottom, with "Logged so far" folded to a single line showing the last entry (opened, it is remembered on that browser). The stat's hint moved below the map and into each stat button's tooltip. On a 1536 by 864 screen a whole shot entry and its map fit with no scrolling; on 1366 by 768 a shot still hides the bottom of the map. The standalone stat form at /stats/log is unchanged.
+
 ## Drill groups and a ready-made library
 *2026-11-04*
 

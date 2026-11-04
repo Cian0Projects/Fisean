@@ -16,8 +16,8 @@
  * the record now), no page chrome, one column instead of two. The pitch map
  * still needs both hands' width, so it comes first and the log stacks below.
  *
- * The halves are set once, at the top (HalvesBar), rather than picked per
- * entry. The map then follows the playhead: it shows one half at a time, the
+ * The halves are set once, on the strip under the video (HalvesBar), rather
+ * than picked per entry. The map then follows the playhead: it shows one half at a time, the
  * way round the camera sees that half, and only the kind of stat being
  * logged, since every kind on one map is a mess nobody can place a dot in.
  * Entries logged live on the line appear on it beside the ones logged here,
@@ -27,6 +27,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
   useTransition,
   type Dispatch,
   type SetStateAction,
@@ -67,7 +68,16 @@ import {
 import { withoutStats } from "@/lib/hurling/custom-stats";
 import { statMarks, whoLabel, type NumberSheet, type StatRow } from "./types";
 import { VoiceBar, useVoiceEntry } from "./VoiceEntry";
-import { HalvesBar, type HalfKind } from "./HalvesBar";
+
+const LIST_OPEN_KEY = "fisean.statpad.listOpen";
+const subscribeNothing = () => () => {};
+const readListOpen = () => {
+  try {
+    return window.localStorage.getItem(LIST_OPEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
 
 export function StatPad({
   engine,
@@ -83,10 +93,7 @@ export function StatPad({
   onJump,
   markers,
   halfLengthMin,
-  onSetHalf,
   firstHalfEnd,
-  onFirstHalfEnd,
-  onHalfLength,
 }: {
   engine: PlayerEngine;
   matchId: string;
@@ -107,13 +114,8 @@ export function StatPad({
   /** The video's throw-in and half-time, when marked: they settle the half. */
   markers: Markers;
   halfLengthMin: number;
-  /** Mark where a half starts in the file, or clear it. */
-  onSetHalf: (kind: HalfKind, atMs: number | null) => void;
   /** Our end in the first half, as the camera sees it. */
   firstHalfEnd: End;
-  onFirstHalfEnd: (end: End) => void;
-  /** Change how long a half is, for the whole match. */
-  onHalfLength: (minutes: number) => void;
 }) {
   const [detail, setDetail] = useState<StatDetail>(EMPTY_DETAIL);
   const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
@@ -131,6 +133,19 @@ export function StatPad({
   // A mark clicked on the map, and whether its delete is waiting on a yes.
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  // Whether "Logged so far" is open, remembered on this browser only: some
+  // loggers like the list in view, most want the room for the map.
+  // Read through useSyncExternalStore so the server render (closed) and the
+  // browser's remembered choice never disagree during hydration.
+  const storedOpen = useSyncExternalStore(subscribeNothing, readListOpen, () => false);
+  const [chosenOpen, setChosenOpen] = useState<boolean | null>(null);
+  const listOpen = chosenOpen ?? storedOpen;
+  const setListOpen = (open: boolean) => {
+    setChosenOpen(open);
+    try {
+      window.localStorage.setItem(LIST_OPEN_KEY, open ? "1" : "0");
+    } catch {}
+  };
   // When the last entry was saved, to say so for a moment.
   const [savedAt, setSavedAt] = useState<number | null>(null);
   useEffect(() => {
@@ -398,75 +413,79 @@ export function StatPad({
   };
 
   const newest = [...rows].sort((a, b) => b.createdAt - a.createdAt);
+  const latest = newest[0];
 
+  // The pad is three bands so the two things pressed most never scroll
+  // away: the stat buttons pinned at the top, the entry in the middle (the
+  // only part that scrolls, and on most screens it does not need to), and
+  // the Log button pinned at the bottom with the running list folded under
+  // it. The halves used to sit in here too; they are under the video now.
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3">
-      <div className="flex flex-wrap gap-1 border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
-        {vocabulary.statTypes.map((t) => {
-          const m = vocabulary.meta[t];
-          const here = t === statType;
-          return (
-            <button
-              key={t}
-              onClick={() => chooseType(t)}
-              aria-pressed={here}
-              className={`flex items-center gap-1.5 rounded px-2 py-1.5 text-[13px] transition-colors ${here ? "here" : ""}`}
-              style={{ color: here ? "var(--color-ink)" : "var(--color-ink-dim)" }}
-            >
-              <span className="kbd">{m.hotkey}</span>
-              {m.label}
-            </button>
-          );
-        })}
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="shrink-0 border-b px-3 pb-1.5 pt-2" style={{ borderColor: "var(--color-line)" }}>
+        <div className="flex flex-wrap gap-x-0.5 gap-y-1">
+          {vocabulary.statTypes.map((t) => {
+            const m = vocabulary.meta[t];
+            const here = t === statType;
+            return (
+              <button
+                key={t}
+                onClick={() => chooseType(t)}
+                aria-pressed={here}
+                title={m.hint}
+                className={`flex items-center gap-1 rounded px-1.5 py-1 text-[13px] transition-colors ${here ? "here" : ""}`}
+                style={{ color: here ? "var(--color-ink)" : "var(--color-ink-dim)" }}
+              >
+                <span className="kbd">{m.hotkey}</span>
+                {m.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* The mic, and watching one kind back, on one pinned line. The
+            entries are timestamped, so stepping through every delivery is
+            two buttons rather than a search. */}
+        <div className="mt-1.5">
+          <VoiceBar
+            voice={voice}
+            onDiscard={resetEntry}
+            compact
+            trailing={
+              <>
+                <span className="tabular text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+                  {ofThisType.length} logged
+                </span>
+                <div className="flex-1" />
+                <button
+                  onClick={() => step(-1)}
+                  disabled={!timedOfThisType.length}
+                  title={`Previous ${meta.label.toLowerCase()}`}
+                  aria-label={`Previous ${meta.label.toLowerCase()}`}
+                  className="btn-ghost px-1.5 py-0.5 text-xs disabled:opacity-35"
+                >
+                  <ChevronIcon direction="left" size={11} />
+                </button>
+                <span className="whitespace-nowrap text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+                  Watch {meta.plural.toLowerCase()}
+                </span>
+                <button
+                  onClick={() => step(1)}
+                  disabled={!timedOfThisType.length}
+                  title={`Next ${meta.label.toLowerCase()}`}
+                  aria-label={`Next ${meta.label.toLowerCase()}`}
+                  className="btn-ghost px-1.5 py-0.5 text-xs disabled:opacity-35"
+                >
+                  <ChevronIcon direction="right" size={11} />
+                </button>
+              </>
+            }
+          />
+        </div>
       </div>
 
-      <p className="mt-2 text-[13px]" style={{ color: "var(--color-ink-dim)" }}>
-        {meta.hint}
-      </p>
-
-      {/* Watching one kind back. The entries are timestamped, so stepping
-          through every delivery is two buttons rather than a search. */}
-      <div className="mt-2 flex items-center gap-2">
-        <span className="tabular text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-          {ofThisType.length} logged
-        </span>
-        <div className="flex-1" />
-        <button
-          onClick={() => step(-1)}
-          disabled={!timedOfThisType.length}
-          title={`Previous ${meta.label.toLowerCase()}`}
-          aria-label={`Previous ${meta.label.toLowerCase()}`}
-          className="btn-ghost px-1.5 py-1 text-xs disabled:opacity-35"
-        >
-          <ChevronIcon direction="left" size={11} />
-        </button>
-        <span className="text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-          Watch {meta.plural.toLowerCase()}
-        </span>
-        <button
-          onClick={() => step(1)}
-          disabled={!timedOfThisType.length}
-          title={`Next ${meta.label.toLowerCase()}`}
-          aria-label={`Next ${meta.label.toLowerCase()}`}
-          className="btn-ghost px-1.5 py-1 text-xs disabled:opacity-35"
-        >
-          <ChevronIcon direction="right" size={11} />
-        </button>
-      </div>
-
-      <div className="mt-4 space-y-4">
-        <HalvesBar
-          engine={engine}
-          markers={markers}
-          phase={phase}
-          onSetHalf={onSetHalf}
-          firstHalfEnd={firstHalfEnd}
-          onFirstHalfEnd={onFirstHalfEnd}
-          halfLengthMin={halfLengthMin}
-          onHalfLength={onHalfLength}
-        />
-
-        <VoiceBar voice={voice} onDiscard={resetEntry} />
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2.5">
+      <div className="space-y-2.5">
 
         <StatFields
           vocabulary={vocabulary}
@@ -475,15 +494,20 @@ export function StatPad({
           onChange={patch}
           sheet={sheet}
           idPrefix="pad"
-          halfNote={halvesMarked ? "Set from the halves above, once the playhead is in one." : undefined}
+          halfNote={
+            halvesMarked
+              ? "Set from the halves under the video, once the playhead is in one."
+              : "Or set the halves under the video, and every entry takes its half by itself."
+          }
           halfFixed={halfFixed}
           resultNote={shown !== detail ? ARC_NOTE : undefined}
           puckoutLength={origin ? puckoutLengthFromWhere(origin.x, shown.puckoutTakenBy) : null}
+          compact
         />
 
         {meta.points > 0 && (
           <div>
-            <div className="mb-1.5 flex items-baseline justify-between gap-2">
+            <div className="mb-1 flex items-baseline justify-between gap-2">
               <span className="label">
                 {mapHalf ? `${mapHalf === 1 ? "1st" : "2nd"} half, our end on the ${ourEnd}` : "Where on the pitch"}
               </span>
@@ -570,13 +594,6 @@ export function StatPad({
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-2 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
-          <span>{stampMs != null ? `Timed at ${formatClock(stampMs)}` : "Timed when you start"}</span>
-          <button onClick={() => stamp(engine.snapshot.positionMs)} className="btn-ghost px-1.5 py-0.5">
-            Use now
-          </button>
-        </div>
-
         {error && (
           <p
             className="rounded px-3 py-2 text-[13px]"
@@ -589,42 +606,89 @@ export function StatPad({
           </p>
         )}
 
-        <div className="flex items-center gap-2 border-t pt-4" style={{ borderColor: "var(--color-line)" }}>
-          <button onClick={submit} disabled={!ready || pending} className="btn-primary text-sm">
-            {editingId ? "Save changes" : `Log ${meta.label.toLowerCase()}`}
-          </button>
-          {editingId && (
-            <button
-              onClick={() => {
-                resetEntry();
-                voice.reset();
-              }}
-              className="btn-ghost text-xs"
-            >
-              Cancel
-              <span className="kbd">Esc</span>
-            </button>
-          )}
-          <span className="ml-auto text-right text-[11px]" style={{ color: "var(--color-ink-faint)" }} aria-live="polite">
-            {pending ? "Saving…" : savedAt ? "Saved." : "Each entry saves as soon as it is logged."}
-          </span>
-        </div>
+        {/* What this kind of stat is for, under everything that is pressed:
+            a new logger reads it once, and it costs the regulars no room.
+            It is also each stat button's tooltip. */}
+        <p className="text-[12px] leading-snug" style={{ color: "var(--color-ink-faint)" }}>
+          {meta.hint}
+        </p>
+      </div>
       </div>
 
-      <div className="mt-6 flex min-h-0 flex-1 flex-col border-t pt-3" style={{ borderColor: "var(--color-line-strong)" }}>
-        <div className="flex shrink-0 items-baseline justify-between">
-          <h2 className="title text-sm">Logged so far</h2>
-          <span className="tabular text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+      {/* Pinned: the press that ends every entry, and when it was timed. */}
+      <div
+        className="flex shrink-0 items-center gap-2 border-t px-3 py-2"
+        style={{ borderColor: "var(--color-line)", background: "var(--color-surface)" }}
+      >
+        <button onClick={submit} disabled={!ready || pending} className="btn-primary text-sm">
+          {editingId ? "Save changes" : `Log ${meta.label.toLowerCase()}`}
+        </button>
+        {editingId && (
+          <button
+            onClick={() => {
+              resetEntry();
+              voice.reset();
+            }}
+            className="btn-ghost text-xs"
+          >
+            Cancel
+            <span className="kbd">Esc</span>
+          </button>
+        )}
+        <span
+          className="ml-auto truncate text-right text-[12px]"
+          style={{ color: "var(--color-ink-faint)" }}
+          aria-live="polite"
+        >
+          {pending
+            ? "Saving…"
+            : savedAt && stampMs == null
+              ? "Saved."
+              : stampMs != null
+                ? `Timed at ${formatClock(stampMs)}`
+                : "Timed when you start"}
+        </span>
+        <button
+          onClick={() => stamp(engine.snapshot.positionMs)}
+          title="Time this entry at the playhead instead"
+          className="btn-ghost shrink-0 px-1.5 py-0.5 text-[12px]"
+        >
+          Use now
+        </button>
+      </div>
+
+      {/* Folded by default: the last entry is shown, which is what a logger
+          glances at to check it went in, and the full list opens over the
+          bottom of the pad when it is wanted. */}
+      <div className="flex shrink-0 flex-col border-t" style={{ borderColor: "var(--color-line-strong)" }}>
+        <button
+          type="button"
+          onClick={() => setListOpen(!listOpen)}
+          aria-expanded={listOpen}
+          className="flex items-baseline gap-2 px-3 py-2 text-left"
+        >
+          <span className="title shrink-0 text-[13px]">Logged so far</span>
+          <span className="tabular shrink-0 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
             {rows.length}
           </span>
-        </div>
+          <span className="min-w-0 flex-1 truncate text-[12px]" style={{ color: "var(--color-ink-dim)" }}>
+            {!listOpen && latest
+              ? `Last: ${describeStat(latest, code)}, ${whoLabel(latest, sheet)}${
+                  latest.atMs != null ? `, ${toGameTime(latest.atMs, markers, halfLengthMin).label}` : ""
+                }`
+              : ""}
+          </span>
+          <span className="shrink-0 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+            {listOpen ? "Hide" : "Show"}
+          </span>
+        </button>
 
-        {newest.length === 0 ? (
-          <p className="py-4 text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
+        {!listOpen ? null : newest.length === 0 ? (
+          <p className="px-3 pb-3 text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
             Nothing yet. Watch, then press <span className="kbd">1</span> to <span className="kbd">7</span>.
           </p>
         ) : (
-          <ul className="min-h-0 flex-1 overflow-y-auto">
+          <ul className="max-h-[30vh] overflow-y-auto px-3">
             {newest.map((r) => {
               const rowOutcome = effectiveOutcome(r);
               const shape = rowOutcome ? statShape(r) : "filled";

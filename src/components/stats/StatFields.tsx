@@ -236,6 +236,7 @@ export function StatFields({
   halfFixed = false,
   resultNote,
   puckoutLength = null,
+  compact = false,
 }: {
   /** The club's words for this sheet. */
   vocabulary: StatVocabulary;
@@ -261,12 +262,25 @@ export function StatFields({
    * question.
    */
   puckoutLength?: PuckoutLength | null;
+  /**
+   * Tighter buttons and boxes, for the stat pad beside the video, where the
+   * whole entry and the map have to fit one screen. Still big enough to hit
+   * without looking twice: 30px high, the same as the transport's buttons.
+   */
+  compact?: boolean;
 }) {
   const meta = vocabulary.meta[statType];
   const { terms } = vocabulary;
   const restart = terms.restart.charAt(0).toLowerCase() + terms.restart.slice(1);
   const d = detail;
   const named = playerAllowed(statType, d);
+  // Every Choice, Check and number box below takes the same size.
+  const Choice = compact ? CompactChoice : FullChoice;
+  const Check = compact ? CompactCheck : FullCheck;
+  const NumberField = compact ? CompactNumberField : FullNumberField;
+  // One number box on its own (a shot's player) takes one line in the pad.
+  const boxes = (named ? 1 : 0) + (named && statType === "delivery" ? 1 : 0) + (theirsAllowed(statType, d) ? 1 : 0);
+  const lone = compact && boxes === 1;
 
   return (
     <>
@@ -438,9 +452,10 @@ export function StatFields({
           line of its own beneath it. Typing a number changes a word, never a
           size, so nothing moves while a logger is working down the boxes. */}
       {(named || theirsAllowed(statType, d)) && (
-        <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+        <div className={`grid gap-x-4 ${lone ? "grid-cols-1" : "grid-cols-2"} ${compact ? "gap-y-2.5" : "gap-y-4"}`}>
           {named && (
             <NumberField
+              inline={lone}
               id={`${idPrefix}-player`}
               label={PLAYER_LABELS[statType] ?? "Player"}
               value={d.playerNumber}
@@ -450,6 +465,7 @@ export function StatFields({
           )}
           {named && statType === "delivery" && (
             <NumberField
+              inline={lone}
               id={`${idPrefix}-target`}
               label={d.outcome === "negative" ? "Aimed at, and lost" : "Aimed at"}
               value={d.targetNumber}
@@ -459,6 +475,7 @@ export function StatFields({
           )}
           {theirsAllowed(statType, d) && (
             <NumberField
+              inline={lone}
               id={`${idPrefix}-theirs`}
               label={
                 statType === "turnover"
@@ -491,14 +508,7 @@ export function StatFields({
  * it. A number the sheet does not have yet is still logged, and gets its name
  * when the sheet does.
  */
-export function NumberField({
-  id,
-  label,
-  value,
-  onChange,
-  sheet,
-  theirs = false,
-}: {
+type NumberFieldProps = {
   id: string;
   label: string;
   value: string;
@@ -506,7 +516,24 @@ export function NumberField({
   sheet: NumberSheet;
   /** One of theirs: there is no sheet to name them from, and that is fine. */
   theirs?: boolean;
-}) {
+  compact?: boolean;
+  /** Label, box and name on one line: for a box on its own, compact only. */
+  inline?: boolean;
+};
+
+const FullNumberField = (p: NumberFieldProps) => <NumberField {...p} />;
+const CompactNumberField = (p: NumberFieldProps) => <NumberField {...p} compact />;
+
+export function NumberField({
+  id,
+  label,
+  value,
+  onChange,
+  sheet,
+  theirs = false,
+  compact = false,
+  inline = false,
+}: NumberFieldProps) {
   const n = typedNumber(value);
   const who = n != null ? sheet.get(n) : undefined;
   const note = !value.trim()
@@ -521,9 +548,40 @@ export function NumberField({
           ? who.displayName
           : "No name on this number yet";
 
+  if (inline && compact) {
+    // The name sits in a box of fixed position beside the input, so typing
+    // still changes a word and never moves anything.
+    return (
+      <div className="grid min-w-0 grid-cols-[5.25rem_minmax(0,1fr)] items-center gap-x-2">
+        <label className="text-[12px] font-medium leading-tight" style={{ color: "var(--color-ink-dim)" }} htmlFor={id}>
+          {label}
+        </label>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <input
+            id={id}
+            value={value}
+            onChange={(e) => onChange(e.target.value.replace(/\D/g, "").slice(0, 2))}
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="No."
+            aria-describedby={`${id}-who`}
+            className="field tabular w-16 shrink-0 py-1 text-center font-bold"
+          />
+          <p
+            id={`${id}-who`}
+            className="min-w-0 truncate text-[12px]"
+            style={{ color: who ? "var(--color-ink)" : "var(--color-ink-faint)" }}
+          >
+            {note}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-w-0">
-      <label className="label mb-1.5 block" htmlFor={id}>
+      <label className={`label block ${compact ? "mb-1" : "mb-1.5"}`} htmlFor={id}>
         {label}
       </label>
       <input
@@ -534,11 +592,11 @@ export function NumberField({
         autoComplete="off"
         placeholder="No."
         aria-describedby={`${id}-who`}
-        className="field tabular w-16 text-center font-bold"
+        className={`field tabular w-16 text-center font-bold ${compact ? "py-1" : ""}`}
       />
       <p
         id={`${id}-who`}
-        className="mt-1.5 truncate text-[13px] leading-5"
+        className={`truncate ${compact ? "mt-1 text-[12px] leading-4" : "mt-1.5 text-[13px] leading-5"}`}
         style={{ color: who ? "var(--color-ink)" : "var(--color-ink-faint)" }}
       >
         {note}
@@ -547,17 +605,19 @@ export function NumberField({
   );
 }
 
-export function Check({
-  checked,
-  onChange,
-  label,
-}: {
+type CheckProps = {
   checked: boolean;
   onChange: (value: boolean) => void;
   label: string;
-}) {
+  compact?: boolean;
+};
+
+const FullCheck = (p: CheckProps) => <Check {...p} />;
+const CompactCheck = (p: CheckProps) => <Check {...p} compact />;
+
+export function Check({ checked, onChange, label, compact = false }: CheckProps) {
   return (
-    <label className="flex w-fit items-center gap-2.5 text-[14px]">
+    <label className={`flex w-fit items-center gap-2.5 ${compact ? "text-[13px]" : "text-[14px]"}`}>
       <input
         type="checkbox"
         checked={checked}
@@ -573,6 +633,20 @@ export function Check({
  * A row of mutually exclusive choices — faster to hit than a dropdown. An
  * optional question can be cleared by pressing the chosen answer again.
  */
+type ChoiceProps = {
+  label: string;
+  options: { value: string; label: string; colour?: string }[];
+  value: string | null;
+  onChange: (value: string) => void;
+  note?: string;
+  clearable?: boolean;
+  onClear?: () => void;
+  compact?: boolean;
+};
+
+const FullChoice = (p: ChoiceProps) => <Choice {...p} />;
+const CompactChoice = (p: ChoiceProps) => <Choice {...p} compact />;
+
 export function Choice({
   label,
   options,
@@ -581,26 +655,37 @@ export function Choice({
   note,
   clearable = false,
   onClear,
-}: {
-  label: string;
-  options: { value: string; label: string; colour?: string }[];
-  value: string | null;
-  onChange: (value: string) => void;
-  note?: string;
-  clearable?: boolean;
-  onClear?: () => void;
-}) {
+  compact = false,
+}: ChoiceProps) {
+  // Compact puts a short question in a narrow column beside its answers
+  // rather than on a line above them: a shot asks five questions, and the
+  // line each saves is what lets the map share the screen with them. A long
+  // list of answers keeps its label above, because squeezed beside one it
+  // wraps to more lines than the label saved.
+  const beside = compact && options.length <= 4;
   return (
-    <div>
-      <span className="label mb-1.5 block">
+    <div className={beside ? "grid grid-cols-[5.25rem_minmax(0,1fr)] items-start gap-x-2" : undefined}>
+      <span
+        className={
+          beside
+            ? "pt-[5px] text-[12px] font-medium leading-tight"
+            : compact
+              ? "mb-1 block text-[12px] font-medium"
+              : "label mb-1.5 block"
+        }
+        style={compact ? { color: "var(--color-ink-dim)" } : undefined}
+      >
         {label}
         {clearable && (
-          <span className="ml-1.5 normal-case" style={{ color: "var(--color-ink-faint)" }}>
-            (optional)
+          <span
+            className={beside ? "block font-normal" : "ml-1.5 font-normal normal-case"}
+            style={{ color: "var(--color-ink-faint)" }}
+          >
+            {beside ? "optional" : "(optional)"}
           </span>
         )}
       </span>
-      <div className="flex flex-wrap gap-2">
+      <div className={`flex flex-wrap ${compact ? "gap-1.5" : "gap-2"}`}>
         {options.map((o) => {
           const active = o.value === value;
           const accent = o.colour ?? "var(--color-ash)";
@@ -610,7 +695,9 @@ export function Choice({
               type="button"
               onClick={() => (active && clearable && onClear ? onClear() : onChange(o.value))}
               aria-pressed={active}
-              className="inline-flex items-center gap-2 rounded px-3 py-2 text-[14px] transition-colors"
+              className={`inline-flex items-center rounded transition-colors ${
+                compact ? "gap-1.5 px-2.5 py-1 text-[13px]" : "gap-2 px-3 py-2 text-[14px]"
+              }`}
               style={{
                 border: `1px solid ${active ? accent : "var(--color-line-strong)"}`,
                 background: active ? `color-mix(in oklab, ${accent} 16%, transparent)` : "transparent",
@@ -630,7 +717,10 @@ export function Choice({
         })}
       </div>
       {note && (
-        <p className="mt-1.5 text-[12px]" style={{ color: "var(--color-ink-faint)" }}>
+        <p
+          className={beside ? "col-start-2 mt-1 text-[11px]" : compact ? "mt-1 text-[11px]" : "mt-1.5 text-[12px]"}
+          style={{ color: "var(--color-ink-faint)" }}
+        >
           {note}
         </p>
       )}
