@@ -30,8 +30,6 @@ import {
   OUTCOME_COLOURS,
   POSSESSION_KINDS,
   POSSESSION_KIND_LABELS,
-  PUCKOUT_LENGTHS,
-  PUCKOUT_LENGTH_LABELS,
   SHOT_KINDS,
   STAT_TYPE_SHAPE,
   effectiveOutcome,
@@ -237,6 +235,7 @@ export function StatFields({
   halfNote,
   halfFixed = false,
   resultNote,
+  puckoutLength = null,
 }: {
   /** The club's words for this sheet. */
   vocabulary: StatVocabulary;
@@ -256,6 +255,12 @@ export function StatFields({
   halfFixed?: boolean;
   /** Said under a shot's result, e.g. that the mark made a point worth two. */
   resultNote?: string;
+  /**
+   * How far the restart went, worked out from where it was marked. Never
+   * asked for: it is here only because a short one we won asks one more
+   * question.
+   */
+  puckoutLength?: PuckoutLength | null;
 }) {
   const meta = vocabulary.meta[statType];
   const { terms } = vocabulary;
@@ -332,14 +337,6 @@ export function StatFields({
             onChange={(v) => onChange({ puckoutTakenBy: v as PuckoutSide })}
           />
           <Choice
-            label="How far"
-            options={PUCKOUT_LENGTHS.map((l) => ({ value: l, label: PUCKOUT_LENGTH_LABELS[l] }))}
-            value={d.puckoutLength}
-            onChange={(v) => onChange({ puckoutLength: v as PuckoutLength })}
-            clearable
-            onClear={() => onChange({ puckoutLength: null })}
-          />
-          <Choice
             label="Who won the break"
             options={PUCKOUT_WINNERS.map((w) => ({
               value: w.value,
@@ -349,7 +346,7 @@ export function StatFields({
             value={d.outcome ? puckoutWinner(d.outcome) : null}
             onChange={(v) => onChange({ outcome: puckoutOutcome(v as PuckoutWinner) })}
           />
-          {d.puckoutTakenBy === "us" && d.puckoutLength === "short" && d.outcome === "positive" && (
+          {d.puckoutTakenBy === "us" && puckoutLength === "short" && d.outcome === "positive" && (
             <Check
               checked={d.pastSixtyFive}
               onChange={(v) => onChange({ pastSixtyFive: v })}
@@ -436,16 +433,22 @@ export function StatFields({
         />
       )}
 
-      {named && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <NumberField
-            id={`${idPrefix}-player`}
-            label={PLAYER_LABELS[statType] ?? "Player"}
-            value={d.playerNumber}
-            onChange={(v) => onChange({ playerNumber: v })}
-            sheet={sheet}
-          />
-          {statType === "delivery" && (
+      {/* Every number box sits in one grid with two columns that never take
+          their width from what is typed, and each box keeps its name on a
+          line of its own beneath it. Typing a number changes a word, never a
+          size, so nothing moves while a logger is working down the boxes. */}
+      {(named || theirsAllowed(statType, d)) && (
+        <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+          {named && (
+            <NumberField
+              id={`${idPrefix}-player`}
+              label={PLAYER_LABELS[statType] ?? "Player"}
+              value={d.playerNumber}
+              onChange={(v) => onChange({ playerNumber: v })}
+              sheet={sheet}
+            />
+          )}
+          {named && statType === "delivery" && (
             <NumberField
               id={`${idPrefix}-target`}
               label={d.outcome === "negative" ? "Aimed at, and lost" : "Aimed at"}
@@ -454,24 +457,22 @@ export function StatFields({
               sheet={sheet}
             />
           )}
-        </div>
-      )}
-      {theirsAllowed(statType, d) && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <NumberField
-            id={`${idPrefix}-theirs`}
-            label={
-              statType === "turnover"
-                ? d.outcome === "positive"
-                  ? "Their player who lost it"
-                  : "Their player who won it"
-                : (THEIR_LABELS[statType] ?? "Their player")
-            }
-            value={d.theirNumber}
-            onChange={(v) => onChange({ theirNumber: v })}
-            sheet={NO_SHEET}
-            theirs
-          />
+          {theirsAllowed(statType, d) && (
+            <NumberField
+              id={`${idPrefix}-theirs`}
+              label={
+                statType === "turnover"
+                  ? d.outcome === "positive"
+                    ? "Their player who lost it"
+                    : "Their player who won it"
+                  : (THEIR_LABELS[statType] ?? "Their player")
+              }
+              value={d.theirNumber}
+              onChange={(v) => onChange({ theirNumber: v })}
+              sheet={NO_SHEET}
+              theirs
+            />
+          )}
         </div>
       )}
       {!named && statType === "puckout" && (
@@ -521,29 +522,27 @@ export function NumberField({
           : "No name on this number yet";
 
   return (
-    <div>
+    <div className="min-w-0">
       <label className="label mb-1.5 block" htmlFor={id}>
         {label}
       </label>
-      <div className="flex items-center gap-3">
-        <input
-          id={id}
-          value={value}
-          onChange={(e) => onChange(e.target.value.replace(/\D/g, "").slice(0, 2))}
-          inputMode="numeric"
-          autoComplete="off"
-          placeholder="No."
-          aria-describedby={`${id}-who`}
-          className="field tabular w-16 text-center font-bold"
-        />
-        <span
-          id={`${id}-who`}
-          className="min-w-0 truncate text-[14px]"
-          style={{ color: who ? "var(--color-ink)" : "var(--color-ink-faint)" }}
-        >
-          {note}
-        </span>
-      </div>
+      <input
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value.replace(/\D/g, "").slice(0, 2))}
+        inputMode="numeric"
+        autoComplete="off"
+        placeholder="No."
+        aria-describedby={`${id}-who`}
+        className="field tabular w-16 text-center font-bold"
+      />
+      <p
+        id={`${id}-who`}
+        className="mt-1.5 truncate text-[13px] leading-5"
+        style={{ color: who ? "var(--color-ink)" : "var(--color-ink-faint)" }}
+      >
+        {note}
+      </p>
     </div>
   );
 }

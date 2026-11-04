@@ -723,25 +723,21 @@ function PuckoutColumn({
     );
   }
 
-  // Words from the taker's side, colour from ours: their "won" is red for us.
-  const kept: Tone = ours ? "positive" : "negative";
-  const lost: Tone = ours ? "negative" : "positive";
-
-  // The lengths run across the panel and won over lost runs down it, so three
-  // columns read as a small table: short, mid and long on top, what we got
-  // from each below. A short one is rarely lost outright; its cell stays empty
-  // so the rows underneath keep their columns. On a narrow screen the same
-  // cells just read one after another.
-  const lengthCells = (pick: "kept" | "lost"): CountRow[] =>
-    PUCKOUT_LENGTHS.map((length) => {
-      const line = b.byLength[length];
-      const label = PUCKOUT_LENGTH_LABELS[length];
-      if (pick === "kept") return { label: `${label} won`, value: line.kept, tone: kept };
-      if (line.lost === 0 && length === "short") return { label: "", value: 0, blank: true };
-      return { label: `${label} lost`, value: line.lost, tone: lost };
-    });
+  // The lengths run across the panel: short, mid and long, each with how many
+  // of them were won and what share that is. The length is worked out from
+  // where the restart was marked, so it appears here and nowhere in the
+  // logging. On a narrow screen the same cells just read one after another.
   const unclear = Object.values(b.byLength).reduce((n, l) => n + l.unclear, 0);
-  const lengthRows: CountRow[] = [...lengthCells("kept"), ...lengthCells("lost")];
+  const lengthRows: CountRow[] = PUCKOUT_LENGTHS.map((length) => {
+    const w = b.wonByLength[length];
+    return {
+      label: PUCKOUT_LENGTH_LABELS[length],
+      detail: w.taken === 0 ? "none taken" : `${w.won} of ${w.taken}`,
+      value: w.percent,
+      suffix: "%",
+      tone: "positive",
+    };
+  });
   // The short ones we won, split by whether they did their job.
   if (ours && (b.shortPastSixtyFive > 0 || b.shortHeldInside > 0)) {
     lengthRows.push({ label: `Short, past our ${ourLine}`, value: b.shortPastSixtyFive, tone: "positive" });
@@ -750,8 +746,18 @@ function PuckoutColumn({
   const unrecorded = b.byLength.unrecorded;
   const unrecordedLogged = unrecorded.kept + unrecorded.lost > 0;
   if (unrecordedLogged) {
-    lengthRows.push({ label: "Length not logged, won", value: unrecorded.kept, tone: kept });
-    lengthRows.push({ label: "Length not logged, lost", value: unrecorded.lost, tone: lost });
+    // Won and lost are ours, as in every row above: on their restarts, the
+    // ones we broke and the ones they kept.
+    lengthRows.push({
+      label: "Length not logged, won",
+      value: ours ? unrecorded.kept : unrecorded.lost,
+      tone: "positive",
+    });
+    lengthRows.push({
+      label: "Length not logged, lost",
+      value: ours ? unrecorded.lost : unrecorded.kept,
+      tone: "negative",
+    });
   }
   if (unclear > 0) lengthRows.push({ label: "Broke unclear", value: unclear, tone: "unclear" });
 
@@ -1016,6 +1022,8 @@ function hasHalves(rows: StatRow[]): boolean {
 type CountRow = {
   label: string;
   value: number;
+  /** Sits right after the value, such as a percent sign. */
+  suffix?: string;
   tone?: Tone;
   indent?: boolean;
   detail?: string;
@@ -1082,6 +1090,7 @@ function Counts({ title, rows, columns = 1 }: { title: string; rows: CountRow[];
                     style={{ color: r.value === 0 ? "var(--color-ink-faint)" : toneInk(r.tone ?? "neutral") }}
                   >
                     {r.value}
+                    {r.suffix}
                   </span>
                 </>
               )}

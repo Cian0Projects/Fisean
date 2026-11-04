@@ -40,12 +40,13 @@ import {
   describeStat,
   effectiveOutcome,
   resultFromWhere,
+  puckoutLengthFromWhere,
   statColour,
   statShape,
   statTiming,
   type StatType,
 } from "@/lib/hurling/stats";
-import { restartAfter } from "@/lib/hurling/follow-on";
+import { followOn, followOnDetail } from "@/lib/hurling/follow-on";
 import {
   ARC_NOTE,
   EMPTY_DETAIL,
@@ -329,12 +330,13 @@ export function StatLogger({
           setRows((prev) => [...prev, saved]);
         }
         resetEntry();
-        // A new shot or free is followed by the restart: have it ready, for
-        // the team it belongs to. Fixing an old entry stays where it is.
-        const next = editingId ? null : restartAfter(statType, detail.side);
+        // A new shot is followed by the restart, and a free by the shot from
+        // it: have that ready, for the team it belongs to. Fixing an old
+        // entry stays where it is.
+        const next = editingId ? null : followOn(statType, detail.side);
         if (next && vocabulary.statTypes.includes(next.statType)) {
           setStatType(next.statType);
-          setDetail((d) => ({ ...d, puckoutTakenBy: next.takenBy }));
+          setDetail((d) => ({ ...d, ...followOnDetail(next) }));
         }
         voice.reset();
       } catch (err) {
@@ -581,6 +583,7 @@ export function StatLogger({
               sheet={sheet}
               idPrefix="stat"
               resultNote={shown !== detail ? ARC_NOTE : undefined}
+              puckoutLength={origin ? puckoutLengthFromWhere(origin.x, shown.puckoutTakenBy) : null}
               // The whistles settle the half; there is nothing to pick.
               halfFixed
             />

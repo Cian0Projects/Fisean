@@ -21,6 +21,7 @@ import {
   playerStatLines,
   possessionTally,
   puckoutBreakdown,
+  puckoutLengthFromWhere,
   puckoutOutcome,
   puckoutWinner,
   shootingEfficiency,
@@ -456,6 +457,43 @@ test("a short poc amach only counts as retained once it gets past our 65", () =>
   assert.equal(b.retainedPercent, 60);
 });
 
+test("a restart's length is read from where it came down, counted from the taker's end", () => {
+  // The 45 is 45/145 of the way along on the default pitch, about 0.31.
+  assert.equal(puckoutLengthFromWhere(0.2, "us"), "short");
+  assert.equal(puckoutLengthFromWhere(0.4, "us"), "medium");
+  assert.equal(puckoutLengthFromWhere(0.5, "us"), "medium");
+  assert.equal(puckoutLengthFromWhere(0.7, "us"), "long");
+  // Theirs start at the far end of the normalised pitch, so it is mirrored.
+  assert.equal(puckoutLengthFromWhere(0.8, "opposition"), "short");
+  assert.equal(puckoutLengthFromWhere(0.6, "opposition"), "medium");
+  assert.equal(puckoutLengthFromWhere(0.3, "opposition"), "long");
+});
+
+test("the length is set from the mark when there is one, and kept when there is not", () => {
+  const base = { statType: "puckout", puckoutTakenBy: "us", outcome: "positive" };
+  assert.equal(normaliseEntry({ ...base, originX: 0.7, originY: 0.5, puckoutLength: "short" }).puckoutLength, "long");
+  assert.equal(normaliseEntry({ ...base, puckoutLength: "short" }).puckoutLength, "short");
+  assert.equal(normaliseEntry(base).puckoutLength, null);
+});
+
+test("the report counts what we won of each length by where it came down", () => {
+  const at = (takenBy, outcome, x) => ({ ...puckout(takenBy, outcome), originX: x, originY: 0.5 });
+  const rows = [
+    at("us", "positive", 0.2),
+    at("us", "negative", 0.25),
+    at("us", "positive", 0.45),
+    at("us", "unclear", 0.9),
+    at("us", "positive", 0.9),
+  ];
+  const w = puckoutBreakdown(rows, "us").wonByLength;
+  assert.deepEqual(w.short, { taken: 2, won: 1, percent: 50 });
+  assert.deepEqual(w.medium, { taken: 1, won: 1, percent: 100 });
+  assert.deepEqual(w.long, { taken: 2, won: 1, percent: 50 });
+  // On theirs, "won" is the ones we broke.
+  const theirs = [at("opposition", "positive", 0.1), at("opposition", "negative", 0.1)];
+  assert.deepEqual(puckoutBreakdown(theirs, "opposition").wonByLength.long, { taken: 2, won: 1, percent: 50 });
+});
+
 test("their poc amach is read from their side: kept is theirs", () => {
   const rows = [
     { ...puckout("opposition", "negative"), puckoutLength: "short" },
@@ -747,7 +785,7 @@ test("each entry is described in its own code's words", () => {
   assert.equal(describeStat(puckout("us", "negative"), "ladies_football"), "Our kick-out, lost");
   assert.equal(
     describeStat({ ...puckout("us", "positive"), puckoutLength: "short", pastSixtyFive: true }, "football"),
-    "Our short kick-out, won and worked past our 45",
+    "Our kick-out, won and worked past our 45",
   );
   assert.equal(describeStat(shot("sixty_five"), "football"), "Shot put out for a 45");
   assert.equal(describeStat(shot("sixty_five"), "camogie"), "Shot put out for a 45");

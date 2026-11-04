@@ -34,7 +34,7 @@ import {
   type Markers,
   type Score,
 } from "./notation";
-import { clampToPitch, outsideTwoPointArc } from "./pitch";
+import { clampToPitch, lineFractions, outsideTwoPointArc } from "./pitch";
 
 /* ------------------------------------------------------------ vocabulary */
 
@@ -318,6 +318,22 @@ export const PUCKOUT_LENGTH_LABELS: Record<PuckoutLength, string> = {
   medium: "Mid",
   long: "Long",
 };
+
+/**
+ * How far a restart went, read from where it was marked rather than asked for.
+ *
+ * The mark is where the ball came down. Distance is counted from the end of the
+ * side taking it, so their restart, which starts at the far end of our
+ * normalised pitch, is measured the same way as ours: short when it came down
+ * inside the taker's own 45, mid from there to halfway, long beyond halfway.
+ * The 45 metre line is the same line in every code. Exactly on the 45 is mid.
+ */
+export function puckoutLengthFromWhere(x: number, takenBy: PuckoutSide): PuckoutLength {
+  const reach = takenBy === "opposition" ? 1 - x : x;
+  if (reach < lineFractions().own[45]) return "short";
+  if (reach <= 0.5) return "medium";
+  return "long";
+}
 
 export const POSSESSION_KIND_LABELS: Record<PossessionKind, string> = {
   turnover: "Turnover",
@@ -613,9 +629,10 @@ export function describeStat(entry: StatEntry, code: GameCode): string {
     }
 
     case "puckout": {
-      const length = entry.puckoutLength ? `${PUCKOUT_LENGTH_LABELS[entry.puckoutLength].toLowerCase()} ` : "";
+      // The length is worked out from the mark and belongs to the post-match
+      // report alone, so no description of a single entry carries it.
       const restart = lower(t.restart);
-      const whose = entry.puckoutTakenBy === "opposition" ? `Their ${length}${restart}` : `Our ${length}${restart}`;
+      const whose = entry.puckoutTakenBy === "opposition" ? `Their ${restart}` : `Our ${restart}`;
       if (entry.outcome === "unclear") return `${whose}, broke unclear`;
       if (entry.puckoutTakenBy === "opposition") {
         return entry.outcome === "positive" ? `${whose}, we won it` : `${whose}, they won it`;
@@ -780,7 +797,13 @@ export function normaliseEntry(draft: StatDraft, code: GameCode): NormalisedStat
     case "puckout":
       puckoutTakenBy = oneOf(PUCKOUT_SIDES, draft.puckoutTakenBy);
       if (!puckoutTakenBy) throw new Error(`Whose ${lower(vocabulary.terms.restart)} was it?`);
-      puckoutLength = draft.puckoutLength == null ? null : oneOf(PUCKOUT_LENGTHS, draft.puckoutLength);
+      // Where the ball came down decides how far it went. A restart with no
+      // mark keeps any length that arrived with it (a spoken one, say).
+      puckoutLength = origin
+        ? puckoutLengthFromWhere(origin.x, puckoutTakenBy)
+        : draft.puckoutLength == null
+          ? null
+          : oneOf(PUCKOUT_LENGTHS, draft.puckoutLength);
       // Only ours, only short, only won: the question is whether a short one
       // we held on to was worked out past our own 65 (or 45, in football) or
       // died in our half.
@@ -1499,6 +1522,11 @@ export type PuckoutBreakdown = {
    * team's own, and so does this.
    */
   byLength: Record<PuckoutLength | "unrecorded", LengthLine>;
+  /**
+   * Per length, how many of those we won and what share that is. Ours: the
+   * ones we kept. Theirs: the ones we broke. Unclear breaks count as taken.
+   */
+  wonByLength: Record<PuckoutLength, { taken: number; won: number; percent: number }>;
   /** Ours only: the short ones we won, split by whether they got out past our 65. */
   shortPastSixtyFive: number;
   shortHeldInside: number;
@@ -1527,7 +1555,13 @@ export function puckoutBreakdown(rows: readonly StatEntry[], takenBy: PuckoutSid
   let retained = 0;
 
   for (const r of taken) {
-    const line = byLength[r.puckoutLength ?? "unrecorded"];
+    // Read from the mark whenever there is one, so a restart logged before the
+    // length was worked out for us is sorted by the same rule as a new one.
+    const length =
+      r.originX != null && r.originY != null
+        ? puckoutLengthFromWhere(r.originX, takenBy)
+        : (r.puckoutLength ?? "unrecorded");
+    const line = byLength[length];
     if (r.outcome === keptOutcome) {
       line.kept += 1;
       if (r.pastSixtyFive === true) shortPastSixtyFive += 1;
@@ -1540,9 +1574,18 @@ export function puckoutBreakdown(rows: readonly StatEntry[], takenBy: PuckoutSid
     }
   }
 
+  const wonByLength = {} as PuckoutBreakdown["wonByLength"];
+  for (const length of PUCKOUT_LENGTHS) {
+    const line = byLength[length];
+    const total = line.kept + line.lost + line.unclear;
+    const won = takenBy === "us" ? line.kept : line.lost;
+    wonByLength[length] = { taken: total, won, percent: percentOf(won, total) };
+  }
+
   return {
     taken: taken.length,
     byLength,
+    wonByLength,
     shortPastSixtyFive,
     shortHeldInside,
     retained,
