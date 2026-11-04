@@ -57,6 +57,11 @@ export function HalvesBar({
 }) {
   const [error, setError] = useState<string | null>(null);
   const marked = markers.throwIn != null;
+  // Open until the throw-in is set, then out of the way: the stat fields
+  // below are what gets used for the whole of a logging session, and this
+  // panel is only touched twice. The collapsed line still offers the 2nd
+  // half's Set here, and "Edit" brings the rest back for a correction.
+  const [open, setOpen] = useState(!marked);
 
   const setHere = (kind: HalfKind) => {
     const at = engine.snapshot.positionMs;
@@ -72,12 +77,68 @@ export function HalvesBar({
     onSetHalf(kind, at);
   };
 
+  if (marked && !open) {
+    return (
+      <section
+        className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded border px-2.5 py-1.5"
+        style={{ borderColor: "var(--color-line-strong)" }}
+      >
+        <span className="label">Halves</span>
+        <span className="tabular text-[12px]" style={{ color: "var(--color-ink-dim)" }}>
+          1st {formatClock(markers.throwIn!)}
+        </span>
+        {markers.secondHalf != null ? (
+          <span className="tabular text-[12px]" style={{ color: "var(--color-ink-dim)" }}>
+            2nd {formatClock(markers.secondHalf)}
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setHere("second_half")}
+            className="btn-outline px-2 py-0.5 text-[11px]"
+          >
+            Set 2nd half here
+          </button>
+        )}
+        <span className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
+          {PHASE_LABELS[phase]}
+        </span>
+        <div className="flex-1" />
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-expanded={false}
+          className="btn-ghost px-1.5 py-0.5 text-[11px]"
+        >
+          Edit
+        </button>
+        {error && (
+          <p className="w-full text-[11px]" style={{ color: "var(--color-danger-ink)" }}>
+            {error}
+          </p>
+        )}
+      </section>
+    );
+  }
+
   return (
     <section className="rounded border p-2.5" style={{ borderColor: "var(--color-line-strong)" }}>
       <div className="flex items-baseline justify-between gap-2">
         <span className="label">Halves</span>
-        <span className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
-          {marked ? `Playhead: ${PHASE_LABELS[phase].toLowerCase()}` : "Not marked yet"}
+        <span className="flex items-baseline gap-2">
+          <span className="text-[11px]" style={{ color: "var(--color-ink-faint)" }}>
+            {marked ? `Playhead: ${PHASE_LABELS[phase].toLowerCase()}` : "Not marked yet"}
+          </span>
+          {marked && (
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-expanded
+              className="btn-ghost px-1.5 py-0.5 text-[11px]"
+            >
+              Done
+            </button>
+          )}
         </span>
       </div>
 
