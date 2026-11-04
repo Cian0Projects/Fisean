@@ -457,10 +457,10 @@ async function Dashboard() {
   const user = await requireUser();
 
   /**
-   * The match most recently played that has finished footage leads, whatever
-   * order the footage was uploaded in: a late upload of an old game must not
-   * take the cover from the latest one, and a match with no video yet must not
-   * take it at all. The last finished upload is still looked up, so the cover
+   * Only matches with finished footage are listed. The one most recently
+   * played leads, whatever order the footage was uploaded in: a late upload of
+   * an old game must not take the cover from the latest one. The last finished
+   * upload is still looked up, so the cover
    * can say when its video arrived. Below it the season runs as a fixture
    * list in date order, and beside that a rail of ways back into moments
    * already picked out.
@@ -476,7 +476,15 @@ async function Dashboard() {
   const season = await db
     .select()
     .from(matches)
-    .where(and(eq(matches.teamId, user.teamId), isOurMatch))
+    .where(
+      and(
+        eq(matches.teamId, user.teamId),
+        isOurMatch,
+        // A match whose video has not been uploaded is not shown here at all:
+        // the page is for watching, so it lists only what can be watched.
+        sql`exists (select 1 from ${videos} where ${videos.matchId} = ${matches.id} and ${videos.status} = 'ready' and ${videos.deletedAt} is null)`,
+      ),
+    )
     .orderBy(desc(matches.playedOn), desc(matches.createdAt))
     .limit(20);
 
@@ -486,13 +494,9 @@ async function Dashboard() {
     ? await db.select().from(videos).where(and(inArray(videos.matchId, ids), liveVideo))
     : [];
 
-  // The season is newest played first, but the cover is for watching: a
-  // fixture whose footage has not been uploaded (or is still uploading) must
-  // not lead, so the first match with finished video does. It sits at the top
-  // and the rest keep their order. With no footage anywhere, the head leads.
-  const withFootage = new Set(videoRows.filter((v) => v.status === "ready").map((v) => v.matchId));
-  const leadRow = season.find((m) => withFootage.has(m.id)) ?? season[0];
-  const matchRows = leadRow ? [leadRow, ...season.filter((m) => m.id !== leadRow.id)] : season;
+  // Every match listed has finished footage, newest played first, so the head
+  // leads.
+  const matchRows = season;
 
   // Every stat on every listed sheet, in one pass: the counts per match and
   // each fixture's scoreline both come out of it, and a season of sheets is a
