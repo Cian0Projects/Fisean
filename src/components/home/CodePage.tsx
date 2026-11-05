@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { CodeTabs } from "@/components/home/CodeTabs";
 import type { GameCode } from "@/lib/hurling/codes";
 import { CODE_PAGES, codePage, codePageJsonLd, type CodeScreen } from "@/lib/code-pages";
 import { jsonLdScript } from "@/lib/seo";
@@ -64,6 +65,7 @@ export function CodePage({ code }: { code: GameCode }) {
                 </a>
               </nav>
             </div>
+            <CodeTabs current={code} />
           </header>
 
           <div className="sheet flex flex-1 flex-col justify-center py-14 sm:py-20">

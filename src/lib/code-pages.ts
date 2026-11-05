@@ -77,7 +77,7 @@ const DRILL_SLIOTAR = {
 };
 const DRILL_FOOTBALL = {
   src: "/home/drill-football.jpg",
-  alt: "The drill board: three attackers and two defenders and a football on a pitch with the two-point arc drawn at each end, arrows showing each run and the pass out to the free winger, with the steps and the export button below.",
+  alt: "The drill board: three attackers and two defenders and a football on a pitch with the two-point arc drawn at each end, arrows showing each run and the pass out to the free player on the wing, with the steps and the export button below.",
 };
 /* The clip editor, each with that code's own footage paused in it. */
 const CLIPPING_CAMOGIE = {

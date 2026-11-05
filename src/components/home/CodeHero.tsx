@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Mark } from "@/components/ui/Mark";
 import { PromoVideo } from "@/components/home/PromoVideo";
+import { CodeTabs } from "@/components/home/CodeTabs";
 import { CODE_PAGES } from "@/lib/code-pages";
 
 /**
@@ -110,6 +111,7 @@ export function CodeHero() {
             </a>
           </nav>
         </div>
+        <CodeTabs />
       </header>
 
       <div className="sheet code-hero-body">

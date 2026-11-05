@@ -126,7 +126,7 @@ export const READY_DRILLS: readonly ReadyDrill[] = [
         b2: [0.82, 0.58],
         ball1: [0.775, 0.51],
       });
-      d = then(d, "The defenders have committed to the middle. Pass out to the free winger.", {
+      d = then(d, "The defenders have committed to the middle. Pass out to the free player on the wing.", {
         a1: [0.86, 0.3],
         a2: [0.85, 0.5],
         a3: [0.86, 0.72],
