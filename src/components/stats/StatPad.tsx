@@ -199,11 +199,21 @@ export function StatPad({
   // The entry in hand decides the half while there is one: an entry started
   // just before the restart stays a first-half entry while it is finished.
   const entryHalf = stampMs != null ? halfAt(stampMs) : null;
+  // A new entry's stamp that falls in neither half (before the throw-in, at
+  // half time, after full time) is stale, not a moment: nobody logs a shot
+  // in the warm-up. It comes from picking a stat type before pressing play,
+  // and kept, it both asked which half and timed the entry at 0:00. So it
+  // counts for nothing, and the next touch, or Log, times the entry afresh
+  // off the video. An entry being edited keeps the time it was logged at.
+  const liveStamp = editingId || !halvesMarked || entryHalf != null ? stampMs : null;
   const mapHalf: 1 | 2 | null =
-    entryHalf ?? (stampMs == null && !editingId ? playHalf : null) ?? detail.half ?? null;
+    (liveStamp != null ? entryHalf : null) ??
+    (liveStamp == null && !editingId ? playHalf : null) ??
+    detail.half ??
+    null;
   const ourEnd = ourEndIn(mapHalf, firstHalfEnd);
   // With halves marked and the entry inside one, its half is not a question.
-  const halfFixed = halvesMarked && (stampMs != null ? entryHalf : playHalf) != null;
+  const halfFixed = halvesMarked && (liveStamp != null ? entryHalf : playHalf) != null;
 
   /** The instant an entry starts, captured once and then left alone. */
   const stamp = (ms: number) => {
@@ -212,8 +222,22 @@ export function StatPad({
     if (half) patch({ half });
   };
   const stampIfFresh = () => {
-    if (!editingId && stampMs === null) stamp(engine.snapshot.positionMs);
+    if (!editingId && liveStamp === null) stamp(engine.snapshot.positionMs);
   };
+
+  // Pressing play after picking a type, with nothing placed yet, means the
+  // moment has not happened: the coach is playing on to find it. The stamp
+  // goes, and the mark (or Log) takes the time when it does happen. Once a
+  // point is on the map the entry is real, and playing on to check it
+  // leaves its time alone.
+  useEffect(() => {
+    if (editingId || origin) return;
+    let wasPlaying = engine.snapshot.playing;
+    return engine.subscribe((t) => {
+      if (t.playing && !wasPlaying) setStampMs(null);
+      wasPlaying = t.playing;
+    });
+  }, [engine, editingId, origin]);
 
   const ofThisType = rows.filter((r) => r.statType === statType);
   const timedOfThisType = ofThisType.filter((r) => r.atMs != null);
@@ -344,7 +368,7 @@ export function StatPad({
     voice.stop();
     // A tally logged without ever placing a point or switching type (the
     // default tab, hit straight away) still deserves a real timestamp.
-    const atMs = stampMs ?? engine.snapshot.positionMs;
+    const atMs = liveStamp ?? engine.snapshot.positionMs;
     const input = {
       ...detailToDraft(statType, shown),
       half: halfAt(atMs) ?? detail.half,
@@ -642,10 +666,10 @@ export function StatPad({
         >
           {pending
             ? "Saving…"
-            : savedAt && stampMs == null
+            : savedAt && liveStamp == null
               ? "Saved."
-              : stampMs != null
-                ? `Timed at ${formatClock(stampMs)}`
+              : liveStamp != null
+                ? `Timed at ${formatClock(liveStamp)}`
                 : "Timed when you start"}
         </span>
         <button
