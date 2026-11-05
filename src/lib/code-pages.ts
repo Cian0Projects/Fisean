@@ -76,8 +76,8 @@ const DRILL_SLIOTAR = {
   alt: "The drill board: three attackers and two defenders and a sliotar on a pitch marked at the 13, 20, 45 and 65, with steps, playback speed and an export button below.",
 };
 const DRILL_FOOTBALL = {
-  src: "/home/drill-football.jpg",
-  alt: "The drill board: three attackers and two defenders and a football on a pitch with the two-point arc drawn at each end, arrows showing each run and the pass out to the free player on the wing, with the steps and the export button below.",
+  src: "/home/drill-football-overlap.jpg",
+  alt: "The drill board: three attackers and two defenders and a football on a pitch with the two-point arc drawn at each end, arrows showing each run and the pass out to the player on the overlap, with the steps and the export button below.",
 };
 /* The clip editor, each with that code's own footage paused in it. */
 const CLIPPING_CAMOGIE = {

@@ -3,9 +3,10 @@ import { CODE_PAGES } from "@/lib/code-pages";
 import type { GameCode } from "@/lib/hurling/codes";
 
 /**
- * The strip under the masthead on the home page and on each code's page:
- * Home and the four codes, side by side, so a visitor moves between them in
- * one click instead of going back to the home page and in again.
+ * The strip under the masthead on each code's page, never on the home page
+ * itself (which lists the codes further down): Home and the four codes, side
+ * by side, so a visitor moves between them in one click instead of going back
+ * to the home page and in again.
  *
  * Plain links, so every page is reachable from every other with no script.
  * The page being read is marked and not linked. It scrolls sideways on a

@@ -4,9 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Mark } from "@/components/ui/Mark";
-import { PromoVideo } from "@/components/home/PromoVideo";
-import { CodeTabs } from "@/components/home/CodeTabs";
-import { CODE_PAGES } from "@/lib/code-pages";
+import { PromoVideo } from "@/components/home/PromoVideo";import { CODE_PAGES } from "@/lib/code-pages";
 
 /**
  * The public home page's opening screen: the pitch to the club on the left, the
@@ -111,7 +109,6 @@ export function CodeHero() {
             </a>
           </nav>
         </div>
-        <CodeTabs />
       </header>
 
       <div className="sheet code-hero-body">

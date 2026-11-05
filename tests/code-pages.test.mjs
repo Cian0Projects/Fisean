@@ -77,8 +77,8 @@ test("each code shows its own game: its own clipping screen, and the drill board
     const images = p.screens.map((s) => s.image?.src).filter(Boolean);
     for (const src of images) assert.ok(existsSync(`public${src}`), `missing public${src}`);
     const football = p.code === "football" || p.code === "ladies_football";
-    assert.ok(images.includes(football ? "/home/drill-football.jpg" : "/home/drill-dark.jpg"), p.path);
-    assert.ok(!images.includes(football ? "/home/drill-dark.jpg" : "/home/drill-football.jpg"), p.path);
+    assert.ok(images.includes(football ? "/home/drill-football-overlap.jpg" : "/home/drill-dark.jpg"), p.path);
+    assert.ok(!images.includes(football ? "/home/drill-dark.jpg" : "/home/drill-football-overlap.jpg"), p.path);
   }
 });
 
