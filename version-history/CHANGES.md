@@ -6,6 +6,16 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## Public how-to guides
+*2026-11-05*
+
+The how-to videos for clipping, logging stats, sharing the stat sheet and drawing drills are for members, behind the sign-in, so none of what they teach could be found by a club searching for how to do it. There are now public written guides at /how-to: one per members' video, step for step from its script in tutorials/videos/ and with its poster still as the picture (copied to public/home/how-to/, so the videos themselves stay where only members can reach them), and a fifth on bringing footage across from Veo, Pixellot, Hudl, Spiideo, Google Drive or Dropbox, which is what a club with a camera already searches for. Button names are written as the app shows them, the wording works for all four codes, and each guide that has a video tells the reader members can watch it. The words live in src/lib/how-to.ts, held by tests/how-to.test.mjs to the same rules as the code pages, and every guide is in the sitemap and linked from the foot of each public page and from the home page's getting-started videos.
+
+## A public page for each code
+*2026-11-05*
+
+Search engines could see four pages of the site, and only the home page said what Ardawn is, for all four codes at once, so a football coach searching for a stats app landed on a page that opened with hurling. There are now four more public pages, /hurling, /camogie, /gaelic-football and /ladies-football, each written for its own code's searches in its own words. They share the home page's look and lead back into it: the same masthead over that code's photograph, what Ardawn does, a section on what is particular to the code (the poc amach and the 65, camogie's 45, football's two-point arc, kick-outs and the mark), the real screens, the two open how-to videos, questions and the call to set up a club. The words live in src/lib/code-pages.ts and are drawn from the same rules the stat sheet runs on, and a test holds them to the house rules: titles and descriptions sized for a results page, no dashes, no page using another code's words, and no code shown another code's game. Camogie, Gaelic football and ladies football each have their own clipping screen, the real clip editor with that code's footage in it (short clips from club matches, used with permission), and the football codes have their own drill board with a football and the two-point arcs, all taken from a throwaway copy of the app. Each page has its own title, description, canonical address, share card and breadcrumb for search results; all four are in the sitemap, and the foot of the home page and of each code page links to the other four.
+
 ## A stat pad that fits one screen
 *2026-11-04*
 

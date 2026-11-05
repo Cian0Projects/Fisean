@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Mark } from "@/components/ui/Mark";
 import { PromoVideo } from "@/components/home/PromoVideo";
+import { CODE_PAGES } from "@/lib/code-pages";
 
 /**
  * The public home page's opening screen: the pitch to the club on the left, the
@@ -129,6 +130,26 @@ export function CodeHero() {
               See how it works
             </a>
           </div>
+
+          {/* Each code's own page, in the first screen rather than only at
+              the foot, so someone who typed the address straight in finds
+              their game without scrolling. Smaller than the two buttons
+              above, which stay the main way on. */}
+          <nav className="mt-8" aria-label="Ardawn for each code">
+            <p className="text-[13px] font-semibold text-ink-dim">Choose your code</p>
+            <ul className="mt-3 flex flex-wrap gap-2.5">
+              {CODE_PAGES.map((p) => (
+                <li key={p.code}>
+                  <Link
+                    href={p.path}
+                    className="block border border-line-strong bg-stage/40 px-3.5 py-2 text-[14px] font-semibold text-ink hover:border-ink"
+                  >
+                    {p.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
         </div>
 
         <div className="promo-frame">

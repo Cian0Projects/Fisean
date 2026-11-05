@@ -562,6 +562,15 @@
   }
 
   /*
+   * The same opening on a code's own page (CodePage.tsx): one photograph and
+   * no film, so it stops short of a full screen and lets the first section
+   * show below it.
+   */
+  .code-hero-page {
+    min-height: max(34rem, 78svh);
+  }
+
+  /*
    * Words left, film right. Stacked on a phone with the words first, because
    * the headline is what answers "what is this" and the film is the proof.
    * The film column is the wider one: it is what the eye should land on.

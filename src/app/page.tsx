@@ -41,6 +41,7 @@ import { PitchMap, type PitchMark } from "@/components/pitch/PitchMap";
 import { ResultBox, verdict, verdictColour } from "@/components/matches/ResultBox";
 import { RevealOnScroll } from "@/components/home/RevealOnScroll";
 import { CodeHero } from "@/components/home/CodeHero";
+import { CodeLinks } from "@/components/home/CodePage";
 import { homeJsonLd, jsonLdScript } from "@/lib/seo";
 import { openGuides } from "@/lib/guides";
 import { GuideCard } from "@/components/help/GuideCard";
@@ -187,6 +188,12 @@ function PublicHomepage() {
                 <GuideCard key={g.slug} guide={g} />
               ))}
             </div>
+            <p className="mt-10 text-[15px] text-ink-dim">
+              Clipping, stats, drills and bringing footage in, step by step:{" "}
+              <Link href="/how-to" className="font-semibold text-ink underline">
+                every how to guide
+              </Link>
+            </p>
           </div>
         </section>
 
@@ -325,11 +332,15 @@ function PublicHomepage() {
         </section>
 
         <footer className="border-t border-line">
+          <CodeLinks />
           <div className="sheet flex flex-col gap-4 py-8 text-[13px] text-ink-faint sm:flex-row sm:items-center sm:justify-between">
             <span className="wordmark text-[18px]">Ardawn</span>
             <a href="mailto:hello@ardawnsport.ie" className="hover:text-ink">
               hello@ardawnsport.ie
             </a>
+            <Link href="/how-to" className="hover:text-ink">
+              How to guides
+            </Link>
             <a href="/privacy" className="hover:text-ink">
               Privacy and footage
             </a>

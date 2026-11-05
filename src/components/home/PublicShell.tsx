@@ -33,6 +33,9 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
             <a href="mailto:hello@ardawnsport.ie" className="hover:text-ink">
               hello@ardawnsport.ie
             </a>
+            <Link href="/how-to" className="hover:text-ink">
+              How to guides
+            </Link>
             <a href="/privacy" className="hover:text-ink">
               Privacy and footage
             </a>
