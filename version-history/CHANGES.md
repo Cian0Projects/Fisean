@@ -6,6 +6,11 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## A shared playlist carries its clips
+*2026-11-06*
+
+Clips start private to whoever made them, and a playlist only ever showed a viewer the clips they could open on their own, so a coach who cut their own clips into a playlist and shared it sent an empty playlist. Now a playlist passes on to the people it is shared with the clips its maker could have shared themselves: their own, and those whose maker has left the club. Someone else's private clip on it still reaches only the people that person chose, so a coach cannot widen a player's clip by putting it on a playlist for the panel. Nothing is copied: taking someone off the playlist, or the clip off it, hides the clip from them again, and playlists shared before the change started working at once. The rule is `playlistShowsClip` in `src/lib/auth/visibility.ts`, applied inside `visibleClipIds`, so the playlist page, the match video, comments, drill footage and the emails all agree.
+
 ## Advanced puckout analysis
 *2026-11-05*
 

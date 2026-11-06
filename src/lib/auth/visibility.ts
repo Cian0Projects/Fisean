@@ -14,6 +14,9 @@
  *    coaches, all admins) and named people.
  *
  * Its maker always sees it. Nobody else does by rank.
+ *
+ * A clip can also be seen through a playlist that carries it: see
+ * playlistShowsClip below.
  */
 
 export type Role = "admin" | "coach" | "player";
@@ -61,6 +64,28 @@ export const canSeePlaylist = canSee;
  */
 export function canShare(viewer: Viewer, item: { createdBy: string | null }): boolean {
   return item.createdBy === viewer.id || (item.createdBy == null && viewer.role !== "player");
+}
+
+/**
+ * A playlist carries its clips with it. A coach who cuts their own clips into
+ * a playlist and shares it with another coach means them to see the clips,
+ * and clips start private, so without this the playlist arrived empty.
+ *
+ * But only the clips the playlist's maker could have shared on their own
+ * (canShare): their own clips, and those whose maker has left. A player's clip
+ * shown to the coaches and put on a coach's playlist for the panel still
+ * reaches only the people the player chose. Taking someone off the playlist,
+ * or the clip off it, takes the clip away again, since nothing is copied.
+ */
+export function playlistShowsClip(
+  viewer: Viewer,
+  playlist: Shared & { makerRole: Role | null },
+  chosen: boolean,
+  clip: { createdBy: string | null },
+): boolean {
+  if (playlist.createdBy == null || playlist.makerRole == null) return false;
+  if (!canSee(viewer, playlist, chosen)) return false;
+  return canShare({ id: playlist.createdBy, role: playlist.makerRole }, clip);
 }
 
 /**

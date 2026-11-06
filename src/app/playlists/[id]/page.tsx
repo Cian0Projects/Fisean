@@ -45,8 +45,9 @@ export default async function PlaylistPage({
     .where(and(eq(playlistItems.playlistId, id), liveVideo))
     .orderBy(asc(playlistItems.sortOrder));
 
-  // Someone's private clip put on a shared playlist stays theirs: it is left
-  // out for anyone who could not open it on its own.
+  // The playlist's maker's own clips come with it. Someone else's private
+  // clip put on it stays theirs: it is left out for anyone who could not
+  // open it on its own (playlistShowsClip in src/lib/auth/visibility.ts).
   const seen = await visibleClipIds(
     user,
     rows.map((r) => ({ ...r, id: r.clipId })),

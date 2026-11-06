@@ -63,8 +63,9 @@ export type FootageClip = { clipId: string; title: string; src: string; startMs:
 /**
  * A playlist's clips in playing order, with a link to play each, for a
  * drill's exported video. Null when the playlist is gone or `user` may not
- * open it. As on the playlist page, a clip someone made private stays theirs:
- * it is left out for anyone who could not open it on its own.
+ * open it. As on the playlist page, the playlist's maker's own clips come
+ * with it, and someone else's private clip is left out for anyone who could
+ * not open it on its own.
  */
 export async function playlistFootage(
   user: SessionUser,

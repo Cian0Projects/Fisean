@@ -6,6 +6,7 @@ import {
   canShare,
   describeAudience,
   normaliseAudience,
+  playlistShowsClip,
   reachOf,
 } from "../src/lib/auth/visibility.ts";
 
@@ -91,4 +92,27 @@ test("a stat sheet is the coaches' draft until it is submitted, then everyone's"
   assert.equal(canReadStats(coach, draft), true);
   assert.equal(canReadStats(admin, draft), true);
   assert.equal(canReadStats(player, submitted), true);
+});
+
+test("a shared playlist carries its maker's own private clips", () => {
+  const c2 = { id: "c2", role: "coach" };
+  const mine = { createdBy: "c1" };
+  const forC2 = { visibility: "assigned", createdBy: "c1", shareRoles: null, makerRole: "coach" };
+  assert.equal(playlistShowsClip(c2, forC2, true, mine), true);
+  // Not to someone it was not shared with.
+  assert.equal(playlistShowsClip(admin, forC2, false, mine), false);
+  // Nor while the playlist is still private.
+  assert.equal(playlistShowsClip(c2, { ...forC2, visibility: "private" }, true, mine), false);
+});
+
+test("a playlist does not widen someone else's clip", () => {
+  const toTeam = { visibility: "team", createdBy: "c1", shareRoles: null, makerRole: "coach" };
+  // A player's clip, shown to the coaches, put on a coach's playlist for all.
+  assert.equal(playlistShowsClip(player, toTeam, false, { createdBy: "maker" }), false);
+  // A clip whose maker has left falls to the coaches, so a coach may pass it on.
+  assert.equal(playlistShowsClip(player, toTeam, false, { createdBy: null }), true);
+  // A player's playlist cannot pass on such a clip.
+  assert.equal(playlistShowsClip(coach, { ...toTeam, createdBy: "maker", makerRole: "player" }, false, { createdBy: null }), false);
+  // A playlist whose maker has left passes nothing on.
+  assert.equal(playlistShowsClip(coach, { ...toTeam, createdBy: null, makerRole: null }, false, { createdBy: null }), false);
 });

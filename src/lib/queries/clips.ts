@@ -9,11 +9,25 @@
 import "server-only";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { clipPlayers, clipShares, clipTags, clips, comments, users } from "@/lib/db/schema";
-import { canSeeClip, type Shared, type Viewer } from "@/lib/auth/visibility";
+import {
+  clipPlayers,
+  clipShares,
+  clipTags,
+  clips,
+  comments,
+  playlistItems,
+  playlistViewers,
+  playlists,
+  users,
+} from "@/lib/db/schema";
+import { canSeeClip, playlistShowsClip, type Shared, type Viewer } from "@/lib/auth/visibility";
 import type { ClipRow } from "@/components/review/types";
 
-/** Which of these clips `viewer` may see. One query, however many clips. */
+/**
+ * Which of these clips `viewer` may see: shared with them directly, or on a
+ * playlist they may open that carries it (playlistShowsClip). Two queries at
+ * most, however many clips, and the second only for clips still hidden.
+ */
 export async function visibleClipIds(
   viewer: Viewer,
   rows: (Shared & { id: string })[],
@@ -29,7 +43,34 @@ export async function visibleClipIds(
         ).map((r) => r.clipId),
       )
     : new Set<string>();
-  return new Set(rows.filter((r) => canSeeClip(viewer, r, chosen.has(r.id))).map((r) => r.id));
+  const seen = new Set(rows.filter((r) => canSeeClip(viewer, r, chosen.has(r.id))).map((r) => r.id));
+
+  const hidden = rows.filter((r) => !seen.has(r.id));
+  if (!hidden.length) return seen;
+  const carriers = await db
+    .select({
+      clipId: playlistItems.clipId,
+      visibility: playlists.visibility,
+      shareRoles: playlists.shareRoles,
+      createdBy: playlists.createdBy,
+      makerRole: users.role,
+      // Whether this viewer is one of the people the playlist was shared with.
+      chosen: playlistViewers.userId,
+    })
+    .from(playlistItems)
+    .innerJoin(playlists, eq(playlists.id, playlistItems.playlistId))
+    .leftJoin(users, eq(users.id, playlists.createdBy))
+    .leftJoin(
+      playlistViewers,
+      and(eq(playlistViewers.playlistId, playlists.id), eq(playlistViewers.userId, viewer.id)),
+    )
+    .where(inArray(playlistItems.clipId, hidden.map((r) => r.id)));
+  const byId = new Map(hidden.map((r) => [r.id, r]));
+  for (const p of carriers) {
+    const clip = byId.get(p.clipId);
+    if (clip && playlistShowsClip(viewer, p, p.chosen != null, clip)) seen.add(p.clipId);
+  }
+  return seen;
 }
 
 /** Whether `viewer` may see this one clip. */
