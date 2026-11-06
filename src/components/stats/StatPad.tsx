@@ -69,6 +69,7 @@ import {
 import { withoutStats } from "@/lib/hurling/custom-stats";
 import { statMarks, whoLabel, type NumberSheet, type StatRow } from "./types";
 import { VoiceBar, useVoiceEntry } from "./VoiceEntry";
+import { errorText } from "@/lib/user-error";
 
 const LIST_OPEN_KEY = "fisean.statpad.listOpen";
 const subscribeNothing = () => () => {};
@@ -408,7 +409,7 @@ export function StatPad({
         voice.reset();
         setSavedAt(Date.now());
       } catch (err) {
-        setError((err as Error).message || "That entry could not be saved.");
+        setError(errorText(err, "That entry could not be saved."));
       }
     });
   };
@@ -440,7 +441,7 @@ export function StatPad({
           setRows((prev) => prev.map((r) => byId.get(r.id) ?? r));
         }
       } catch (err) {
-        setError((err as Error).message || "That entry could not be deleted.");
+        setError(errorText(err, "That entry could not be deleted."));
       }
     });
   };

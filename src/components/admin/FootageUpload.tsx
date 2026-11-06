@@ -38,6 +38,7 @@ import {
 import { fileSize, matchDate } from "@/lib/format";
 import { DEFAULT_MATCH_TYPE } from "@/lib/hurling/match-type";
 import { MatchTypeSelect } from "./MatchTypeSelect";
+import { errorText } from "@/lib/user-error";
 
 type Upload = {
   id: string;
@@ -288,7 +289,7 @@ export function UploadProvider({
       } catch (err) {
         if (abort.signal.aborted) return;
         live.current.delete(id);
-        patch(id, { state: "failed", error: (err as Error).message });
+        patch(id, { state: "failed", error: errorText(err, "The upload did not finish. Drop the same file again to carry on.") });
       }
     },
     [fail, patch, router],

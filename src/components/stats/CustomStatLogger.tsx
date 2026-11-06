@@ -42,6 +42,7 @@ import { OUTCOME_COLOURS, STAT_OUTCOMES, type Half, type Side, type StatOutcome 
 import type { GameCode } from "@/lib/hurling/codes";
 import { Check, Choice, NumberField } from "./StatFields";
 import { playerLabel, type NumberSheet } from "./types";
+import { errorText } from "@/lib/user-error";
 
 /** When an entry was seen, as the host's clock reads it. */
 export type EntryStamp = {
@@ -234,7 +235,7 @@ export function CustomStatLogger({
         }
         reset();
       } catch (err) {
-        setError((err as Error).message || "That entry could not be saved.");
+        setError(errorText(err, "That entry could not be saved."));
       }
     });
   };
@@ -266,7 +267,7 @@ export function CustomStatLogger({
       try {
         await deleteCustomEntry(id);
       } catch (err) {
-        setError((err as Error).message || "That entry could not be deleted.");
+        setError(errorText(err, "That entry could not be deleted."));
       }
     });
   };

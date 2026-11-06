@@ -55,6 +55,7 @@ import { ClipSheet, type ClipDraft } from "./ClipSheet";
 import { CommentSheet } from "./CommentSheet";
 import { DrawBar } from "./DrawBar";
 import { ChevronIcon, PauseIcon, PlayIcon } from "@/components/ui/Icon";
+import { errorText } from "@/lib/user-error";
 
 /** The same pre- and post-roll as the desktop's quick-clip key. */
 const PRE_ROLL_MS = 8000;
@@ -263,7 +264,7 @@ export function PhoneWatch({
       );
     } catch (err) {
       setClips((prev) => prev.filter((c) => c.id !== tempId));
-      flash((err as Error).message || "That clip could not be saved.");
+      flash(errorText(err, "That clip could not be saved."));
     }
   };
 
@@ -288,7 +289,7 @@ export function PhoneWatch({
       flash("Clip updated");
     } catch (err) {
       setClips((prev) => prev.map((c) => (c.id === clipId ? before : c)));
-      flash((err as Error).message || "That change could not be saved.");
+      flash(errorText(err, "That change could not be saved."));
     }
   };
 
@@ -304,7 +305,7 @@ export function PhoneWatch({
       flash("Clip deleted");
     } catch (err) {
       setClips((prev) => [...prev, before].sort((a, b) => a.startMs - b.startMs));
-      flash((err as Error).message || "That clip could not be deleted.");
+      flash(errorText(err, "That clip could not be deleted."));
     }
   };
 
@@ -360,7 +361,7 @@ export function PhoneWatch({
       endComposing();
       flash("Comment posted");
     } catch (err) {
-      setCommentError((err as Error).message || "Could not post that.");
+      setCommentError(errorText(err, "Could not post that."));
     } finally {
       setPosting(false);
     }

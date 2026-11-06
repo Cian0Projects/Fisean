@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { setStatsSubmitted } from "@/lib/actions/stats";
+import { errorText } from "@/lib/user-error";
 
 /**
  * The coaches' bar at the top of a stat sheet: whether the panel can see it
@@ -34,7 +35,7 @@ export function SubmitStats({
       try {
         setAt((await setStatsSubmitted(matchId, submit)).statsSubmittedAt);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "That did not save. Try again.");
+        setError(errorText(e, "That did not save. Try again."));
       }
     });
 

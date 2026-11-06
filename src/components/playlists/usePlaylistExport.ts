@@ -11,6 +11,7 @@ import type { CommentRow } from "@/components/review/types";
 import { COMMENT_PLACES, DEFAULT_COMMENT_PLACE, exportFileName, type CommentsOnVideo } from "@/lib/hurling/clip-export";
 import { canRecordVideo } from "@/components/drills/recordDrill";
 import { recordPlaylist } from "./recordPlaylist";
+import { errorText } from "@/lib/user-error";
 
 type ClipToExport = { clipId: string; title: string; exportSrc: string; startMs: number; endMs: number };
 
@@ -112,7 +113,7 @@ export function usePlaylistExport({
         a.click();
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "The video could not be made.");
+      setError(errorText(e, "The video could not be made."));
     } finally {
       setProgress(null);
     }

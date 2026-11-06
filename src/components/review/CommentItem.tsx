@@ -14,6 +14,7 @@ import { deleteComment, editComment } from "@/lib/actions/review";
 import { formatClock } from "@/lib/hurling/notation";
 import { PenIcon } from "@/components/ui/Icon";
 import type { CommentRow, Viewer } from "./types";
+import { errorText } from "@/lib/user-error";
 
 export function CommentItem({
   comment,
@@ -47,7 +48,7 @@ export function CommentItem({
       await deleteComment(comment.id);
       onDeleted(comment);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not delete that.");
+      setError(errorText(e, "Could not delete that."));
     }
   };
 
@@ -66,7 +67,7 @@ export function CommentItem({
       onSaved({ ...comment, body: saved.body, editedAt: saved.editedAt });
       stop();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save that.");
+      setError(errorText(e, "Could not save that."));
     } finally {
       setSaving(false);
     }

@@ -9,6 +9,7 @@
 import { useState, useTransition } from "react";
 import { deleteDrillGroup, renameDrillGroup } from "@/lib/actions/drills";
 import { GROUP_NAME_MAX } from "@/lib/hurling/drill-groups";
+import { errorText } from "@/lib/user-error";
 
 export function GroupTools({ id, name, drillCount }: { id: string; name: string; drillCount: number }) {
   const [editing, setEditing] = useState(false);
@@ -23,7 +24,7 @@ export function GroupTools({ id, name, drillCount }: { id: string; name: string;
         setError(null);
         setEditing(false);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Could not rename that group.");
+        setError(errorText(e, "Could not rename that group."));
       }
     });
 

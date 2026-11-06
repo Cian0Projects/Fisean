@@ -33,6 +33,7 @@ import { CheckDropdown } from "@/components/ui/CheckDropdown";
 import type { Shape } from "@/lib/db/schema";
 import { SIDES, type Side } from "@/lib/hurling/stats";
 import type { ClipRow, CommentRow, SquadMember, Viewer } from "./types";
+import { errorText } from "@/lib/user-error";
 
 /** A drawing made on one frame of this clip, waiting for its comment. */
 export type DrawingDraft = { atMs: number; shapes: Shape[] };
@@ -189,7 +190,7 @@ export function ClipInspector({
       setDraft("");
       onDrawingPosted();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not post that.");
+      setError(errorText(e, "Could not post that."));
     } finally {
       setPosting(false);
     }

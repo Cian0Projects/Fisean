@@ -19,6 +19,7 @@ import {
   renameOpposition,
 } from "@/lib/actions/opposition";
 import { HalfLength } from "@/components/stats/HalfLength";
+import { errorText } from "@/lib/user-error";
 
 /** Today in the browser's own time zone, as the date input wants it. */
 function today(): string {
@@ -75,7 +76,7 @@ export function OppositionGameForm({
         router.push(`/opposition/${oppositionId}`);
         router.refresh();
       } catch (err) {
-        setError((err as Error).message || "That game could not be added.");
+        setError(errorText(err, "That game could not be added."));
       }
     });
   };
@@ -183,7 +184,7 @@ export function AddOpposition() {
             const { id } = await addOpposition(name);
             router.push(`/opposition/${id}`);
           } catch (err) {
-            setError((err as Error).message || "That team could not be added.");
+            setError(errorText(err, "That team could not be added."));
           }
         });
       }}
@@ -235,7 +236,7 @@ export function OppositionTools({
         await work();
         router.refresh();
       } catch (err) {
-        setError((err as Error).message || "That could not be saved.");
+        setError(errorText(err, "That could not be saved."));
       }
     });
   };

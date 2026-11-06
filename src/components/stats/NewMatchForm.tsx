@@ -10,6 +10,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createMatch } from "@/lib/actions/admin";
 import { HalfLength } from "./HalfLength";
+import { errorText } from "@/lib/user-error";
 
 /** Today in the browser's own time zone, as the date input wants it. */
 function today(): string {
@@ -40,7 +41,7 @@ export function NewMatchForm() {
         });
         router.push(`/matches/${id}/stats/log`);
       } catch (err) {
-        setError((err as Error).message || "That match could not be started.");
+        setError(errorText(err, "That match could not be started."));
       }
     });
   };

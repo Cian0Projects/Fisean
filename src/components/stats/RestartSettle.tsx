@@ -18,6 +18,7 @@ import { termsFor, type GameCode } from "@/lib/hurling/codes";
 import { endChoices, lineName, stageLabel, type RestartEnd } from "@/lib/hurling/restart-line";
 import { NumberField, typedNumber } from "./StatFields";
 import type { NumberSheet, StatRow } from "./types";
+import { errorText } from "@/lib/user-error";
 
 const NO_SHEET: NumberSheet = new Map();
 
@@ -63,7 +64,7 @@ export function RestartSettle({
           setAsking(saved);
         }
       } catch (err) {
-        setError((err as Error).message || "That could not be saved.");
+        setError(errorText(err, "That could not be saved."));
       }
     });
 
@@ -76,7 +77,7 @@ export function RestartSettle({
         setAsking(null);
         setError(null);
       } catch (err) {
-        setError((err as Error).message || "That could not be saved.");
+        setError(errorText(err, "That could not be saved."));
       }
     });
 

@@ -37,6 +37,7 @@ import {
   type LivePhase,
   type Whistle,
 } from "@/lib/hurling/live-clock";
+import { errorText } from "@/lib/user-error";
 
 export type LoggerClock = { whistles: Markers; pausedAt: number | null; submittedAt: number | null };
 
@@ -114,7 +115,7 @@ export function MatchClock({
         await queue.current;
         await work();
       } catch (err) {
-        setError((err as Error).message || failed);
+        setError(errorText(err, failed));
       }
     });
   };

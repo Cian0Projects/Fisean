@@ -15,6 +15,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { linkGpsNames, type GpsLink } from "@/lib/actions/gps";
+import { errorText } from "@/lib/user-error";
 
 type Person = { id: string; displayName: string };
 export type GpsNameRow = { name: string; linked: string | null; suggested: string | null };
@@ -42,7 +43,7 @@ export function GpsNames({ matchId, rows, people }: { matchId: string; rows: Gps
         router.refresh();
       } catch (err) {
         setLinked(before);
-        setError((err as Error).message || "That could not be saved.");
+        setError(errorText(err, "That could not be saved."));
       }
     });
   };

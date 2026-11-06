@@ -70,6 +70,7 @@ import {
   type VideoInfo,
   type Viewer,
 } from "./types";
+import { errorText } from "@/lib/user-error";
 
 /**
  * How much of what you just watched a quick-clip keeps.
@@ -256,11 +257,11 @@ export function ReviewWorkspace({
       ...prev.filter((m) => m.kind !== kind),
       ...(atMs == null ? [] : [{ kind, atMs: Math.round(atMs) }]),
     ]);
-    setVideoMarker(video.id, kind, atMs).catch((err) => flash((err as Error).message));
+    setVideoMarker(video.id, kind, atMs).catch((err) => flash(errorText(err, "That half could not be saved.")));
   };
   const changeFirstHalfEnd = (end: End) => {
     setFirstHalfEndState(end);
-    setFirstHalfEnd(video.id, end).catch((err) => flash((err as Error).message));
+    setFirstHalfEnd(video.id, end).catch((err) => flash(errorText(err, "That half could not be saved.")));
   };
   const changeHalfLength = (minutes: number) => {
     if (!match.id) return;
@@ -268,7 +269,7 @@ export function ReviewWorkspace({
     setHalfLengthMinState(minutes);
     setHalfLength(match.id, minutes).catch((err) => {
       setHalfLengthMinState(before);
-      flash((err as Error).message);
+      flash(errorText(err, "The half length could not be saved."));
     });
   };
 
@@ -363,7 +364,7 @@ export function ReviewWorkspace({
         return saved.id;
       } catch (err) {
         setClips((prev) => prev.filter((c) => c.id !== tempId));
-        flash((err as Error).message || "That clip could not be saved.");
+        flash(errorText(err, "That clip could not be saved."));
         return null;
       }
     },
@@ -407,7 +408,7 @@ export function ReviewWorkspace({
       await deleteClip(id);
       flash("Clip removed");
     } catch (err) {
-      flash((err as Error).message);
+      flash(errorText(err, "That clip could not be deleted."));
     }
   }, [selectedId, returnToLive, flash]);
 
@@ -435,7 +436,7 @@ export function ReviewWorkspace({
       try {
         await updateClip(clipId, { startMs, endMs });
       } catch (err) {
-        flash((err as Error).message);
+        flash(errorText(err, "That clip could not be saved."));
       }
     },
     [flash],
@@ -974,7 +975,7 @@ export function ReviewWorkspace({
                   try {
                     await deleteClip(id);
                   } catch (err) {
-                    flash((err as Error).message);
+                    flash(errorText(err, "That clip could not be deleted."));
                   }
                 }}
                 viewer={viewer}

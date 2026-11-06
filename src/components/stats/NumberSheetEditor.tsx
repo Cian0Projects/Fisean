@@ -21,6 +21,7 @@ import { matchDateLong } from "@/lib/format";
 import { AddPlayer } from "@/components/admin/AddPlayer";
 import { typedNumber } from "./StatFields";
 import { numberSheet, type SheetEntry, type StatMatchInfo } from "./types";
+import { errorText } from "@/lib/user-error";
 
 type Player = { id: string; displayName: string };
 
@@ -83,7 +84,7 @@ export function NumberSheetEditor({
         setNumbers(await setMatchNumber(match.id, number, userId));
       } catch (err) {
         setNumbers(before);
-        setError((err as Error).message || "That could not be saved.");
+        setError(errorText(err, "That could not be saved."));
       }
     });
   };
@@ -114,7 +115,7 @@ export function NumberSheetEditor({
           problems: result.problems,
         });
       } catch (err) {
-        setError((err as Error).message || "That file could not be read.");
+        setError(errorText(err, "That file could not be read."));
       } finally {
         setImporting(false);
         if (picker.current) picker.current.value = "";

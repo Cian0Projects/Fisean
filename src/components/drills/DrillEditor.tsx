@@ -28,8 +28,10 @@ import {
   loadDrillFootage,
   moveDrill,
   saveDrill,
+  type DrillFootage,
   type FootagePlaylist,
 } from "@/lib/actions/drills";
+import { errorText } from "@/lib/user-error";
 import {
   BALL_KINDS,
   BALL_LABELS,
@@ -268,10 +270,20 @@ export function DrillEditor({
     setVideoError(null);
     setVideo(null);
     setRecording(0);
+    // Looked up now, not saved with the drill, so the clips are whatever this
+    // coach may see today. The playlist may since have been deleted, made
+    // private, or emptied; each of those comes to the same thing for the coach.
+    let footage: DrillFootage | null = null;
+    if (data.footage) {
+      try {
+        footage = await loadDrillFootage(data.footage.playlistId);
+      } catch {
+        setVideoError("No playlist found. Choose the game footage again, or remove it.");
+        setRecording(null);
+        return;
+      }
+    }
     try {
-      // Looked up now, not saved with the drill, so the clips are whatever
-      // this coach may see today.
-      const footage = data.footage ? await loadDrillFootage(data.footage.playlistId) : null;
       const { blob, ext } = await recordDrill({
         board: svgRef.current,
         data,
@@ -294,7 +306,7 @@ export function DrillEditor({
         a.click();
       }
     } catch (e) {
-      setVideoError(e instanceof Error ? e.message : "The video could not be made.");
+      setVideoError(errorText(e, "The video could not be made."));
     } finally {
       setRecording(null);
     }
@@ -431,7 +443,7 @@ export function DrillEditor({
                   await moveDrill(id, next);
                 } catch (err) {
                   setGroup(before);
-                  setGroupError(err instanceof Error ? err.message : "Could not move that drill.");
+                  setGroupError(errorText(err, "Could not move that drill."));
                 }
               });
             }}

@@ -40,6 +40,7 @@ import {
 } from "@/lib/hurling/custom-stats";
 import type { GameCode } from "@/lib/hurling/codes";
 import { Check, Choice } from "@/components/stats/StatFields";
+import { errorText } from "@/lib/user-error";
 
 export function CustomStatsEditor({
   initial,
@@ -71,7 +72,7 @@ export function CustomStatsEditor({
       try {
         upsert(await setCustomStatRetired(stat.id, retired));
       } catch (err) {
-        setError((err as Error).message);
+        setError(errorText(err, "That stat could not be changed."));
       }
     });
   };
@@ -84,7 +85,7 @@ export function CustomStatsEditor({
         setStats((prev) => prev.filter((s) => s.id !== stat.id));
         setConfirmingId(null);
       } catch (err) {
-        setError((err as Error).message);
+        setError(errorText(err, "That stat could not be deleted."));
       }
     });
   };
@@ -224,7 +225,7 @@ function StandardStats({ initial, code }: { initial: StatType[]; code: GameCode 
       try {
         setHidden(await setStandardStatRemoved(type, removed));
       } catch (err) {
-        setError((err as Error).message);
+        setError(errorText(err, "That stat could not be changed."));
       }
     });
   };
@@ -298,7 +299,7 @@ function RestartAnalysis({ initial, code }: { initial: RestartLine | null; code:
         await setRestartLine(next);
       } catch (err) {
         setLine(before);
-        setError((err as Error).message);
+        setError(errorText(err, "The line could not be saved."));
       }
     });
   };
@@ -367,7 +368,7 @@ function StatForm({
       try {
         onSaved(stat ? await updateCustomStat(stat.id, spec) : await createCustomStat(spec));
       } catch (err) {
-        setError((err as Error).message || "That stat could not be saved.");
+        setError(errorText(err, "That stat could not be saved."));
       }
     });
   };

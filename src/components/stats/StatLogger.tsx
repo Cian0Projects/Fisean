@@ -78,6 +78,7 @@ import { HalfLength } from "./HalfLength";
 import { VoiceBar, useVoiceEntry } from "./VoiceEntry";
 import { CustomStatLogger } from "./CustomStatLogger";
 import { withoutStats, type CustomEntryRow, type CustomStatDef } from "@/lib/hurling/custom-stats";
+import { errorText } from "@/lib/user-error";
 
 type ClipOption = { id: string; label: string };
 
@@ -344,7 +345,7 @@ export function StatLogger({
         }
         voice.reset();
       } catch (err) {
-        setError((err as Error).message || "That entry could not be saved.");
+        setError(errorText(err, "That entry could not be saved."));
       }
     });
   };
@@ -376,7 +377,7 @@ export function StatLogger({
           setRows((prev) => prev.map((r) => byId.get(r.id) ?? r));
         }
       } catch (err) {
-        setError((err as Error).message || "That entry could not be deleted.");
+        setError(errorText(err, "That entry could not be deleted."));
       }
     });
   };
@@ -430,7 +431,7 @@ export function StatLogger({
               setHalfLengthMinState(minutes);
               setHalfLength(match.id, minutes).catch((err) => {
                 setHalfLengthMinState(before);
-                setError((err as Error).message);
+                setError(errorText(err, "The half length could not be saved."));
               });
             }}
           />

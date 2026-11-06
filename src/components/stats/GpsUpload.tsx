@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { removeMatchGps, uploadMatchGps } from "@/lib/actions/gps";
 import { decodeCsvBytes } from "@/lib/hurling/gps";
 import { PrintButton } from "./PrintButton";
+import { errorText } from "@/lib/user-error";
 
 type Note = { tone: "ok" | "error"; text: string };
 
@@ -44,7 +45,7 @@ export function GpsUpload({
         setNote({ tone: "ok", text: bits.join(" ") });
         router.refresh();
       } catch (err) {
-        setNote({ tone: "error", text: (err as Error).message || "That file could not be imported." });
+        setNote({ tone: "error", text: errorText(err, "That file could not be imported.") });
       } finally {
         if (input.current) input.current.value = "";
       }
@@ -59,7 +60,7 @@ export function GpsUpload({
         await removeMatchGps(matchId);
         router.refresh();
       } catch (err) {
-        setNote({ tone: "error", text: (err as Error).message || "That could not be removed." });
+        setNote({ tone: "error", text: errorText(err, "That could not be removed.") });
       }
     });
   };

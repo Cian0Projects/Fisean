@@ -14,6 +14,7 @@ import { useState } from "react";
 import { setPlaylistAudience } from "@/lib/actions/playlists";
 import { describeAudience, type Audience } from "@/lib/auth/visibility";
 import { AudiencePicker, type AudiencePerson } from "@/components/ui/AudiencePicker";
+import { errorText } from "@/lib/user-error";
 
 export function PlaylistAudience({
   playlistId,
@@ -49,7 +50,7 @@ export function PlaylistAudience({
       setOpen(false);
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save that.");
+      setError(errorText(e, "Could not save that."));
     } finally {
       setSaving(false);
     }
