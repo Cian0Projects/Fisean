@@ -18,6 +18,7 @@ import {
   type StatType,
 } from "@/lib/hurling/stats";
 import type { GameCode } from "@/lib/hurling/codes";
+import type { RestartEnd, RestartLine } from "@/lib/hurling/restart-line";
 
 export type StatRow = {
   id: string;
@@ -42,7 +43,11 @@ export type StatRow = {
   scorable: boolean | null;
   puckoutTakenBy: PuckoutSide | null;
   puckoutLength: PuckoutLength | null;
-  pastSixtyFive: boolean | null;
+  /** Advanced puckout analysis only; see src/lib/hurling/restart-line.ts. */
+  restartLine: RestartLine | null;
+  restartEnd: RestartEnd | null;
+  /** Who was on the ball when a short restart was lost: ours on ours, theirs on theirs. */
+  lostByNumber: number | null;
   markKind: MarkKind | null;
   clipId: string | null;
   videoId: string | null;

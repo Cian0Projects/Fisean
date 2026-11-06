@@ -57,6 +57,7 @@ import { STAT_LEAD_IN_MS, lineEntryMoment, statVocabulary, type StatType } from 
 import { CustomStatLogger } from "@/components/stats/CustomStatLogger";
 import { withoutStats, type CustomEntryRow, type CustomStatDef } from "@/lib/hurling/custom-stats";
 import type { GameCode } from "@/lib/hurling/codes";
+import type { RestartLine } from "@/lib/hurling/restart-line";
 import { ClipList } from "./ClipList";
 import { ClipInspector, type DrawingDraft } from "./ClipInspector";
 import {
@@ -96,6 +97,8 @@ type Props = {
   eventTypes: EventTypeRow[];
   /** The club's code, for the stat sheet's words. */
   code: GameCode;
+  /** The line the squad judges short restarts at, or null with the analysis off. */
+  restartLine?: RestartLine | null;
   squad: SquadMember[];
   initialClips: ClipRow[];
   /** Arrive parked on this clip, from a link that named it. */
@@ -117,6 +120,7 @@ export function ReviewWorkspace({
   match,
   eventTypes,
   code,
+  restartLine = null,
   squad,
   initialClips,
   openClipId,
@@ -942,6 +946,7 @@ export function ReviewWorkspace({
               matchId={match.id}
               videoId={video.id}
               code={code}
+              restartLine={restartLine}
               removed={removedStats}
               sheet={statSheet}
               rows={placedStatRows}

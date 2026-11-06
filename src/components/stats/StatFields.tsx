@@ -10,8 +10,9 @@
  * by one `StatDetail` value, and each form keeps only its own frame.
  *
  * Every follow-up question appears only once the answer before it makes it
- * meaningful: "worked past our 65" only for our short restart that we won,
- * "unforced" only for a ball we lost. A coach never sees a field that cannot
+ * meaningful: how a restart ended only for a short one its taker won, and
+ * only for a squad that judges its restarts; "unforced" only for a ball we
+ * lost. A coach never sees a field that cannot
  * apply, which is most of what keeps a nine-column row quick to log.
  *
  * Every word that differs by code (poc amach or kick-out, 65 or 45, the
@@ -50,6 +51,7 @@ import {
   type StatOutcome,
   type StatType,
 } from "@/lib/hurling/stats";
+import { asksHowItEnded, endChoices, type RestartEnd, type RestartLine } from "@/lib/hurling/restart-line";
 import type { NumberSheet, StatRow } from "./types";
 
 export type StatDetail = {
@@ -70,7 +72,10 @@ export type StatDetail = {
   scorable: boolean;
   puckoutTakenBy: PuckoutSide;
   puckoutLength: PuckoutLength | null;
-  pastSixtyFive: boolean;
+  /** Advanced puckout analysis: how a short restart its taker won ended. Optional while logging. */
+  restartEnd: RestartEnd | null;
+  /** Who was on the ball when it was lost, typed: ours on ours, theirs on theirs. */
+  lostBy: string;
   markKind: MarkKind | null;
 };
 
@@ -90,7 +95,8 @@ export const EMPTY_DETAIL: StatDetail = {
   scorable: false,
   puckoutTakenBy: "us",
   puckoutLength: null,
-  pastSixtyFive: false,
+  restartEnd: null,
+  lostBy: "",
   markKind: null,
 };
 
@@ -110,7 +116,7 @@ export function nextDetail(prev: StatDetail): StatDetail {
 
 /** Switching type keeps who and where; how it ended belongs to the old type. */
 export function detailForType(prev: StatDetail): StatDetail {
-  return { ...prev, outcome: null, shotResult: null, ledToScore: false, pastSixtyFive: false, markKind: null };
+  return { ...prev, outcome: null, shotResult: null, ledToScore: false, restartEnd: null, lostBy: "", markKind: null };
 }
 
 export function detailFromRow(row: StatRow): StatDetail {
@@ -130,7 +136,8 @@ export function detailFromRow(row: StatRow): StatDetail {
     scorable: Boolean(row.scorable),
     puckoutTakenBy: row.puckoutTakenBy ?? "us",
     puckoutLength: row.puckoutLength,
-    pastSixtyFive: Boolean(row.pastSixtyFive),
+    restartEnd: row.restartEnd,
+    lostBy: row.lostByNumber != null ? String(row.lostByNumber) : "",
     markKind: row.markKind,
   };
 }
@@ -166,8 +173,11 @@ export function detailReady(type: StatType, d: StatDetail): boolean {
   if (playerAllowed(type, d) && !numberOk(d.playerNumber)) return false;
   if (type === "delivery" && !numberOk(d.targetNumber)) return false;
   if (theirsAllowed(type, d) && !numberOk(d.theirNumber)) return false;
+  if (type === "puckout" && lostEnd(d.restartEnd) && !numberOk(d.lostBy)) return false;
   return true;
 }
+
+const lostEnd = (end: RestartEnd | null) => end === "lost_before" || end === "lost_past";
 
 /** The detail as the server action wants it. The action normalises it again. */
 export function detailToDraft(type: StatType, d: StatDetail): StatDraft {
@@ -188,7 +198,8 @@ export function detailToDraft(type: StatType, d: StatDetail): StatDraft {
     scorable: d.scorable,
     puckoutTakenBy: d.puckoutTakenBy,
     puckoutLength: d.puckoutLength,
-    pastSixtyFive: d.pastSixtyFive,
+    restartEnd: type === "puckout" ? d.restartEnd : null,
+    lostByNumber: type === "puckout" && lostEnd(d.restartEnd) ? typedNumber(d.lostBy) : null,
     markKind: d.markKind,
   };
 }
@@ -235,7 +246,7 @@ export function StatFields({
   halfNote,
   halfFixed = false,
   resultNote,
-  puckoutLength = null,
+  judging = null,
   compact = false,
 }: {
   /** The club's words for this sheet. */
@@ -257,11 +268,12 @@ export function StatFields({
   /** Said under a shot's result, e.g. that the mark made a point worth two. */
   resultNote?: string;
   /**
-   * How far the restart went, worked out from where it was marked. Never
-   * asked for: it is here only because a short one we won asks one more
-   * question.
+   * Advanced puckout analysis: the line this restart is judged at, and where
+   * it was marked. A short one its taker won asks how it ended, optionally:
+   * logged live it is usually settled after, by the next entry or one tap.
+   * Null for a squad that does not judge restarts.
    */
-  puckoutLength?: PuckoutLength | null;
+  judging?: { line: RestartLine; origin: { x: number; y: number } | null } | null;
   /**
    * Tighter buttons and boxes, for the stat pad beside the video, where the
    * whole entry and the map have to fit one screen. Still big enough to hit
@@ -351,7 +363,7 @@ export function StatFields({
             onChange={(v) => onChange({ puckoutTakenBy: v as PuckoutSide })}
           />
           <Choice
-            label="Who won the break"
+            label="Who won it"
             options={PUCKOUT_WINNERS.map((w) => ({
               value: w.value,
               label: w.label,
@@ -360,13 +372,41 @@ export function StatFields({
             value={d.outcome ? puckoutWinner(d.outcome) : null}
             onChange={(v) => onChange({ outcome: puckoutOutcome(v as PuckoutWinner) })}
           />
-          {d.puckoutTakenBy === "us" && puckoutLength === "short" && d.outcome === "positive" && (
-            <Check
-              checked={d.pastSixtyFive}
-              onChange={(v) => onChange({ pastSixtyFive: v })}
-              label={`Worked out past our ${terms.line}`}
-            />
-          )}
+          {judging &&
+            asksHowItEnded({
+              statType,
+              outcome: d.outcome,
+              puckoutTakenBy: d.puckoutTakenBy,
+              puckoutLength: d.puckoutLength,
+              originX: judging.origin?.x ?? null,
+              originY: judging.origin?.y ?? null,
+              restartLine: judging.line,
+            }) && (
+              <>
+                <Choice
+                  label="How it ended"
+                  options={endChoices(d.puckoutTakenBy, judging.line).map((c) => ({
+                    value: c.value,
+                    label: c.label,
+                  }))}
+                  value={d.restartEnd}
+                  onChange={(v) => onChange({ restartEnd: v as RestartEnd })}
+                  clearable
+                  onClear={() => onChange({ restartEnd: null, lostBy: "" })}
+                />
+                {lostEnd(d.restartEnd) && (
+                  <NumberField
+                    id={`${idPrefix}-lost-by`}
+                    label={d.puckoutTakenBy === "us" ? "Lost by" : "Their player who lost it"}
+                    value={d.lostBy}
+                    onChange={(v) => onChange({ lostBy: v })}
+                    sheet={d.puckoutTakenBy === "us" ? sheet : NO_SHEET}
+                    theirs={d.puckoutTakenBy !== "us"}
+                    inline={compact}
+                  />
+                )}
+              </>
+            )}
         </>
       )}
 

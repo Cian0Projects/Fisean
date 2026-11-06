@@ -6,6 +6,11 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## Advanced puckout analysis
+*2026-11-05*
+
+A short puckout is only a success once it is worked out past a line, so a squad can now switch on advanced puckout analysis in the stats section of the squad page and pick the line: our 45, our 65 or halfway (the 45 to start for hurling and camogie, halfway for football, where a kick-out must clear the 40 m arc). Every restart that comes down short of that line, ours and theirs, then ends one of four ways: lost on the first ball, lost before the line, lost past it, or worked through. A short one the taker won stays open on the logging screen with three buttons, and the next entry usually settles it on its own: a shot or free won means worked through, a turnover means lost, before or past the line by where it was placed. A lost one can name who was on the ball, for either team. Players see a green and red map of the short ones and how many were worked through, and each dot plays its moment; coaches see the four counts, where they were lost and who lost them, and the season page tracks the share worked through. It replaces the "worked out past our 65" tickbox: migration 0043 copied every tick across and switched the analysis on at the 65 for the squads that used it. The first question on a restart is now "Who won it", since a break is a loose ball, not every win. Four columns on `match_stats` (`restart_line`, `restart_end`, `lost_by_number`, and `settled_by`, so deleting the entry that settled a restart opens it again) and one on `teams` (`restart_line`). The agreed design is in docs/PUCKOUT-ANALYSIS.md.
+
 ## Public how-to guides
 *2026-11-05*
 

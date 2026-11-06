@@ -45,13 +45,14 @@ import {
   describeStat,
   effectiveOutcome,
   resultFromWhere,
-  puckoutLengthFromWhere,
   statColour,
   statShape,
   stepToStat,
   type StatType,
 } from "@/lib/hurling/stats";
 import { followOn, followOnDetail } from "@/lib/hurling/follow-on";
+import { openRestart, type RestartLine } from "@/lib/hurling/restart-line";
+import { RestartSettle } from "./RestartSettle";
 import {
   ARC_NOTE,
   EMPTY_DETAIL,
@@ -84,6 +85,7 @@ export function StatPad({
   matchId,
   videoId,
   code,
+  restartLine,
   removed,
   sheet,
   rows,
@@ -100,6 +102,8 @@ export function StatPad({
   videoId: string;
   /** The club's code, for its words and its scores. */
   code: GameCode;
+  /** The line short restarts are judged at, or null with advanced puckout analysis off. */
+  restartLine: RestartLine | null;
   /** Standard stats the squad has removed from logging. */
   removed: StatType[];
   /** Who wore what in this match, so far. */
@@ -389,8 +393,8 @@ export function StatPad({
           const saved = await updateMatchStat(editingId, input);
           setRows((prev) => prev.map((r) => (r.id === editingId ? saved : r)));
         } else {
-          const saved = await logMatchStat({ ...input, matchId });
-          setRows((prev) => [...prev, saved]);
+          const { row: saved, settled } = await logMatchStat({ ...input, matchId });
+          setRows((prev) => [...prev.map((r) => (r.id === settled?.id ? settled : r)), saved]);
         }
         resetEntry();
         // A new shot is followed by the restart, and a free by the shot from
@@ -429,7 +433,12 @@ export function StatPad({
     if (editingId === id) resetEntry();
     startTransition(async () => {
       try {
-        await deleteMatchStat(id);
+        // A restart this entry settled is open again.
+        const unsettled = await deleteMatchStat(id);
+        if (unsettled.length) {
+          const byId = new Map(unsettled.map((r) => [r.id, r]));
+          setRows((prev) => prev.map((r) => byId.get(r.id) ?? r));
+        }
       } catch (err) {
         setError((err as Error).message || "That entry could not be deleted.");
       }
@@ -438,6 +447,8 @@ export function StatPad({
 
   const newest = [...rows].sort((a, b) => b.createdAt - a.createdAt);
   const latest = newest[0];
+  // A restart being edited keeps the line it was logged at.
+  const judgedAt = (editingId ? rows.find((r) => r.id === editingId)?.restartLine : null) ?? restartLine;
 
   // The pad is three bands so the two things pressed most never scroll
   // away: the stat buttons pinned at the top, the entry in the middle (the
@@ -511,6 +522,14 @@ export function StatPad({
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2.5">
       <div className="space-y-2.5">
 
+        <RestartSettle
+          open={editingId ? null : openRestart(rows)}
+          code={code}
+          sheet={sheet}
+          onSettled={(saved) => setRows((prev) => prev.map((r) => (r.id === saved.id ? saved : r)))}
+          compact
+        />
+
         <StatFields
           vocabulary={vocabulary}
           statType={statType}
@@ -525,7 +544,7 @@ export function StatPad({
           }
           halfFixed={halfFixed}
           resultNote={shown !== detail ? ARC_NOTE : undefined}
-          puckoutLength={origin ? puckoutLengthFromWhere(origin.x, shown.puckoutTakenBy) : null}
+          judging={judgedAt ? { line: judgedAt, origin } : null}
           compact
         />
 

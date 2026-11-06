@@ -11,13 +11,25 @@
  * and the list are MomentReel, shared with a player's season. This is the
  * filters.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { numberSheet, playerLabel, whoLabel, type SheetEntry, type StatRow } from "./types";
 import { MomentReel, Chip, OUTCOME_FILTERS, Toggles, type MomentFootage } from "./MomentReel";
 import { statVocabulary, type StatOutcome, type StatType } from "@/lib/hurling/stats";
 import { ALL_MOMENTS, inFilter, statMoments, type MomentFilter } from "@/lib/hurling/moments";
 import type { Markers } from "@/lib/hurling/notation";
 import type { GameCode } from "@/lib/hurling/codes";
+
+const PLAY_MOMENT = "fisean:play-moment";
+
+/**
+ * Open one entry in the reel below and play it: what a dot on a report map
+ * does when tapped. An event rather than shared state, because the report and
+ * the reel are drawn by the page side by side and know nothing of each other.
+ */
+export function playMoment(rowId: string): void {
+  window.dispatchEvent(new CustomEvent<string>(PLAY_MOMENT, { detail: rowId }));
+  document.getElementById("moments")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 export function StatMoments({
   code,
@@ -56,6 +68,22 @@ export function StatMoments({
       ? viewerNumber
       : null,
   }));
+
+  // A dot tapped on a map: every moment back in the reel, starting at that one.
+  const [startAt, setStartAt] = useState<{ id: string; seq: number } | null>(null);
+  useEffect(() => {
+    const onPlay = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      setFilter(ALL_MOMENTS);
+      setStartAt((prev) => ({ id, seq: (prev?.seq ?? 0) + 1 }));
+    };
+    window.addEventListener(PLAY_MOMENT, onPlay);
+    return () => window.removeEventListener(PLAY_MOMENT, onPlay);
+  }, []);
+
+  // Only while the reel still shows everything: picking a filter afterwards
+  // is a new reel, and should not start the tapped moment over again.
+  const cueId = startAt && JSON.stringify(filter) === JSON.stringify(ALL_MOMENTS) ? startAt.id : null;
 
   const visible = useMemo(() => placed.filter((m) => inFilter(m.row, filter)), [placed, filter]);
   const missing = unplaced.filter((r) => inFilter(r, filter)).length;
@@ -146,12 +174,13 @@ export function StatMoments({
 
       {/* A new filter is a new reel: whatever was playing belonged to the old one. */}
       <MomentReel
-        key={JSON.stringify(filter)}
+        key={`${JSON.stringify(filter)}:${startAt?.seq ?? 0}`}
         code={code}
         moments={visible}
         footage={footage}
         missing={missing}
         subtitle={(r) => whoOf(r, sheet)}
+        startAt={cueId}
       />
     </div>
   );

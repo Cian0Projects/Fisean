@@ -214,7 +214,11 @@ export default async function TeamSeasonPage({
             {/* ---------------------------------------------------- restarts */}
             <SeasonSection
               title={terms.restarts}
-              note={`Our own retained, counted as on the match sheet: a short one only once it is worked out past our ${terms.line}.`}
+              note={
+                season.shortRestarts
+                  ? "Our own retained, counted as on the match sheet: a short one only once it is worked out past the line it was judged at."
+                  : "Our own retained, and theirs won by us."
+              }
             >
               {logged.puckout === 0 ? (
                 <Quiet>None logged.</Quiet>
@@ -232,6 +236,24 @@ export default async function TeamSeasonPage({
                       average={season.restarts.taken ? season.restarts.retainedPercent : null}
                       format={(n) => `${n}%`}
                     />
+                    {season.shortRestarts && season.shortRestarts.counted > 0 && (
+                      <>
+                        <Big
+                          figure={`${season.shortRestarts.percent}%`}
+                          text={`of our short ones worked through, ${season.shortRestarts.workedThrough} of ${season.shortRestarts.counted}`}
+                        />
+                        <Trend
+                          title="Short ones worked through, match by match"
+                          points={lines.map((l, i) => ({
+                            label: label(i),
+                            value: l.shortRestarts?.counted ? l.shortRestarts.percent : null,
+                          }))}
+                          max={100}
+                          average={season.shortRestarts.percent}
+                          format={(n) => `${n}%`}
+                        />
+                      </>
+                    )}
                   </div>
                   <div className="space-y-4">
                     <Big

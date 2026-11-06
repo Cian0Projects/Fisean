@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { and, count, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { customStatEntries, customStats, hiddenStats, matches, videos } from "@/lib/db/schema";
+import { customStatEntries, customStats, hiddenStats, matches, teams, videos } from "@/lib/db/schema";
+import { isRestartLine, type RestartLine } from "@/lib/hurling/restart-line";
 import { assertSameTeam, requireCoach } from "@/lib/auth/guard";
 import { statVocabulary, type StatType } from "@/lib/hurling/stats";
 import {
@@ -139,6 +140,24 @@ export async function deleteCustomStat(statId: string): Promise<void> {
   await db.delete(customStats).where(eq(customStats.id, stat.id));
   revalidateCustom();
   revalidatePath("/matches", "layout");
+}
+
+/* ------------------------------------------ advanced puckout analysis */
+
+/**
+ * Switch advanced puckout analysis on at a line, or off (null). Coaches as
+ * well as admins: they are the ones logging. Only restarts logged from now on
+ * take the line; those already logged keep the line they were judged at, so
+ * turning it off hides nothing and re-marks nothing.
+ */
+export async function setRestartLine(line: RestartLine | null): Promise<RestartLine | null> {
+  const user = await requireCoach();
+  if (line !== null && !isRestartLine(line)) throw new Error("That is not a line on the pitch.");
+  await db.update(teams).set({ restartLine: line }).where(eq(teams.id, user.teamId));
+  revalidateCustom();
+  revalidatePath("/matches", "layout");
+  revalidatePath("/review", "layout");
+  return line;
 }
 
 /* ------------------------------------------------------ standard stats */

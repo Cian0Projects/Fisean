@@ -61,7 +61,8 @@ export type VoiceFields = Partial<{
   scorable: boolean;
   puckoutTakenBy: PuckoutSide;
   puckoutLength: PuckoutLength;
-  pastSixtyFive: boolean;
+  /** "Worked out", "past the 65": a short restart worked through. Kept only where the squad judges restarts. */
+  restartEnd: "worked_through";
   markKind: MarkKind;
 }>;
 
@@ -192,7 +193,7 @@ const PHRASES: [string[], Meaning][] = [
   [["front 8"], { t: "front" }],
   [["scorable", "scoreable", "in range", "within range", "kickable", "pointable"], { t: "scorable" }],
   // A football code measures the same thing by its own 45.
-  [["past the 65", "past our 65", "past 65", "out past the 65", "past the 45", "past our 45", "past 45", "out past the 45", "worked out", "worked it out"], { t: "past65" }],
+  [["past the 65", "past our 65", "past 65", "out past the 65", "past the 45", "past our 45", "past 45", "out past the 45", "worked out", "worked it out", "worked through", "worked it through"], { t: "past65" }],
   [["first half", "1st half"], { t: "half", v: 1 }],
   [["second half", "2nd half"], { t: "half", v: 2 }],
 
@@ -450,7 +451,7 @@ export function parseSpokenStat(text: string, current: StatType, allowed?: reado
         if (statType === "free_conceded") f.scorable = true;
         break;
       case "past65":
-        if (statType === "puckout") f.pastSixtyFive = true;
+        if (statType === "puckout") f.restartEnd = "worked_through";
         break;
     }
     prev = m;

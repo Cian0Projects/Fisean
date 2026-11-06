@@ -121,6 +121,7 @@ export default async function ReviewPage({
       }}
       eventTypes={events}
       code={user.teamCode}
+      restartLine={user.restartLine}
       squad={squad}
       initialClips={initialClips}
       // Only a clip this viewer can see: the rest are not in the list.

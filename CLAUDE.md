@@ -37,6 +37,7 @@ some of these are not worth opening whole — `Grep` for the symbol instead.
 | Scoring, game clock | `src/lib/hurling/notation.ts` (181) |
 | Pitch coordinates, zones | `src/lib/hurling/pitch.ts` (141) |
 | Post-match stats | `src/lib/hurling/stats.ts` (613) — all the rules and roll-ups |
+| Advanced puckout analysis (short restarts judged at a line, per squad) | `docs/PUCKOUT-ANALYSIS.md` first; rules in `src/lib/hurling/restart-line.ts` (tested); auto-settling in `logMatchStat`; `RestartSettle.tsx` (logging strip), `RestartReport.tsx` (report) |
 | Colour, type, spacing | `src/app/globals.css` — the whole design system |
 | The video workspace | `src/components/review/ReviewWorkspace.tsx` (819) — **grep it, don't read it** |
 | Player transport | `src/components/player/engine.ts` |

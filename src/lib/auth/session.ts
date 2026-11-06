@@ -14,6 +14,7 @@ import { db } from "@/lib/db/client";
 import { clubs, sessions, users, teams, type Role } from "@/lib/db/schema";
 import type { GameCode } from "@/lib/hurling/codes";
 import type { OrgKind } from "@/lib/hurling/org";
+import type { RestartLine } from "@/lib/hurling/restart-line";
 import { appSecret } from "./secret";
 
 const COOKIE = "fisean_session";
@@ -37,6 +38,8 @@ export type SessionUser = {
   teamName: string;
   /** Which game the club plays, for every word and rule that differs by code. */
   teamCode: GameCode;
+  /** The line its short restarts are judged at, or null with advanced puckout analysis off. */
+  restartLine: RestartLine | null;
   /** Club or county, for every word that names the organisation; see `orgTerms`. */
   orgKind: OrgKind;
   /** When the club badge last changed, or null for a club without one. */
@@ -144,6 +147,7 @@ async function sessionRow(): Promise<(SessionUser & { clubApprovedAt: number | n
       position: users.position,
       teamName: teams.name,
       teamCode: teams.code,
+      restartLine: teams.restartLine,
       orgKind: clubs.kind,
       badgeVersion: teams.badgeUpdatedAt,
       primaryColour: teams.primaryColour,

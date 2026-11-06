@@ -33,6 +33,7 @@ import { AddPlayer } from "./AddPlayer";
 import { UploadArea, UploadButton, UploadProvider, useUploads } from "./FootageUpload";
 import { FootageImport } from "./FootageImport";
 import { CustomStatsEditor } from "./CustomStatsEditor";
+import type { RestartLine } from "@/lib/hurling/restart-line";
 import type { CustomStatDef } from "@/lib/hurling/custom-stats";
 import type { StatType } from "@/lib/hurling/stats";
 import type { Role } from "@/lib/db/schema";
@@ -96,6 +97,7 @@ export function AdminPanels({
   joinCode,
   teamName,
   code,
+  restartLine,
   badgeVersion,
   colours,
   members,
@@ -116,6 +118,8 @@ export function AdminPanels({
   joinCode: string;
   teamName: string;
   code: GameCode;
+  /** Advanced puckout analysis: the line short restarts are judged at, or null when off. */
+  restartLine: RestartLine | null;
   badgeVersion: number | null;
   colours: { primary: string | null; secondary: string | null };
   members: Member[];
@@ -192,7 +196,13 @@ export function AdminPanels({
               <Matches matches={matches} videos={videos} canDelete={false} />
             )}
             {/* Coaches define these as well as admins: they are the ones logging. */}
-            <CustomStatsEditor key={teamId} initial={customStats} hidden={removedStats} code={code} />
+            <CustomStatsEditor
+              key={teamId}
+              initial={customStats}
+              hidden={removedStats}
+              code={code}
+              restartLine={restartLine}
+            />
           </div>
 
           <aside className="space-y-14">

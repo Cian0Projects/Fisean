@@ -90,6 +90,7 @@ export default async function AdminPage() {
         joinCode={team?.joinCode ?? ""}
         teamName={team?.name ?? ""}
         code={team?.code ?? user.teamCode}
+        restartLine={team?.restartLine ?? null}
         badgeVersion={team?.badgeUpdatedAt ?? null}
         colours={{ primary: team?.primaryColour ?? null, secondary: team?.secondaryColour ?? null }}
         members={members}

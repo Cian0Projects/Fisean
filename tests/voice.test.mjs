@@ -79,7 +79,7 @@ test("a misheard type is trusted as the first word, and only there", () => {
   // "Past the 65" is still a poc amach worked out, not a pass.
   const worked = parseSpokenStat("past the 65", "puckout");
   assert.equal(worked.statType, "puckout");
-  assert.equal(worked.fields.pastSixtyFive, true);
+  assert.equal(worked.fields.restartEnd, "worked_through");
   // A word the table already knows keeps its meaning, first or not.
   const p = parseSpokenStat("short ours won", "puckout");
   assert.equal(p.statType, "puckout");

@@ -40,13 +40,14 @@ import {
   describeStat,
   effectiveOutcome,
   resultFromWhere,
-  puckoutLengthFromWhere,
   statColour,
   statShape,
   statTiming,
   type StatType,
 } from "@/lib/hurling/stats";
 import { followOn, followOnDetail } from "@/lib/hurling/follow-on";
+import { openRestart, type RestartLine } from "@/lib/hurling/restart-line";
+import { RestartSettle } from "./RestartSettle";
 import {
   ARC_NOTE,
   EMPTY_DETAIL,
@@ -83,6 +84,7 @@ type ClipOption = { id: string; label: string };
 export function StatLogger({
   match,
   code,
+  restartLine,
   numbers,
   initialRows,
   customDefs,
@@ -95,6 +97,8 @@ export function StatLogger({
   match: StatMatchInfo;
   /** The club's code: it words the sheet, and decides whether a two-pointer can be logged. */
   code: GameCode;
+  /** The line short restarts are judged at, or null with advanced puckout analysis off. */
+  restartLine: RestartLine | null;
   /** This logger's own clock as it stood when the page loaded. */
   clock: LoggerClock;
   halfLengthMin: number;
@@ -326,8 +330,8 @@ export function StatLogger({
           const saved = await updateMatchStat(editingId, input);
           setRows((prev) => prev.map((r) => (r.id === editingId ? saved : r)));
         } else {
-          const saved = await logMatchStat({ ...input, matchId: match.id });
-          setRows((prev) => [...prev, saved]);
+          const { row: saved, settled } = await logMatchStat({ ...input, matchId: match.id });
+          setRows((prev) => [...prev.map((r) => (r.id === settled?.id ? settled : r)), saved]);
         }
         resetEntry();
         // A new shot is followed by the restart, and a free by the shot from
@@ -365,7 +369,12 @@ export function StatLogger({
     if (editingId === id) resetEntry();
     startTransition(async () => {
       try {
-        await deleteMatchStat(id);
+        // A restart this entry settled is open again.
+        const unsettled = await deleteMatchStat(id);
+        if (unsettled.length) {
+          const byId = new Map(unsettled.map((r) => [r.id, r]));
+          setRows((prev) => prev.map((r) => byId.get(r.id) ?? r));
+        }
       } catch (err) {
         setError((err as Error).message || "That entry could not be deleted.");
       }
@@ -373,6 +382,8 @@ export function StatLogger({
   };
 
   const newest = [...rows].sort((a, b) => b.createdAt - a.createdAt);
+  // A restart being edited keeps the line it was logged at.
+  const judgedAt = (editingId ? rows.find((r) => r.id === editingId)?.restartLine : null) ?? restartLine;
 
   return (
     <main className="px-4 pt-4 pb-12 lg:px-6">
@@ -570,6 +581,14 @@ export function StatLogger({
             <VoiceBar voice={voice} onDiscard={resetEntry} />
           </div>
 
+          <RestartSettle
+            open={editingId ? null : openRestart(rows)}
+            code={code}
+            sheet={sheet}
+            onSettled={(saved) => setRows((prev) => prev.map((r) => (r.id === saved.id ? saved : r)))}
+            className="mt-3"
+          />
+
           {/* The questions pack left to right, each as wide as its answers,
               rather than into equal columns that leave a short question
               stranded in a wide one. A long one (a shot's result) wraps
@@ -583,7 +602,7 @@ export function StatLogger({
               sheet={sheet}
               idPrefix="stat"
               resultNote={shown !== detail ? ARC_NOTE : undefined}
-              puckoutLength={origin ? puckoutLengthFromWhere(origin.x, shown.puckoutTakenBy) : null}
+              judging={judgedAt ? { line: judgedAt, origin } : null}
               // The whistles settle the half; there is nothing to pick.
               halfFixed
             />

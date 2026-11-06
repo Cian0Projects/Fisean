@@ -41,6 +41,7 @@ export function MomentReel<T extends StatRow>({
   footage,
   missing,
   subtitle,
+  startAt = null,
 }: {
   code: GameCode;
   /** Placed and filtered, in playing order. */
@@ -50,14 +51,19 @@ export function MomentReel<T extends StatRow>({
   missing: number;
   /** The second line of each moment in the list: who, or which match. */
   subtitle: (row: T) => string;
+  /** A row to start playing as soon as the reel opens: a dot tapped on a report map. */
+  startAt?: string | null;
 }) {
   const engine = useMemo(() => new PlayerEngine(), []);
-  const [cue, setCue] = useState<Cue | null>(null);
+  const reel = useMemo(() => reelOf(moments), [moments]);
+  const [cue, setCue] = useState<Cue | null>(() => {
+    const passage = startAt ? reel.findIndex((p) => p.moments.some((m) => m.row.id === startAt)) : -1;
+    return passage < 0 ? null : { passage, startMs: reel[passage].startMs };
+  });
   const [playOn, setPlayOn] = useState(true);
   const [positionMs, setPositionMs] = useState(0);
   const [playing, setPlaying] = useState(false);
 
-  const reel = useMemo(() => reelOf(moments), [moments]);
   const passageOf = useMemo(
     () => new Map(reel.flatMap((p, i) => p.moments.map((m) => [m.row.id, i] as const))),
     [reel],

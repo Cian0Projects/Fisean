@@ -46,6 +46,8 @@ import { positionByNumber } from "@/lib/hurling/positions";
 import { matchDateLong } from "@/lib/format";
 import { ResultBox } from "@/components/matches/ResultBox";
 import { Meter, ShootingFigure } from "./ShootingFigure";
+import { RestartLadderPanel } from "./RestartReport";
+import { restartLadder } from "@/lib/hurling/restart-line";
 
 /**
  * The per-match stat sheet, as a coach would hand it round.
@@ -104,6 +106,7 @@ export function StatReport({
   const ours = summariseShooting(rows, "us", code);
   const theirs = summariseShooting(rows, "opposition", code);
   const of = (...types: StatRow["statType"][]) => rows.filter((r) => types.includes(r.statType));
+  const judgedRestarts = restartLadder(rows, "us") != null || restartLadder(rows, "opposition") != null;
   const shots = of("shot");
   const ourShots = shots.filter((r) => r.side !== "opposition");
   const theirShots = shots.filter((r) => r.side === "opposition");
@@ -237,7 +240,11 @@ export function StatReport({
           <Section
             title={terms.restarts}
             maps={hasHalves(of("puckout"))}
-            note={`Each side's own restarts, read from the side taking them. A short one of ours only counts as retained once it is worked out past our ${terms.line}.`}
+            note={
+              judgedRestarts
+                ? "Each side's own restarts, read from the side taking them. A short one only counts as retained once it is worked out past the line it is judged at."
+                : "Each side's own restarts, read from the side taking them."
+            }
             legend={<Legend />}
           >
             <div className={SIDE_BY_SIDE}>
@@ -248,6 +255,8 @@ export function StatReport({
                 rows={of("puckout").filter((r) => r.puckoutTakenBy === "us")}
                 players={players}
                 vocabulary={vocabulary}
+                analyst={canLog}
+                watchable={Boolean(moments)}
               />
               <PuckoutColumn
                 name={match.opponent}
@@ -257,6 +266,8 @@ export function StatReport({
                 players={players}
                 weWon={summary.theirPuckouts.won}
                 vocabulary={vocabulary}
+                analyst={canLog}
+                watchable={Boolean(moments)}
               />
             </div>
           </Section>
@@ -701,6 +712,8 @@ function PuckoutColumn({
   players,
   weWon,
   vocabulary,
+  analyst,
+  watchable,
 }: {
   name: string;
   b: PuckoutBreakdown;
@@ -710,8 +723,12 @@ function PuckoutColumn({
   /** Theirs only: how many of their restarts we broke. */
   weWon?: number;
   vocabulary: StatVocabulary;
+  /** A coach: the full advanced puckout picture. Players get the green and red map. */
+  analyst: boolean;
+  /** Whether a dot can open its moment on the footage. */
+  watchable: boolean;
 }) {
-  const { line: ourLine, restarts } = vocabulary.terms;
+  const { restarts } = vocabulary.terms;
   if (b.taken === 0) {
     return (
       <div>
@@ -738,11 +755,6 @@ function PuckoutColumn({
       tone: "positive",
     };
   });
-  // The short ones we won, split by whether they did their job.
-  if (ours && (b.shortPastSixtyFive > 0 || b.shortHeldInside > 0)) {
-    lengthRows.push({ label: `Short, past our ${ourLine}`, value: b.shortPastSixtyFive, tone: "positive" });
-    lengthRows.push({ label: `Short, held inside our ${ourLine}`, value: b.shortHeldInside, tone: "negative" });
-  }
   const unrecorded = b.byLength.unrecorded;
   const unrecordedLogged = unrecorded.kept + unrecorded.lost > 0;
   if (unrecordedLogged) {
@@ -800,8 +812,21 @@ function PuckoutColumn({
         <Counts title={`${name} ${restarts.toLowerCase()}`} rows={lengthRows} columns={3} />
       </div>
 
-      <div className="mt-6">
-        <HalfMaps rows={rows} players={players} code={vocabulary.code} stacked />
+      <div className="mt-6 space-y-8">
+        <RestartLadderPanel
+          rows={rows}
+          takenBy={ours ? "us" : "opposition"}
+          analyst={analyst}
+          code={vocabulary.code}
+          players={players}
+          restartsWord={restarts}
+          watchable={watchable}
+        />
+        {/* A player reads the short ones on the map above, when the squad
+            judges them; every restart's map is the coach's. */}
+        {(analyst || !restartLadder(rows, ours ? "us" : "opposition")) && (
+          <HalfMaps rows={rows} players={players} code={vocabulary.code} stacked />
+        )}
       </div>
     </div>
   );

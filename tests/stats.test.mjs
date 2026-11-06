@@ -433,16 +433,18 @@ test("score opportunities split by from play and placed ball, and by what they c
   assert.equal(summariseStats(rows).shooting.total, 35);
 });
 
-test("a short poc amach only counts as retained once it gets past our 65", () => {
+test("a short poc amach judged at a line only counts as retained once it is worked through", () => {
   // The example sheet: 60% (15/25).
-  const ours = (outcome, puckoutLength, pastSixtyFive) => ({
+  const ours = (outcome, puckoutLength, restartEnd) => ({
     ...puckout("us", outcome),
     puckoutLength,
-    pastSixtyFive,
+    restartLine: "65",
+    restartEnd,
   });
   const rows = [
-    ...many(8, ours("positive", "short", true)),
-    ...many(5, ours("positive", "short", false)),
+    ...many(8, ours("positive", "short", "worked_through")),
+    ...many(3, ours("positive", "short", "lost_before")),
+    ...many(2, ours("positive", "short", "lost_past")),
     ...many(2, ours("positive", "medium", null)),
     ...many(2, ours("negative", "medium", null)),
     ...many(5, ours("positive", "long", null)),
@@ -451,10 +453,18 @@ test("a short poc amach only counts as retained once it gets past our 65", () =>
   const b = puckoutBreakdown(rows, "us");
   assert.equal(b.taken, 25);
   assert.equal(b.byLength.short.kept, 13);
-  assert.equal(b.shortPastSixtyFive, 8);
-  assert.equal(b.shortHeldInside, 5);
   assert.equal(b.retained, 15);
   assert.equal(b.retainedPercent, 60);
+});
+
+test("without the analysis, every restart we won counts as retained", () => {
+  const rows = [
+    { ...puckout("us", "positive"), puckoutLength: "short" },
+    { ...puckout("us", "positive"), puckoutLength: "short", restartEnd: "lost_before" },
+    { ...puckout("us", "negative"), puckoutLength: "short" },
+  ];
+  // A stray end with no line judged nothing.
+  assert.equal(puckoutBreakdown(rows, "us").retained, 2);
 });
 
 test("a restart's length is read from where it came down, counted from the taker's end", () => {
@@ -505,15 +515,37 @@ test("their poc amach is read from their side: kept is theirs", () => {
   assert.equal(b.byLength.long.lost, 1);
 });
 
-test("worked past our 65 only survives on our short poc amach that we won", () => {
-  const base = { statType: "puckout", puckoutTakenBy: "us", puckoutLength: "short", pastSixtyFive: true };
-  assert.equal(normaliseEntry({ ...base, outcome: "positive" }).pastSixtyFive, true);
-  assert.equal(normaliseEntry({ ...base, outcome: "negative" }).pastSixtyFive, null);
-  assert.equal(normaliseEntry({ ...base, puckoutLength: "long", outcome: "positive" }).pastSixtyFive, null);
+test("how a restart ended only survives on a short one its taker won, at a line", () => {
+  const base = {
+    statType: "puckout",
+    puckoutTakenBy: "us",
+    puckoutLength: "short",
+    restartLine: "45",
+    restartEnd: "lost_before",
+    lostByNumber: 6,
+  };
+  const won = normaliseEntry({ ...base, outcome: "positive" });
+  assert.equal(won.restartLine, "45");
+  assert.equal(won.restartEnd, "lost_before");
+  assert.equal(won.lostByNumber, 6);
+  // Lost on the first ball, long, or with the analysis off: nothing to say.
+  assert.equal(normaliseEntry({ ...base, outcome: "negative" }).restartEnd, null);
+  assert.equal(normaliseEntry({ ...base, puckoutLength: "long", outcome: "positive" }).restartEnd, null);
+  assert.equal(normaliseEntry({ ...base, restartLine: null, outcome: "positive" }).restartEnd, null);
+  // Their restart that they won asks it too, from their side.
   assert.equal(
-    normaliseEntry({ ...base, puckoutTakenBy: "opposition", outcome: "positive" }).pastSixtyFive,
+    normaliseEntry({ ...base, puckoutTakenBy: "opposition", outcome: "negative" }).restartEnd,
+    "lost_before",
+  );
+  // Worked through names nobody as losing it.
+  assert.equal(
+    normaliseEntry({ ...base, outcome: "positive", restartEnd: "worked_through" }).lostByNumber,
     null,
   );
+  // Open is allowed: it is settled afterwards.
+  assert.equal(normaliseEntry({ ...base, outcome: "positive", restartEnd: null }).restartEnd, null);
+  // The line only ever means a restart.
+  assert.equal(normaliseEntry({ statType: "free_won", restartLine: "45" }).restartLine, null);
 });
 
 test("an unforced loss is only ever a loss", () => {
@@ -784,8 +816,18 @@ test("each entry is described in its own code's words", () => {
   assert.equal(describeStat(puckout("opposition", "positive"), "football"), "Their kick-out, we won it");
   assert.equal(describeStat(puckout("us", "negative"), "ladies_football"), "Our kick-out, lost");
   assert.equal(
-    describeStat({ ...puckout("us", "positive"), puckoutLength: "short", pastSixtyFive: true }, "football"),
-    "Our kick-out, won and worked past our 45",
+    describeStat(
+      { ...puckout("us", "positive"), puckoutLength: "short", restartLine: "halfway", restartEnd: "worked_through" },
+      "football",
+    ),
+    "Our kick-out, won and worked through",
+  );
+  assert.equal(
+    describeStat(
+      { ...puckout("opposition", "negative"), puckoutLength: "short", restartLine: "45", restartEnd: "lost_past" },
+      "hurling",
+    ),
+    "Their poc amach, they won it but we won it back past their 45",
   );
   assert.equal(describeStat(shot("sixty_five"), "football"), "Shot put out for a 45");
   assert.equal(describeStat(shot("sixty_five"), "camogie"), "Shot put out for a 45");

@@ -49,6 +49,7 @@ import {
   type StatType,
 } from "./stats";
 import type { GameCode } from "./codes";
+import { restartLadder, type RestartLadder } from "./restart-line";
 import { scoreTotal, type Score } from "./notation";
 
 /* ------------------------------------------------------------- the sheets */
@@ -174,6 +175,8 @@ export type MatchLine = {
   theirShooting: SideShooting | null;
   /** Our own restarts. Null where none were logged. */
   restarts: PuckoutBreakdown | null;
+  /** Our short restarts, judged at the squad's line. Null where none were judged. */
+  shortRestarts: RestartLadder | null;
   summary: StatSummary;
 };
 
@@ -189,6 +192,7 @@ export function matchLines(sheets: readonly Sheet[], code?: GameCode): MatchLine
       shooting: ours ? summariseShooting(s.rows, "us", code) : null,
       theirShooting: logged.has("their_shot") ? summariseShooting(s.rows, "opposition", code) : null,
       restarts: ourRestarts ? puckoutBreakdown(s.rows, "us") : null,
+      shortRestarts: restartLadder(s.rows, "us"),
       summary: summariseStats(s.rows),
     };
   });
@@ -224,6 +228,12 @@ export type TeamSeason = {
   restarts: PuckoutBreakdown;
   theirRestarts: PuckoutBreakdown;
   /**
+   * Our short restarts judged at a line, over every match that judged them,
+   * or null when none did. A season that changed its line counts each
+   * restart at the line it was logged against.
+   */
+  shortRestarts: RestartLadder | null;
+  /**
    * Our shooting in each half, for the question every coach asks of a
    * season: do we fade? Shots with no half settled are left out of both.
    */
@@ -250,6 +260,7 @@ export function teamSeason(sheets: readonly Sheet[], code?: GameCode): TeamSeaso
     theirShooting: logged.their_shot > 0 ? summariseShooting(rows, "opposition", code) : null,
     restarts: puckoutBreakdown(rows, "us"),
     theirRestarts: puckoutBreakdown(rows, "opposition"),
+    shortRestarts: restartLadder(rows, "us"),
     halves: {
       first: summariseShooting(
         ourShots.filter((r) => r.half === 1),

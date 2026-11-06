@@ -35,6 +35,7 @@ import {
 } from "../hurling/stats";
 import { CUSTOM_SCORES, CUSTOM_SCORE_MODES, CUSTOM_SIDE_MODES } from "../hurling/custom-stats";
 import { GAME_CODES } from "../hurling/codes";
+import { RESTART_ENDS, RESTART_LINES } from "../hurling/restart-line";
 import { ORG_KINDS } from "../hurling/org";
 import { SOURCE_KINDS } from "../media/import";
 import { NOTIFICATION_KINDS } from "../notify/digest";
@@ -109,6 +110,14 @@ export const teams = sqliteTable(
     code: text("code", { enum: GAME_CODES }).notNull().default("hurling"),
     /** 35 for senior inter-county, 30 for most club and minor grades. */
     halfLengthMin: integer("half_length_min").notNull().default(30),
+    /**
+     * Advanced puckout analysis: the line this squad judges its short
+     * restarts at, or null when it does not (the default). Coaches switch it
+     * on in the stats section of the squad page. Each restart logged while it
+     * is on keeps its own copy (`match_stats.restart_line`). See
+     * src/lib/hurling/restart-line.ts.
+     */
+    restartLine: text("restart_line", { enum: RESTART_LINES }),
     /**
      * The club badge, a PNG of at most 256 pixels a side, scaled down in the
      * admin's browser (src/lib/media/badge.ts). Kept here rather than in R2:
@@ -884,10 +893,40 @@ export const matchStats = sqliteTable(
     puckoutTakenBy: text("puckout_taken_by", { enum: PUCKOUT_SIDES }),
     /** Poc amach only, optional: short, mid or long. */
     puckoutLength: text("puckout_length", { enum: PUCKOUT_LENGTHS }),
-    /** Our short poc amach that we won only: was it worked out past our 65. */
+    /**
+     * No longer read or written. The tickbox it held ("worked out past our
+     * 65") became advanced puckout analysis: migration 0043 copied every
+     * tick into `restart_end`, judged at the 65. Kept so that copy can be
+     * checked in production before the column is dropped.
+     */
     pastSixtyFive: integer("past_sixty_five", { mode: "boolean" }),
     /** Marks only, optional: off a kick-out, or an advanced mark. Football codes only. */
     markKind: text("mark_kind", { enum: MARK_KINDS }),
+    /**
+     * Advanced puckout analysis (src/lib/hurling/restart-line.ts). The line
+     * the restart was judged at, copied from `teams.restart_line` when it was
+     * logged, so changing the setting never re-marks a match already played.
+     * Null on a restart logged with the analysis off.
+     */
+    restartLine: text("restart_line", { enum: RESTART_LINES }),
+    /**
+     * How a restart the taker won short of the line ended: worked through, or
+     * lost before or past the line. Null while it is open, or if it never
+     * was settled. Where it was lost, when known, is `dest_x`/`dest_y`.
+     */
+    restartEnd: text("restart_end", { enum: RESTART_ENDS }),
+    /**
+     * Optional: who was on the ball when a short restart was lost. Ours on
+     * our restart, theirs on their restart, so never put to our panel's
+     * names on their restarts. Shown to coaches only.
+     */
+    lostByNumber: integer("lost_by_number"),
+    /**
+     * The entry that settled this restart by itself (`settleFrom`), so that
+     * deleting it takes the answer back off the restart. Null when a coach
+     * answered by hand. No foreign key: the delete clears the restart first.
+     */
+    settledBy: text("settled_by"),
     /** The clip covering this moment, when one already exists. */
     clipId: text("clip_id").references(() => clips.id, { onDelete: "set null" }),
     /**

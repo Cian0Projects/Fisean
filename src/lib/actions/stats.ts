@@ -1,11 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { clips, customStatEntries, matchStats, matches, statClocks, videos } from "@/lib/db/schema";
 import { assertSameTeam, requireCoach } from "@/lib/auth/guard";
-import { normaliseEntry, type StatDraft } from "@/lib/hurling/stats";
+import { jerseyNumber, normaliseEntry, type StatDraft } from "@/lib/hurling/stats";
+import { RESTART_ENDS, asksHowItEnded, settleFrom, type RestartEnd, type RestartLine } from "@/lib/hurling/restart-line";
 import { LAST_WHISTLE, NEXT_WHISTLE, canLog, livePhase, resumeClock, type Whistle } from "@/lib/hurling/live-clock";
 import { clockOf, loadStatClock, type SavedClock } from "@/lib/queries/stats";
 import type { Markers } from "@/lib/hurling/notation";
@@ -44,9 +45,14 @@ type StatValues = Omit<SavedStat, "id" | "createdAt" | "gameMs" | "draft">;
  * server action is reachable by POST whatever the form does, so they are
  * applied here rather than trusted from the client.
  */
-function normalise(input: StatInput | Omit<StatInput, "matchId">, code: GameCode): StatValues {
+function normalise(
+  input: StatInput | Omit<StatInput, "matchId">,
+  code: GameCode,
+  restartLine: RestartLine | null,
+): StatValues {
   const videoId = input.videoId?.trim() || null;
-  const entry = normaliseEntry(input, code);
+  // The line a restart is judged at is the squad's, never the form's.
+  const entry = normaliseEntry({ ...input, restartLine }, code);
   return {
     ...entry,
     clipId: input.clipId?.trim() || null,
@@ -108,8 +114,49 @@ function revalidateStats(matchId: string): void {
 /** The row as the forms hold it — the stored columns, less the bookkeeping. */
 function toSaved(row: typeof matchStats.$inferSelect): SavedStat {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { matchId, teamId, createdBy, updatedAt, voiceHeard, ...saved } = row;
+  const { matchId, teamId, createdBy, updatedAt, voiceHeard, settledBy, ...saved } = row;
   return saved;
+}
+
+/** A new entry, and the open restart it settled, if it did. */
+export type LoggedStat = { row: SavedStat; settled: SavedStat | null };
+
+/**
+ * Settle this logger's open restart from the entry just logged, where that
+ * entry says how it went (`settleFrom`). Only their own: two coaches logging
+ * one game each settle their own restarts. Only the last restart they
+ * logged, because a newer one closes the one before it.
+ */
+async function settleOpenRestart(
+  userId: string,
+  matchId: string,
+  logged: typeof matchStats.$inferSelect,
+): Promise<SavedStat | null> {
+  if (logged.statType === "puckout") return null;
+  const [open] = await db
+    .select()
+    .from(matchStats)
+    .where(
+      and(eq(matchStats.matchId, matchId), eq(matchStats.createdBy, userId), eq(matchStats.statType, "puckout")),
+    )
+    .orderBy(desc(matchStats.createdAt), desc(sql`rowid`))
+    .limit(1);
+  if (!open) return null;
+  const settled = settleFrom(open, logged);
+  if (!settled) return null;
+  const [row] = await db
+    .update(matchStats)
+    .set({
+      restartEnd: settled.restartEnd,
+      lostByNumber: settled.lostByNumber,
+      destX: settled.lostAt?.x ?? null,
+      destY: settled.lostAt?.y ?? null,
+      settledBy: logged.id,
+      updatedAt: Date.now(),
+    })
+    .where(eq(matchStats.id, open.id))
+    .returning();
+  return toSaved(row);
 }
 
 /**
@@ -118,7 +165,7 @@ function toSaved(row: typeof matchStats.$inferSelect): SavedStat {
  * Coach and admin only — the same tier that creates matches and uploads
  * footage. Reading the finished report is open to the whole squad.
  */
-export async function logMatchStat(input: StatInput): Promise<SavedStat> {
+export async function logMatchStat(input: StatInput): Promise<LoggedStat> {
   const user = await requireCoach();
 
   const [match] = await db
@@ -129,7 +176,7 @@ export async function logMatchStat(input: StatInput): Promise<SavedStat> {
   if (!match) throw new Error("That match no longer exists.");
   assertSameTeam(user, match);
 
-  const values = normalise(input, user.teamCode);
+  const values = normalise(input, user.teamCode, user.restartLine);
   await assertReferencesAreOurs(user, values);
   // Logged on the line, it stays this logger's own until they submit. Off
   // footage there is no draft: the pad has always written to the sheet.
@@ -146,9 +193,10 @@ export async function logMatchStat(input: StatInput): Promise<SavedStat> {
       createdBy: user.id,
     })
     .returning();
+  const settled = await settleOpenRestart(user.id, match.id, row);
 
   revalidateStats(match.id);
-  return toSaved(row);
+  return { row: toSaved(row), settled };
 }
 
 /**
@@ -173,15 +221,19 @@ export async function updateMatchStat(
   assertSameTeam(user, existing);
   assertNotSomeoneElsesDraft(user, existing);
 
-  const values = normalise(input, user.teamCode);
+  // A restart keeps the line it was logged against. One logged before the
+  // squad judged restarts joins in when it is opened and saved again.
+  const values = normalise(input, user.teamCode, existing.restartLine ?? user.restartLine);
   await assertReferencesAreOurs(user, values);
   // An edit tapped by hand keeps what was heard the first time; one said
   // again replaces it.
   const heard = voiceHeardOf(input);
 
+  // An answer changed by hand is the coach's now, not the entry's that gave it.
+  const answeredByHand = values.restartEnd !== existing.restartEnd ? { settledBy: null } : {};
   const [row] = await db
     .update(matchStats)
-    .set({ ...values, ...(heard ? { voiceHeard: heard } : {}), updatedAt: Date.now() })
+    .set({ ...values, ...answeredByHand, ...(heard ? { voiceHeard: heard } : {}), updatedAt: Date.now() })
     .where(eq(matchStats.id, statId))
     .returning();
 
@@ -189,7 +241,48 @@ export async function updateMatchStat(
   return toSaved(row);
 }
 
-export async function deleteMatchStat(statId: string): Promise<void> {
+/**
+ * Settle an open restart by hand: the logger's one tap, or a coach settling
+ * one afterwards. Null takes the answer back. Who lost it is optional, and
+ * only kept on a lost one; where it was lost stays only while it is lost.
+ */
+export async function settleRestart(
+  statId: string,
+  end: RestartEnd | null,
+  lostBy?: number | string | null,
+): Promise<SavedStat> {
+  const user = await requireCoach();
+  const [existing] = await db.select().from(matchStats).where(eq(matchStats.id, statId)).limit(1);
+  if (!existing) throw new Error("That entry no longer exists.");
+  assertSameTeam(user, existing);
+  assertNotSomeoneElsesDraft(user, existing);
+  if (!asksHowItEnded(existing)) throw new Error("That restart has nothing to settle.");
+  if (end != null && !RESTART_ENDS.includes(end)) throw new Error("That is not how a restart ends.");
+
+  const lost = end === "lost_before" || end === "lost_past";
+  const [row] = await db
+    .update(matchStats)
+    .set({
+      restartEnd: end,
+      lostByNumber: lost ? jerseyNumber(lostBy) : null,
+      ...(lost ? {} : { destX: null, destY: null }),
+      // Answered by hand: deleting some other entry no longer touches it.
+      ...(end === existing.restartEnd ? {} : { settledBy: null }),
+      updatedAt: Date.now(),
+    })
+    .where(eq(matchStats.id, statId))
+    .returning();
+
+  revalidateStats(existing.matchId);
+  return toSaved(row);
+}
+
+/**
+ * Delete an entry. Any restart it settled by itself loses that answer, who
+ * lost it and where, and is open again (or not settled, once a newer restart
+ * is logged). Returns those restarts, so the screen can show them unsettled.
+ */
+export async function deleteMatchStat(statId: string): Promise<SavedStat[]> {
   const user = await requireCoach();
 
   const [existing] = await db
@@ -203,12 +296,22 @@ export async function deleteMatchStat(statId: string): Promise<void> {
     .from(matchStats)
     .where(eq(matchStats.id, statId))
     .limit(1);
-  if (!existing) return;
+  if (!existing) return [];
   assertSameTeam(user, existing);
   assertNotSomeoneElsesDraft(user, existing);
 
-  await db.delete(matchStats).where(eq(matchStats.id, statId));
+  const unsettled = db.transaction((tx) => {
+    const rows = tx
+      .update(matchStats)
+      .set({ restartEnd: null, lostByNumber: null, destX: null, destY: null, settledBy: null, updatedAt: Date.now() })
+      .where(and(eq(matchStats.settledBy, statId), eq(matchStats.teamId, existing.teamId)))
+      .returning()
+      .all();
+    tx.delete(matchStats).where(eq(matchStats.id, statId)).run();
+    return rows;
+  });
   revalidateStats(existing.matchId);
+  return unsettled.map(toSaved);
 }
 
 /* ------------------------------------------------------ putting it out */

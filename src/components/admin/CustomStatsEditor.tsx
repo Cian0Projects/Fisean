@@ -18,9 +18,11 @@ import {
   createCustomStat,
   deleteCustomStat,
   setCustomStatRetired,
+  setRestartLine,
   setStandardStatRemoved,
   updateCustomStat,
 } from "@/lib/actions/custom-stats";
+import { RESTART_LINES, defaultRestartLine, lineName, type RestartLine } from "@/lib/hurling/restart-line";
 import { statVocabulary, type StatType } from "@/lib/hurling/stats";
 import {
   canRemoveStandard,
@@ -43,11 +45,14 @@ export function CustomStatsEditor({
   initial,
   hidden,
   code,
+  restartLine,
 }: {
   initial: CustomStatDef[];
   /** Standard stats this squad has removed. */
   hidden: StatType[];
   code: GameCode;
+  /** Advanced puckout analysis: the line, or null when off. */
+  restartLine: RestartLine | null;
 }) {
   const [stats, setStats] = useState(initial);
   // The form is closed, making a new stat (null), or changing one (its id).
@@ -196,6 +201,7 @@ export function CustomStatsEditor({
       )}
 
       <StandardStats initial={hidden} code={code} />
+      <RestartAnalysis initial={restartLine} code={code} />
     </section>
   );
 }
@@ -266,6 +272,69 @@ function StandardStats({ initial, code }: { initial: StatType[]; code: GameCode 
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+/**
+ * Advanced puckout analysis, switched on per squad: off unless a coach wants
+ * it, because most squads are well served by who won each restart. On, a
+ * short restart is judged by whether it was worked out past one line, and
+ * the line starts where the code plays its short game (`defaultRestartLine`).
+ */
+function RestartAnalysis({ initial, code }: { initial: RestartLine | null; code: GameCode }) {
+  const [line, setLine] = useState<RestartLine | null>(initial);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const { restart, restarts } = statVocabulary(code).terms;
+  const said = lowerFirst(restart);
+
+  const save = (next: RestartLine | null) => {
+    const before = line;
+    setLine(next);
+    setError(null);
+    startTransition(async () => {
+      try {
+        await setRestartLine(next);
+      } catch (err) {
+        setLine(before);
+        setError((err as Error).message);
+      }
+    });
+  };
+
+  return (
+    <div className="mt-8">
+      <h3 className="title text-base">Advanced {said} analysis</h3>
+      <p className="caption measure mt-1">
+        Judge every short {said}, ours and theirs, by whether it was worked out past a line. Logging asks one more
+        thing after a short one is won, and the next entry often answers it. The report then shows how many were lost on
+        the first ball, lost before the line, lost past it, or worked through. Off, {lowerFirst(restarts)} are logged
+        as they always have been.
+      </p>
+      {error && (
+        <p className="mt-2 text-[13px]" style={{ color: "var(--color-danger-ink)" }}>
+          {error}
+        </p>
+      )}
+      <div className="mt-3 space-y-3">
+        <Check
+          checked={line !== null}
+          onChange={(on) => save(on ? defaultRestartLine(code) : null)}
+          label={`Judge short ${lowerFirst(restarts)} at a line`}
+        />
+        {line !== null && (
+          <Choice
+            label={`Judge short ${lowerFirst(restarts)} at`}
+            options={RESTART_LINES.map((l) => {
+              const name = lineName(l, "us");
+              return { value: l, label: name.charAt(0).toUpperCase() + name.slice(1) };
+            })}
+            value={line}
+            onChange={(v) => !pending && save(v as RestartLine)}
+          />
+        )}
+      </div>
     </div>
   );
 }

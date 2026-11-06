@@ -88,6 +88,7 @@ export default async function LogMatchStatsPage({
           playedOn: match.playedOn,
         }}
         code={user.teamCode}
+        restartLine={user.restartLine}
         clock={clock}
         halfLengthMin={match.halfLengthMin}
         numbers={numbers}

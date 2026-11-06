@@ -35,6 +35,15 @@ import {
   type Score,
 } from "./notation";
 import { clampToPitch, lineFractions, outsideTwoPointArc } from "./pitch";
+import {
+  RESTART_ENDS,
+  RESTART_LINES,
+  asksHowItEnded,
+  lineName,
+  restartStage,
+  type RestartEnd,
+  type RestartLine,
+} from "./restart-line";
 
 /* ------------------------------------------------------------ vocabulary */
 
@@ -151,7 +160,14 @@ export type StatEntry = {
   scorable?: boolean | null;
   puckoutTakenBy?: PuckoutSide | null;
   puckoutLength?: PuckoutLength | null;
-  pastSixtyFive?: boolean | null;
+  /**
+   * Advanced puckout analysis only (restart-line.ts): the line this restart
+   * was judged at, stamped from the squad's setting when it was logged; how
+   * a short one the taker won ended; and who was on the ball when it went.
+   */
+  restartLine?: RestartLine | null;
+  restartEnd?: RestartEnd | null;
+  lostByNumber?: number | null;
   markKind?: MarkKind | null;
 };
 
@@ -223,7 +239,7 @@ function statTypeMeta(t: CodeTerms): Record<StatType, StatTypeMeta> {
       points: 1,
       outcomes: ["positive", "negative", "unclear"],
       hotkey: "6",
-      hint: `Whose ${lower(t.restart)} it was, how far it went, then who won the break.`,
+      hint: `Whose ${lower(t.restart)} it was, where it came down, then who won it.`,
     },
     free_won: {
       label: "Free won",
@@ -635,13 +651,31 @@ export function describeStat(entry: StatEntry, code: GameCode): string {
       const whose = entry.puckoutTakenBy === "opposition" ? `Their ${restart}` : `Our ${restart}`;
       if (entry.outcome === "unclear") return `${whose}, broke unclear`;
       if (entry.puckoutTakenBy === "opposition") {
-        return entry.outcome === "positive" ? `${whose}, we won it` : `${whose}, they won it`;
+        return entry.outcome === "positive" ? `${whose}, we won it` : `${whose}, they won it${endPhrase(entry)}`;
       }
       if (entry.outcome !== "positive") return `${whose}, lost`;
-      if (entry.pastSixtyFive === true) return `${whose}, won and worked past our ${t.line}`;
-      if (entry.pastSixtyFive === false) return `${whose}, won but held inside our ${t.line}`;
-      return `${whose}, won`;
+      return `${whose}, won${endPhrase(entry)}`;
     }
+  }
+}
+
+/**
+ * How a short restart the taker won went on, for the line describing it.
+ * Empty where the squad does not judge restarts, or it was never settled.
+ */
+function endPhrase(entry: StatEntry): string {
+  const stage = restartStage(entry);
+  const ours = entry.puckoutTakenBy !== "opposition";
+  const at = entry.restartLine ? lineName(entry.restartLine, ours ? "us" : "opposition") : "";
+  switch (stage) {
+    case "worked_through":
+      return ours ? " and worked through" : " and worked it through";
+    case "lost_before":
+      return ours ? ` but lost before ${at}` : ` but we turned it over before ${at}`;
+    case "lost_past":
+      return ours ? ` but lost past ${at}` : ` but we won it back past ${at}`;
+    default:
+      return "";
   }
 }
 
@@ -742,7 +776,10 @@ export function normaliseEntry(draft: StatDraft, code: GameCode): NormalisedStat
   let scorable: boolean | null = null;
   let puckoutTakenBy: PuckoutSide | null = null;
   let puckoutLength: PuckoutLength | null = null;
-  let pastSixtyFive: boolean | null = null;
+  let restartLine: RestartLine | null = null;
+  let restartEnd: RestartEnd | null = null;
+  let lostByNumber: number | null = null;
+  let lostAt: { x: number; y: number } | null = null;
   let markKind: MarkKind | null = null;
 
   if (meta.outcomes.length) {
@@ -804,13 +841,20 @@ export function normaliseEntry(draft: StatDraft, code: GameCode): NormalisedStat
         : draft.puckoutLength == null
           ? null
           : oneOf(PUCKOUT_LENGTHS, draft.puckoutLength);
-      // Only ours, only short, only won: the question is whether a short one
-      // we held on to was worked out past our own 65 (or 45, in football) or
-      // died in our half.
-      if (puckoutTakenBy === "us" && puckoutLength === "short" && outcome === "positive") {
-        pastSixtyFive = Boolean(draft.pastSixtyFive);
-      }
       if (outcome !== "positive") playerNumber = null;
+      // The line is the squad's, stamped by the server action, never the
+      // form's. Only a short one the taker won asks how it ended, and it may
+      // stay unanswered: that is a restart still open, or never settled.
+      restartLine = oneOf(RESTART_LINES, draft.restartLine);
+      if (asksHowItEnded({ statType, outcome, puckoutTakenBy, puckoutLength, ...originOf(origin), restartLine })) {
+        restartEnd = oneOf(RESTART_ENDS, draft.restartEnd);
+        if (restartEnd === "lost_before" || restartEnd === "lost_past") {
+          lostByNumber = jerseyNumber(draft.lostByNumber);
+          // Where it was lost is the restart's second point, when an entry
+          // that settled it was placed.
+          lostAt = normalisePoint(draft.destX, draft.destY);
+        }
+      }
       break;
 
     case "free_won":
@@ -843,8 +887,8 @@ export function normaliseEntry(draft: StatDraft, code: GameCode): NormalisedStat
     oppositionNumber,
     originX: origin?.x ?? null,
     originY: origin?.y ?? null,
-    destX: dest?.x ?? null,
-    destY: dest?.y ?? null,
+    destX: (dest ?? lostAt)?.x ?? null,
+    destY: (dest ?? lostAt)?.y ?? null,
     half,
     side,
     shotResult,
@@ -856,9 +900,15 @@ export function normaliseEntry(draft: StatDraft, code: GameCode): NormalisedStat
     scorable,
     puckoutTakenBy,
     puckoutLength,
-    pastSixtyFive,
+    restartLine,
+    restartEnd,
+    lostByNumber,
     markKind,
   };
+}
+
+function originOf(origin: { x: number; y: number } | null) {
+  return { originX: origin?.x ?? null, originY: origin?.y ?? null };
 }
 
 /* ------------------------------------------------------ when it happened */
@@ -1527,13 +1577,11 @@ export type PuckoutBreakdown = {
    * ones we kept. Theirs: the ones we broke. Unclear breaks count as taken.
    */
   wonByLength: Record<PuckoutLength, { taken: number; won: number; percent: number }>;
-  /** Ours only: the short ones we won, split by whether they got out past our 65. */
-  shortPastSixtyFive: number;
-  shortHeldInside: number;
   /**
-   * Kept, less the short ones that never got out past the taker's own 65.
-   * A short poc amach recycled around the square has not done its job, which
-   * is why an analyst does not count it as a success.
+   * Kept, less the short ones lost before or past the line, for a squad that
+   * judges its restarts (restart-line.ts). A short poc amach won and then
+   * turned over in our own half has not done its job, which is why an
+   * analyst does not count it as a success. Without the analysis, kept.
    */
   retained: number;
   retainedPercent: number;
@@ -1550,8 +1598,6 @@ export function puckoutBreakdown(rows: readonly StatEntry[], takenBy: PuckoutSid
     long: { kept: 0, lost: 0, unclear: 0 },
     unrecorded: { kept: 0, lost: 0, unclear: 0 },
   };
-  let shortPastSixtyFive = 0;
-  let shortHeldInside = 0;
   let retained = 0;
 
   for (const r of taken) {
@@ -1564,9 +1610,8 @@ export function puckoutBreakdown(rows: readonly StatEntry[], takenBy: PuckoutSid
     const line = byLength[length];
     if (r.outcome === keptOutcome) {
       line.kept += 1;
-      if (r.pastSixtyFive === true) shortPastSixtyFive += 1;
-      if (r.pastSixtyFive === false) shortHeldInside += 1;
-      if (r.pastSixtyFive !== false) retained += 1;
+      const stage = restartStage(r);
+      if (stage !== "lost_before" && stage !== "lost_past") retained += 1;
     } else if (r.outcome === lostOutcome) {
       line.lost += 1;
     } else {
@@ -1586,8 +1631,6 @@ export function puckoutBreakdown(rows: readonly StatEntry[], takenBy: PuckoutSid
     taken: taken.length,
     byLength,
     wonByLength,
-    shortPastSixtyFive,
-    shortHeldInside,
     retained,
     retainedPercent: percentOf(retained, taken.length),
   };
