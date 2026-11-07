@@ -9,6 +9,8 @@ import { AdminPanels } from "@/components/admin/AdminPanels";
 import { importsForTeam } from "@/lib/queries/imports";
 import { clubStorage } from "@/lib/queries/storage";
 import { loadCustomStats, loadHiddenStats } from "@/lib/queries/custom-stats";
+import { loadPins, loadTargets } from "@/lib/queries/summary";
+import { measuresFor, resolvePins, summaryMenu, targetFor } from "@/lib/hurling/summary";
 import { orgTerms } from "@/lib/hurling/org";
 
 export default async function AdminPage() {
@@ -78,6 +80,27 @@ export default async function AdminPage() {
     .where(and(eq(videos.teamId, user.teamId), liveVideo))
     .orderBy(desc(videos.createdAt));
 
+  // Stats settings for the match summary: a target for every stat the squad
+  // logs, and the two tiles always in front of the players.
+  const gameCode = team?.code ?? user.teamCode;
+  const [ownStats, removed, targets, pins] = await Promise.all([
+    loadCustomStats(user.teamId, { withRetired: true }),
+    loadHiddenStats(user.teamId),
+    loadTargets(user.teamId),
+    loadPins(user.teamId),
+  ]);
+  const menu = summaryMenu(gameCode, removed, ownStats);
+  const summary = {
+    pins: resolvePins(pins, menu),
+    rows: menu.map((t) => ({
+      key: t.key,
+      title: t.title,
+      measures: measuresFor(t.key, ownStats),
+      target: targetFor(t.key, targets, gameCode, ownStats),
+      custom: targets.has(t.key),
+    })),
+  };
+
   return (
     <>
       <Nav user={user} />
@@ -114,8 +137,9 @@ export default async function AdminPage() {
         imports={await importsForTeam(user.teamId)}
         storage={await clubStorage(user.clubId)}
         deleted={user.role === "admin" ? await deletedForTeam(user.teamId) : null}
-        customStats={await loadCustomStats(user.teamId, { withRetired: true })}
-        removedStats={await loadHiddenStats(user.teamId)}
+        customStats={ownStats}
+        removedStats={removed}
+        summary={summary}
       />
     </>
   );

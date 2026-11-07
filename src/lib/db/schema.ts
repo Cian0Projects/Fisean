@@ -36,6 +36,7 @@ import {
 import { CUSTOM_SCORES, CUSTOM_SCORE_MODES, CUSTOM_SIDE_MODES } from "../hurling/custom-stats";
 import { GAME_CODES } from "../hurling/codes";
 import { RESTART_ENDS, RESTART_LINES } from "../hurling/restart-line";
+import { SUMMARY_STAGES, TARGET_DIRECTIONS, TARGET_MEASURES } from "../hurling/summary";
 import { ORG_KINDS } from "../hurling/org";
 import { SOURCE_KINDS } from "../media/import";
 import { NOTIFICATION_KINDS } from "../notify/digest";
@@ -1098,6 +1099,74 @@ export const hiddenStats = sqliteTable(
     createdAt: integer("created_at").notNull().default(now),
   },
   (t) => [primaryKey({ columns: [t.teamId, t.statType] })],
+);
+
+/* ---------------------------------------------------------- match summary */
+
+/**
+ * A squad's target for one stat, as a coach set it in stats settings. Keyed
+ * by the summary's tile key: a standard stat's type, or `custom:<id>` for one
+ * of the squad's own (src/lib/hurling/summary.ts). No row means the default
+ * for the team's code; a row with a null `target` means the coach said this
+ * stat has no target, which is not the same thing.
+ *
+ * `customStatId` is set for a custom stat's row only so deleting the stat
+ * takes its target with it.
+ */
+export const statTargets = sqliteTable(
+  "stat_targets",
+  {
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    statKey: text("stat_key").notNull(),
+    customStatId: text("custom_stat_id").references(() => customStats.id, { onDelete: "cascade" }),
+    measure: text("measure", { enum: TARGET_MEASURES }).notNull(),
+    direction: text("direction", { enum: TARGET_DIRECTIONS }).notNull(),
+    target: integer("target"),
+    createdAt: integer("created_at").notNull().default(now),
+    updatedAt: integer("updated_at").notNull().default(now),
+  },
+  (t) => [primaryKey({ columns: [t.teamId, t.statKey] })],
+);
+
+/**
+ * The two tiles a squad always shows its players, chosen in stats settings.
+ * No row means tackles and shooting. A table of its own rather than columns
+ * on `teams`, for the same reason as `hidden_stats`.
+ */
+export const summaryPins = sqliteTable("summary_pins", {
+  teamId: text("team_id")
+    .primaryKey()
+    .references(() => teams.id, { onDelete: "cascade" }),
+  first: text("first").notNull(),
+  second: text("second").notNull(),
+  updatedAt: integer("updated_at").notNull().default(now),
+});
+
+/**
+ * The tiles the analyst confirmed for the player view of one match, at half
+ * time or full time. Saved so the room's page is the one everyone sees later,
+ * on any device: the laptop in the dressing room shows what the logger in
+ * the stand confirmed. No row means the app's own suggestions.
+ *
+ * `chosenBy` is a bare user id, as `matches.stats_submitted_by` is.
+ */
+export const summaryPicks = sqliteTable(
+  "summary_picks",
+  {
+    matchId: text("match_id")
+      .notNull()
+      .references(() => matches.id, { onDelete: "cascade" }),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    stage: text("stage", { enum: SUMMARY_STAGES }).notNull(),
+    picks: text("picks", { mode: "json" }).$type<string[]>().notNull(),
+    chosenBy: text("chosen_by"),
+    updatedAt: integer("updated_at").notNull().default(now),
+  },
+  (t) => [primaryKey({ columns: [t.matchId, t.stage] })],
 );
 
 /**

@@ -190,6 +190,15 @@ export default async function PhoneHome() {
               )}
             </div>
           )}
+          {latestResult && (
+            <Link
+              href={`/matches/${latest.id}/stats/summary`}
+              className="mt-3 inline-block text-[15px] font-semibold"
+              style={{ color: "var(--color-ash)" }}
+            >
+              Match summary
+            </Link>
+          )}
           {latestVideo ? (
             <Link href={`/m/watch/${latestVideo}`} className="btn-primary mt-5 min-h-12 w-full text-[16px]">
               Watch the match

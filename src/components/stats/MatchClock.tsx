@@ -15,9 +15,13 @@
  * rewound; and "Update time" sets it to whatever the game clock reads. None
  * of these move what is already logged.
  *
- * Once full time is tapped the strip offers Submit, which puts this logger's
- * entries on the match's sheet for the other coaches.
+ * At half time the strip offers to send the first half, so the half-time
+ * summary has every logger's stats by the time the players sit down; once
+ * sent, anything logged after goes straight on. Anyone who has not sent by
+ * full time is offered Submit then. Either way it puts this logger's entries
+ * on the match's sheet for the other coaches.
  */
+import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { setMyClock, setMyWhistle, submitMyStats } from "@/lib/actions/stats";
 import { formatGameClock, parseClock, type Markers } from "@/lib/hurling/notation";
@@ -171,8 +175,10 @@ export function MatchClock({
   const prompt =
     phase === "not_started"
       ? "Tap Throw-in at the first whistle. Watching a stream or a recording? Tap it when the screen shows it."
-      : phase === "half_time"
-        ? "Tap Second half when play restarts."
+      : phase === "half_time" && submittedAt == null
+        ? "Send your first half so the half-time summary has it. Then tap Second half when play restarts."
+        : phase === "half_time"
+          ? "Tap Second half when play restarts."
         : paused
           ? "Paused. Tap Resume when the footage plays again."
           : phase === "full_time" && submittedAt == null
@@ -235,6 +241,19 @@ export function MatchClock({
           >
             {WHISTLE_LABELS[next]}
           </button>
+        )}
+        {phase === "half_time" && submittedAt == null && (
+          <button onClick={submit} disabled={pending} className="btn-primary">
+            Send my first half
+          </button>
+        )}
+        {(phase === "half_time" || phase === "full_time") && submittedAt != null && (
+          <Link
+            href={`/matches/${matchId}/stats/summary?stage=${phase}`}
+            className="btn-primary"
+          >
+            Open the {phase === "half_time" ? "half-time" : "full-time"} summary
+          </Link>
         )}
         {phase === "full_time" && submittedAt == null && (
           <button onClick={submit} disabled={pending} className="btn-primary">

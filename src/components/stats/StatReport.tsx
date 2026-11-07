@@ -136,6 +136,11 @@ export function StatReport({
               Watch it back
             </a>
           )}
+          {rows.length > 0 && (
+            <Link href={`/matches/${match.id}/stats/summary`} className="btn-outline text-xs">
+              Summary
+            </Link>
+          )}
           <PrintButton />
           {canLog && (
             <Link href={`/matches/${match.id}/gps`} className="btn-outline text-xs">
@@ -238,6 +243,7 @@ export function StatReport({
             <>
           {/* -------------------------------------------- poc amach or kick-outs */}
           <Section
+            id="restarts"
             title={terms.restarts}
             maps={hasHalves(of("puckout"))}
             note={
@@ -279,6 +285,7 @@ export function StatReport({
             <>
           {/* --------------------------------------------------------- delivery */}
           <Section
+            id="delivery"
             title="Delivery"
             maps={hasHalves(of("delivery"))}
             note={`From inside our ${terms.line} to beyond theirs. Each arrow runs from where it was struck to where it landed; a lost one is dashed.`}
@@ -308,6 +315,7 @@ export function StatReport({
             <>
           {/* ---------------------------------------------- turnovers and tackles */}
           <Section
+            id="turnovers"
             title="Turnovers and tackles"
             maps={hasHalves(of("tackle", "turnover"))}
             note="Possessions won and lost, and the tackles that won them."
@@ -332,6 +340,7 @@ export function StatReport({
             <>
           {/* ------------------------------------------------------- discipline */}
           <Section
+            id="discipline"
             title="Discipline"
             maps={hasHalves(of("free_conceded", "free_won"))}
             note="Where frees were given, both ways. Ringed in red against us, filled green for us."
@@ -347,6 +356,7 @@ export function StatReport({
           {/* ------------------------------------------------- marks, football */}
           {terms.marks && !off("mark") && (
             <Section
+              id="marks"
               title="Marks"
               maps={hasHalves(of("mark"))}
               note={`Clean catches that earn a free, both ways: off a ${terms.restart.toLowerCase()}, or an advanced mark inside the 45. Filled green for ours, ringed red for theirs.`}

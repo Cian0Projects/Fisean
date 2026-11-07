@@ -407,6 +407,9 @@ export function StatLogger({
           <Link href={`/matches/${match.id}/stats`} className="btn-ghost text-xs">
             See the report
           </Link>
+          <Link href={`/matches/${match.id}/stats/summary`} className="btn-ghost text-xs">
+            Summary
+          </Link>
         </div>
       </header>
 

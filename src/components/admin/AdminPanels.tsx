@@ -33,6 +33,7 @@ import { AddPlayer } from "./AddPlayer";
 import { UploadArea, UploadButton, UploadProvider, useUploads } from "./FootageUpload";
 import { FootageImport } from "./FootageImport";
 import { CustomStatsEditor } from "./CustomStatsEditor";
+import { SummarySettings, type TargetRow } from "./SummarySettings";
 import type { RestartLine } from "@/lib/hurling/restart-line";
 import type { CustomStatDef } from "@/lib/hurling/custom-stats";
 import type { StatType } from "@/lib/hurling/stats";
@@ -108,6 +109,7 @@ export function AdminPanels({
   deleted,
   customStats,
   removedStats,
+  summary,
 }: {
   viewer: { id: string; role: Role };
   /** Club or county, so every label that names the organisation uses its word. */
@@ -133,6 +135,8 @@ export function AdminPanels({
   customStats: CustomStatDef[];
   /** Standard stats the squad has removed from logging. */
   removedStats: StatType[];
+  /** The match summary's targets and fixed tiles. */
+  summary: { rows: TargetRow[]; pins: string[] };
 }) {
   const isAdmin = viewer.role === "admin";
   const { noun } = orgTerms(orgKind);
@@ -203,6 +207,7 @@ export function AdminPanels({
               code={code}
               restartLine={restartLine}
             />
+            <SummarySettings key={`summary-${teamId}`} rows={summary.rows} pins={summary.pins} code={code} />
           </div>
 
           <aside className="space-y-14">

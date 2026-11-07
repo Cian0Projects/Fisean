@@ -6,6 +6,11 @@ someone coming back to the project in a year would want to know about.
 
 Newest first. Each entry is a title, the date, and a paragraph.
 
+## Match summary: every stat on one page, judged against targets
+*2026-11-07*
+
+The full stat sheet is an analyst's document, too long to take in at half time. Each match now has a summary page in two views. The player view, for a laptop or tablet held up in the dressing room, shows the score, a score timeline (both running totals, half time marked, and runs of three or more unanswered scores shaded) and at most four large tiles: two the squad always shows (tackles and shooting unless a coach changes them) and one or two the app suggests and whoever is logging confirms. The management view shows a compact tile for every stat the squad logs, standard and its own, each opening its section of the full report. Every stat has one target, set by a coach in stats settings on the squad page as a count or a rate, at least or at most, starting from defaults for the code. Green means on target, amber close, red off it. Count targets are halved at half time, full time shows each half under the whole match, and suggestions rank stats by how far off target they are relatively: only misses at half time, the worst miss and best success at full time. Loggers can send their first half at the half-time whistle, and the page names anyone who has not sent yet instead of showing their stats as a nought. It refreshes itself while the match is live. New tables `stat_targets`, `summary_pins` and `summary_picks`; the rules are in `src/lib/hurling/summary.ts`.
+
 ## A shared playlist carries its clips
 *2026-11-06*
 
